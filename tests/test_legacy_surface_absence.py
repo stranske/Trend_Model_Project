@@ -46,7 +46,6 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
     "load_market_data_" + "parquet",
 )
-FORBIDDEN_FROM_IMPORT_NAMES = {"cli"}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -79,20 +78,39 @@ def _text_files(root: Path) -> list[Path]:
     return [path for path in root.rglob("*") if _include_text_file(path)]
 
 
-def _forbidden_from_import_offenders(path: Path, text: str) -> list[str]:
+def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
     if path.suffix.lower() != ".py":
         return []
     try:
         tree = ast.parse(text, filename=str(path))
     except SyntaxError:
         return []
-    offenders: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module == "trend_analysis":
-            for alias in node.names:
-                if alias.name in FORBIDDEN_FROM_IMPORT_NAMES:
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}: trend_analysis.{alias.name}")
-    return offenders
+    modules = [
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    ]
+    modules.extend(
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    )
+    modules.extend(
+        f"{node.module}.{alias.name}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+        for alias in node.names
+    )
+    try:
+        display_path = path.relative_to(REPO_ROOT)
+    except ValueError:
+        display_path = path
+    return [
+        f"{display_path}: {forbidden}"
+        for forbidden in FORBIDDEN_RUNTIME_IMPORTS
+        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
+    ]
 
 
 def test_removed_runtime_surfaces_do_not_return() -> None:
@@ -112,7 +130,7 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
             for reference in FORBIDDEN_RUNTIME_REFERENCES:
                 if reference in text:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
-            offenders.extend(_forbidden_from_import_offenders(path, text))
+            offenders.extend(_forbidden_import_offenders(path, text))
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 
@@ -131,54 +149,27 @@ def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
     assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(offenders)
 
 
-def test_tests_do_not_import_retired_runtime_modules() -> None:
-    """Test names may mention removals, but no test may import a retired module."""
-
-    offenders: list[str] = []
-    for path in (REPO_ROOT / "tests").rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        modules = [
-            alias.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-        ]
-        modules.extend(
-            node.module
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-        )
-        modules.extend(
-            f"{node.module}.{alias.name}"
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-            for alias in node.names
-        )
-        for module in FORBIDDEN_RUNTIME_IMPORTS:
-            if any(name == module or name.startswith(f"{module}.") for name in modules):
-                offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
-
-    assert not offenders, "Tests import retired modules:\n" + "\n".join(offenders)
-
-
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:
-    """Qualified names from ``from package import name`` must remain forbidden."""
+    """Multiline ``from package import name`` forms must remain forbidden."""
 
     candidate = tmp_path / "retired_import.py"
-    candidate.write_text("from trend import compat_entrypoints\n", encoding="utf-8")
-    tree = ast.parse(candidate.read_text(encoding="utf-8"), filename=str(candidate))
-    modules = [
-        f"{node.module}.{alias.name}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module is not None
-        for alias in node.names
-    ]
-    offenders = [
-        forbidden
-        for forbidden in FORBIDDEN_RUNTIME_IMPORTS
-        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
-    ]
-    assert "trend." + "compat_entrypoints" in offenders
+    candidate.write_text(
+        "from trend_analysis import (\n    cli,\n)\n",
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(candidate, candidate.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    launcher = scripts / "trend"
+    launcher.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+    assert launcher in _text_files(tmp_path)
 
 
 @pytest.mark.parametrize(
