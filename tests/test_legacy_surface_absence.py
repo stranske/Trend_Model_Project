@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +46,7 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
     "load_market_data_" + "parquet",
 )
-FORBIDDEN_FROM_IMPORT_PATTERNS = (re.compile(r"from\s+trend_analysis\s+import\s+[^#\n]*\bcli\b"),)
+FORBIDDEN_FROM_IMPORT_NAMES = {"cli"}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -66,17 +65,34 @@ def _is_archived(path: Path) -> bool:
     return any(path.is_relative_to(root) for root in ARCHIVE_ROOTS)
 
 
+def _include_text_file(path: Path) -> bool:
+    if not path.is_file() or "__pycache__" in path.parts or _is_archived(path):
+        return False
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        return True
+    return path.parent.name == "scripts" and path.suffix == ""
+
+
 def _text_files(root: Path) -> list[Path]:
     if root.is_file():
-        return [root]
-    return [
-        path
-        for path in root.rglob("*")
-        if path.is_file()
-        and path.suffix.lower() in TEXT_SUFFIXES
-        and "__pycache__" not in path.parts
-        and not _is_archived(path)
-    ]
+        return [root] if _include_text_file(root) else []
+    return [path for path in root.rglob("*") if _include_text_file(path)]
+
+
+def _forbidden_from_import_offenders(path: Path, text: str) -> list[str]:
+    if path.suffix.lower() != ".py":
+        return []
+    try:
+        tree = ast.parse(text, filename=str(path))
+    except SyntaxError:
+        return []
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "trend_analysis":
+            for alias in node.names:
+                if alias.name in FORBIDDEN_FROM_IMPORT_NAMES:
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: trend_analysis.{alias.name}")
+    return offenders
 
 
 def test_removed_runtime_surfaces_do_not_return() -> None:
@@ -96,9 +112,7 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
             for reference in FORBIDDEN_RUNTIME_REFERENCES:
                 if reference in text:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
-            for pattern in FORBIDDEN_FROM_IMPORT_PATTERNS:
-                if pattern.search(text):
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {pattern.pattern}")
+            offenders.extend(_forbidden_from_import_offenders(path, text))
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 

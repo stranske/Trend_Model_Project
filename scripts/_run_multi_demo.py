@@ -385,9 +385,9 @@ def _check_cli(cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str
 
     cfg_arg = os.fspath(cfg_path)
     csv_arg = os.fspath(csv_path)
-    rc = cli.main(["--check"])
+    rc = cli.main(["check"])
     if rc != 0:
-        raise SystemExit("CLI --check failed")
+        raise SystemExit("CLI check failed")
     rc = cli.main(["run", "-c", cfg_arg, "-i", csv_arg])
     if rc != 0:
         raise SystemExit("CLI run failed")
