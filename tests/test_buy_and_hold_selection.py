@@ -441,10 +441,10 @@ def test_manual_selection_mode_includes_funds_with_partial_data() -> None:
         portfolio={
             "policy": "threshold_hold",
             "selection_mode": "rank",
-            "target_n": 3,  # Want all 3 funds
             "min_funds": 3,
             "max_funds": 3,
             "threshold_hold": {
+                "target_n": 3,  # Want all 3 funds
                 "z_entry_soft": 0.5,
                 "z_exit_soft": -0.5,
             },

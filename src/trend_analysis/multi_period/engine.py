@@ -276,6 +276,20 @@ def _resolve_portfolio_weighting(
         return EqualWeight(), False, None, fallback, weighting_name
 
 
+def _portfolio_weighting_config(cfg: Any) -> dict[str, Any]:
+    """Return weighting config while preserving the declared root robustness contract."""
+
+    portfolio_cfg = dict(cast(Mapping[str, Any], cfg.portfolio))
+    if not isinstance(portfolio_cfg.get("robustness"), Mapping):
+        # Retained current contract: Config.robustness is a declared public
+        # section. Keep it functional until the declaration and all external
+        # callers can migrate together.
+        root_robustness = getattr(cfg, "robustness", None)
+        if isinstance(root_robustness, Mapping):
+            portfolio_cfg["robustness"] = root_robustness
+    return portfolio_cfg
+
+
 def _get_missing_policy_settings(
     data_settings: Mapping[str, Any] | None,
 ) -> tuple[Any, Any]:
@@ -1626,7 +1640,7 @@ def _resolve_rank_target(
 ) -> tuple[dict[str, Any], str, int, bool]:
     rank_cfg = cast(dict[str, Any], portfolio_cfg.get("rank", {}) or {})
     inclusion_approach = str(rank_cfg.get("inclusion_approach", "top_n"))
-    explicit_target_n = th_cfg.get("target_n", portfolio_cfg.get("target_n"))
+    explicit_target_n = th_cfg.get("target_n")
     rank_n = _parse_positive_int(rank_cfg.get("n"))
     if explicit_target_n is not None:
         target_n_source = explicit_target_n
@@ -2324,7 +2338,7 @@ def _run_threshold_hold_multi_periods(
         except (TypeError, ValueError):
             low_min_strikes_req = 2
 
-    portfolio_for_weighting = dict(cast(Mapping[str, Any], cfg.portfolio))
+    portfolio_for_weighting = _portfolio_weighting_config(cfg)
 
     (
         weighting,

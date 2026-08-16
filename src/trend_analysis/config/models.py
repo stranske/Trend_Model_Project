@@ -357,6 +357,16 @@ if _HAS_PYDANTIC:
                 "sticky_add_periods",
                 "sticky_drop_periods",
                 "min_tenure_periods",
+                "metric",
+                "z_exit_soft",
+                "z_exit_hard",
+                "z_entry_soft",
+                "z_entry_hard",
+                "soft_strikes",
+                "entry_soft_strikes",
+                "entry_eligible_strikes",
+                "target_n",
+                "blended_weights",
             ):
                 if key in v:
                     raise ValueError(f"portfolio.{key} was removed")
@@ -582,6 +592,16 @@ else:  # Fallback mode for tests without pydantic
                     "sticky_add_periods",
                     "sticky_drop_periods",
                     "min_tenure_periods",
+                    "metric",
+                    "z_exit_soft",
+                    "z_exit_hard",
+                    "z_entry_soft",
+                    "z_entry_hard",
+                    "soft_strikes",
+                    "entry_soft_strikes",
+                    "entry_eligible_strikes",
+                    "target_n",
+                    "blended_weights",
                 ):
                     if key in port:
                         raise ValueError(f"portfolio.{key} was removed")

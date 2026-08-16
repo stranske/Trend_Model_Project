@@ -121,18 +121,20 @@ def test_rebalancer_entry_hard_does_not_block_soft_entries() -> None:
     assert set(result.index) == {"A", "B", "C"}
 
 
-def test_rebalancer_reads_hard_thresholds_from_portfolio_root() -> None:
-    """Root-level threshold settings should reach the rebalancer."""
+def test_rebalancer_reads_hard_thresholds_from_canonical_section() -> None:
+    """Nested threshold settings should reach the rebalancer."""
 
     cfg = {
         "portfolio": {
-            "z_entry_hard": 1.5,
-            "z_exit_hard": -0.5,
-            "z_entry_soft": 0.5,
-            "z_exit_soft": -0.2,
-            "soft_strikes": 1,
-            "entry_soft_strikes": 1,
-            "entry_eligible_strikes": 1,
+            "threshold_hold": {
+                "z_entry_hard": 1.5,
+                "z_exit_hard": -0.5,
+                "z_entry_soft": 0.5,
+                "z_exit_soft": -0.2,
+                "soft_strikes": 1,
+                "entry_soft_strikes": 1,
+                "entry_eligible_strikes": 1,
+            },
             "constraints": {"max_funds": 3},
         }
     }

@@ -30,9 +30,6 @@ _DECLARED_PORTFOLIO_KEYS = {
 _CONSUMED_PORTFOLIO_KEYS = {
     "policy",
     "selection_mode",
-    "target_n",
-    "entry_soft_strikes",
-    "entry_eligible_strikes",
     "random_n",
     "manual_list",
     "indices_list",

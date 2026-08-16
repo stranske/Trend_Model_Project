@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from trend_analysis.multi_period.engine import _resolve_portfolio_weighting
+from trend_analysis.multi_period.engine import (
+    _portfolio_weighting_config,
+    _resolve_portfolio_weighting,
+)
 from trend_analysis.weighting import EqualWeight, ScorePropSimple
 from trend_analysis.weights.risk_parity import RiskParity
 
@@ -64,3 +69,23 @@ def test_unknown_weighting_raises() -> None:
 def test_weighting_config_must_be_mapping() -> None:
     with pytest.raises(ValueError, match="portfolio.weighting must be a mapping"):
         _resolve_portfolio_weighting({"weighting": []})
+
+
+def test_declared_root_robustness_reaches_multi_period_weighting() -> None:
+    robustness = {"condition_check": {"enabled": True, "threshold": 10.0}}
+    cfg = SimpleNamespace(
+        portfolio={"weighting": {"name": "robust_mv"}},
+        robustness=robustness,
+    )
+
+    assert _portfolio_weighting_config(cfg)["robustness"] == robustness
+
+
+def test_nested_robustness_takes_precedence_over_declared_root_section() -> None:
+    nested = {"condition_check": {"enabled": False}}
+    cfg = SimpleNamespace(
+        portfolio={"weighting": {"name": "robust_mv"}, "robustness": nested},
+        robustness={"condition_check": {"enabled": True}},
+    )
+
+    assert _portfolio_weighting_config(cfg)["robustness"] == nested

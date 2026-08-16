@@ -397,6 +397,16 @@ class PortfolioSettings(BaseModel):
             "sticky_add_periods": "sticky_add_x",
             "sticky_drop_periods": "sticky_drop_y",
             "min_tenure_periods": "min_tenure_n",
+            "metric": "threshold_hold.metric",
+            "z_exit_soft": "threshold_hold.z_exit_soft",
+            "z_exit_hard": "threshold_hold.z_exit_hard",
+            "z_entry_soft": "threshold_hold.z_entry_soft",
+            "z_entry_hard": "threshold_hold.z_entry_hard",
+            "soft_strikes": "threshold_hold.soft_strikes",
+            "entry_soft_strikes": "threshold_hold.entry_soft_strikes",
+            "entry_eligible_strikes": "threshold_hold.entry_eligible_strikes",
+            "target_n": "threshold_hold.target_n",
+            "blended_weights": "threshold_hold.blended_weights",
         }
         for key, replacement in removed.items():
             if key in data:

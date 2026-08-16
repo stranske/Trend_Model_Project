@@ -50,9 +50,9 @@ portfolio:
     z_entry_soft: 1.0
     z_entry_hard: 2.5
     soft_strikes: 2
-  entry_soft_strikes: 3
-  entry_eligible_strikes: 2
-  target_n: 8
+    entry_soft_strikes: 3
+    entry_eligible_strikes: 2
+    target_n: 8
   # Treat these columns as indices/benchmarks (excluded from fund selection)
   indices_list:
     - Efficient Capital Best Trend 15v

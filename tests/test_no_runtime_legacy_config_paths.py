@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from trend.config_schema import CoreConfigError
+from trend_analysis.config.models import Config
 from trend_analysis.config_contract import (
     resolve_portfolio_cost_bps,
 )
@@ -20,6 +22,7 @@ RUNTIME_PATHS = (
     "src/trend_analysis/pipeline_entrypoints.py",
     "src/trend_analysis/multi_period/engine.py",
     "src/trend_analysis/multi_period/loaders.py",
+    "src/trend_analysis/multi_period/replacer.py",
     "src/trend_analysis/config_contract.py",
     "src/trend_analysis/config/model.py",
     "src/trend_analysis/rebalancing/strategies.py",
@@ -58,17 +61,45 @@ def test_legacy_cost_shapes_are_rejected(portfolio: dict[str, object]) -> None:
 
 
 def test_multi_period_runtime_has_no_removed_shape_fallbacks() -> None:
-    source = (REPO_ROOT / "src/trend_analysis/multi_period/engine.py").read_text()
+    source = "\n".join(
+        (REPO_ROOT / relative_path).read_text()
+        for relative_path in (
+            "src/trend_analysis/multi_period/engine.py",
+            "src/trend_analysis/multi_period/replacer.py",
+        )
+    )
     forbidden = (
         'get("weighting_' + 'scheme"',
         'get("sticky_drop_' + 'periods"',
         'get("max_' + 'active"',
         'get("min_tenure_' + 'periods"',
+        'portfolio_cfg.get("target_' + 'n"',
+        "key in " + "portfolio",
         "simplified " + "signature",
         "Some legacy configs use the " + "inverse",
     )
 
     assert not [token for token in forbidden if token in source]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "metric",
+        "z_exit_soft",
+        "z_exit_hard",
+        "z_entry_soft",
+        "z_entry_hard",
+        "soft_strikes",
+        "entry_soft_strikes",
+        "entry_eligible_strikes",
+        "target_n",
+        "blended_weights",
+    ],
+)
+def test_removed_portfolio_root_threshold_controls_are_rejected(key: str) -> None:
+    with pytest.raises(ValidationError, match=rf"portfolio\.{key} was removed"):
+        Config(version="1", portfolio={key: 1})
 
 
 def test_removed_rebalancing_alias_is_absent() -> None:
