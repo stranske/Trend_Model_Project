@@ -25,7 +25,15 @@ SOURCE_AREAS = {
 EXCLUDED_DIRECTORY_NAMES = frozenset({"archives", "retired", ".venv", "node_modules"})
 
 MAX_BROAD_EXCEPT_SRC = 202
-MAX_BROAD_EXCEPT_APP = 63
+# Raised 63 -> 65 as an explicit decision after #5912 (universe membership wiring).
+# Both new handlers were reviewed and neither swallows an error:
+#   * streamlit_app/components/universe_membership_input.py - catches only to unlink the
+#     partially-written upload, then re-raises the original exception.
+#   * streamlit_app/pages/1_Data.py - UI error boundary that surfaces the failure to the
+#     user via st.error() instead of a raw Streamlit traceback.
+# This counter deliberately counts logging and re-raising handlers too (see module
+# docstring), so a non-swallowing handler still consumes budget.
+MAX_BROAD_EXCEPT_APP = 65
 
 
 def _count_broad_exception_handlers(root: Path) -> int:
