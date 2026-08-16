@@ -60,7 +60,12 @@ def test_single_period_api_passes_nested_weighting_name_to_pipeline(
 ) -> None:
     """The public API resolves nested weighting names before pipeline dispatch."""
     cfg = _make_single_period_cfg(0.0)
-    cfg.portfolio = {"weighting": {"name": "score_prop_bayes"}}
+    cfg.portfolio = {
+        "weighting": {
+            "name": "score_prop_bayes",
+            "params": {"column": "Sortino", "shrink_tau": 0.5},
+        }
+    }
     captured: dict[str, object] = {}
 
     def fake_run_analysis(*args: object, **kwargs: object) -> dict[str, object]:
@@ -75,3 +80,7 @@ def test_single_period_api_passes_nested_weighting_name_to_pipeline(
     api.run_simulation(cfg, _make_df())
 
     assert captured["weighting_scheme"] == "score_prop_bayes"
+    assert captured["weight_engine_params"] == {
+        "column": "Sortino",
+        "shrink_tau": 0.5,
+    }

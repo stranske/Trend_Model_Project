@@ -75,6 +75,24 @@ def resolve_portfolio_weighting_name(
     return normalise_weighting_name(nested_name)
 
 
+def resolve_portfolio_weighting_params(
+    portfolio_cfg: Any,
+    *,
+    section_get: SectionGet = mapping_get,
+) -> dict[str, Any]:
+    """Return the constructor parameters from canonical nested weighting config."""
+
+    weighting_cfg = section_get(portfolio_cfg, "weighting", {})
+    if not isinstance(weighting_cfg, Mapping):
+        raise CoreConfigError("portfolio.weighting must be a mapping")
+    params = section_get(weighting_cfg, "params", {})
+    if params is None:
+        return {}
+    if not isinstance(params, Mapping):
+        raise CoreConfigError("portfolio.weighting.params must be a mapping")
+    return dict(params)
+
+
 def optional_cost_bps(value: Any, *, field: str) -> float | None:
     if value in (None, "", "null"):
         return None

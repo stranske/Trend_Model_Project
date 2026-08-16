@@ -155,6 +155,27 @@ def test_run_simulation_safe_mode_changes_weights():
     assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
 
 
+def test_run_simulation_score_weighting_uses_in_sample_scores() -> None:
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    cfg.portfolio = {
+        "weighting": {
+            "name": "score_prop",
+            "params": {"column": "Sharpe"},
+        }
+    }
+
+    result = api.run_simulation(cfg, df)
+
+    weights = result.details["fund_weights"]
+    assert result.details["weight_engine_fallback"] is None
+    assert result.details["weight_engine_diagnostics"] == {
+        "engine": "score_prop",
+        "source": "in_sample_score_frame",
+    }
+    assert len({round(float(value), 6) for value in weights.values()}) > 1
+
+
 def _assert_fraction_mapping(weights: dict[str, float]) -> None:
     total = sum(weights.values())
     assert total == pytest.approx(1.0, abs=1e-6)

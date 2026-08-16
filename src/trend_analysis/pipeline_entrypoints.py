@@ -12,6 +12,7 @@ from trend.diagnostics import DiagnosticResult
 from .config_contract import (
     resolve_pipeline_monthly_cost,
     resolve_portfolio_weighting_name,
+    resolve_portfolio_weighting_params,
 )
 from .diagnostics import PipelineResult, coerce_pipeline_result
 from .util.risk_free import resolve_risk_free_settings
@@ -130,8 +131,11 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = bindings.weight_engine_params_from_robustness(
-        weighting_scheme, robustness_cfg
+    weight_engine_params = resolve_portfolio_weighting_params(
+        portfolio_cfg, section_get=bindings.section_get
+    )
+    weight_engine_params.update(
+        bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
     )
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
@@ -263,8 +267,11 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = bindings.weight_engine_params_from_robustness(
-        weighting_scheme, robustness_cfg
+    weight_engine_params = resolve_portfolio_weighting_params(
+        portfolio_cfg, section_get=bindings.section_get
+    )
+    weight_engine_params.update(
+        bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
     )
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
