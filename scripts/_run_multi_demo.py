@@ -439,7 +439,7 @@ def _check_misc(
     os.environ.pop("TREND_CFG", None)
     if cfg_env.version != cfg.version:
         raise SystemExit("TREND_CFG not honoured")
-    if cfg_env.jobs != 1 or cfg_env.checkpoint_dir != "demo/checkpoints":
+    if cfg_env.run.jobs != 1 or cfg_env.run.checkpoint_dir != "demo/checkpoints":
         raise SystemExit("Config optional fields not parsed")
 
     df_demo = load_csv(cfg.data["csv_path"])

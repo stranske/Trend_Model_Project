@@ -428,6 +428,22 @@ if _HAS_PYDANTIC:
                     if parsed < 0:
                         raise ValueError(f"cost_model.{key} must be >= 0")
                     cost_cfg[key] = parsed
+            threshold_hold = v.get("threshold_hold")
+            if isinstance(threshold_hold, Mapping):
+                for key, replacement in {
+                    "min_weight_strikes": "constraints.min_weight_strikes",
+                    "min_tenure_n": "min_tenure_n",
+                    "min_tenure_periods": "min_tenure_n",
+                    "sticky_add_x": "sticky_add_x",
+                    "sticky_add_periods": "sticky_add_x",
+                    "sticky_drop_y": "sticky_drop_y",
+                    "sticky_drop_periods": "sticky_drop_y",
+                }.items():
+                    if key in threshold_hold:
+                        raise ValueError(
+                            f"portfolio.threshold_hold.{key} was removed; "
+                            f"use portfolio.{replacement}"
+                        )
             return v
 
     # Field constants are already defined as class variables above
@@ -640,6 +656,22 @@ else:  # Fallback mode for tests without pydantic
                         if parsed < 0:
                             raise ValueError(f"cost_model.{key} must be >= 0")
                         cost_cfg[key] = parsed
+                threshold_hold = port.get("threshold_hold")
+                if isinstance(threshold_hold, Mapping):
+                    for key, replacement in {
+                        "min_weight_strikes": "constraints.min_weight_strikes",
+                        "min_tenure_n": "min_tenure_n",
+                        "min_tenure_periods": "min_tenure_n",
+                        "sticky_add_x": "sticky_add_x",
+                        "sticky_add_periods": "sticky_add_x",
+                        "sticky_drop_y": "sticky_drop_y",
+                        "sticky_drop_periods": "sticky_drop_y",
+                    }.items():
+                        if key in threshold_hold:
+                            raise ValueError(
+                                f"portfolio.threshold_hold.{key} was removed; "
+                                f"use portfolio.{replacement}"
+                            )
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:

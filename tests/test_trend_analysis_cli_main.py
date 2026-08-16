@@ -34,6 +34,12 @@ def _make_config() -> SimpleNamespace:
     )
 
 
+def test_flat_ui_payload_detection_uses_canonical_signal_keys() -> None:
+    payload = {"signal_window": 63, "signal_lag": 1, "signal_zscore": True}
+
+    assert cli._looks_like_model_state(payload)
+
+
 @pytest.mark.parametrize("preset_missing", ["spec", "portfolio"])
 def test_main_run_reports_unknown_presets(monkeypatch, preset_missing: str, capsys):
     cfg = _make_config()

@@ -371,7 +371,7 @@ class PortfolioSettings(BaseModel):
         default=0.0,
         description="Reporting-only confidence interval level (0 disables CI annotations).",
     )
-    cost_model: CostModelSettings | None = None
+    cost_model: CostModelSettings
     turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
     cooldown_periods: int | None = None
@@ -421,6 +421,22 @@ class PortfolioSettings(BaseModel):
                     raise ValueError(
                         f"portfolio.cost_model.{key} was removed; use "
                         f"portfolio.cost_model.{replacement}"
+                    )
+        threshold_hold = data.get("threshold_hold")
+        if isinstance(threshold_hold, Mapping):
+            for key, replacement in {
+                "min_weight_strikes": "constraints.min_weight_strikes",
+                "min_tenure_n": "min_tenure_n",
+                "min_tenure_periods": "min_tenure_n",
+                "sticky_add_x": "sticky_add_x",
+                "sticky_add_periods": "sticky_add_x",
+                "sticky_drop_y": "sticky_drop_y",
+                "sticky_drop_periods": "sticky_drop_y",
+            }.items():
+                if key in threshold_hold:
+                    raise ValueError(
+                        f"portfolio.threshold_hold.{key} was removed; use "
+                        f"portfolio.{replacement}"
                     )
         return data
 

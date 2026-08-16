@@ -451,10 +451,6 @@ def build_config_from_ui_state(
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
-    min_tenure_n = coerce_positive_int(model_state.get("min_tenure_n"), default=0)
-    if min_tenure_n > 0:
-        threshold_hold_cfg["min_tenure_n"] = min_tenure_n
-
     portfolio_cfg["policy"] = "threshold_hold"
     portfolio_cfg["threshold_hold"] = threshold_hold_cfg
     portfolio_cfg["sticky_add_x"] = sticky_add_x

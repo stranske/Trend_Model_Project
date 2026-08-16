@@ -117,7 +117,35 @@ def test_signal_parser_has_no_removed_alias_reads() -> None:
         "trend_" + "vol_target",
     )
     assert not [token for token in forbidden if token in source]
-    assert trend_spec_from_mapping({"trend_" + "zscore": 2.0}).zscore is False
+    with pytest.raises(ValueError, match="signals.trend_zscore was removed"):
+        trend_spec_from_mapping({"trend_" + "zscore": 2.0})
+
+
+@pytest.mark.parametrize(
+    ("key", "replacement"),
+    [
+        ("min_weight_strikes", "constraints.min_weight_strikes"),
+        ("min_tenure_n", "min_tenure_n"),
+        ("min_tenure_periods", "min_tenure_n"),
+        ("sticky_add_x", "sticky_add_x"),
+        ("sticky_add_periods", "sticky_add_x"),
+        ("sticky_drop_y", "sticky_drop_y"),
+        ("sticky_drop_periods", "sticky_drop_y"),
+    ],
+)
+def test_removed_nested_threshold_controls_are_rejected(key: str, replacement: str) -> None:
+    portfolio = {
+        "rebalance_calendar": "NYSE",
+        "max_turnover": 0.5,
+        "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+        "threshold_hold": {key: 2},
+    }
+
+    with pytest.raises(
+        ValidationError,
+        match=rf"portfolio\.threshold_hold\.{key} was removed; use portfolio\.{replacement}",
+    ):
+        Config(version="1", portfolio=portfolio)
 
 
 def test_parallelism_has_no_top_level_alias_read() -> None:

@@ -109,6 +109,18 @@ def test_canonical_weighting_name_and_params_merge_without_mutation(tmp_path: Pa
     assert variant.to_trend_config(base, base_path=tmp_path).portfolio.rebalance_calendar == "NYSE"
 
 
+def test_registered_robust_mean_variance_alias_is_accepted(tmp_path: Path) -> None:
+    base = _base_config(tmp_path)
+    variant = StrategyVariant(
+        name="RobustMeanVariance",
+        overrides={"portfolio": {"weighting": {"name": "robust_mean_variance"}}},
+    )
+
+    result = variant.to_trend_config(base, base_path=tmp_path)
+
+    assert result.portfolio.weighting["name"] == "robust_mean_variance"
+
+
 def test_canonical_weighting_override_works_with_shipped_defaults() -> None:
     defaults_path = Path("config/defaults.yml")
     base = yaml.safe_load(defaults_path.read_text(encoding="utf-8"))

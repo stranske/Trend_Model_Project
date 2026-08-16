@@ -323,6 +323,13 @@ def test_portfolio_settings_validation(tmp_path: Path) -> None:
     assert result.cost_model.per_trade_bps == pytest.approx(15.0)
 
 
+def test_portfolio_settings_requires_canonical_cost_model() -> None:
+    with pytest.raises(ValueError, match="cost_model"):
+        config_model.PortfolioSettings.model_validate(
+            {"rebalance_calendar": "NYSE", "max_turnover": 0.5}
+        )
+
+
 def test_portfolio_settings_ci_level_reporting_only() -> None:
     payload = {
         "rebalance_calendar": "NYSE",

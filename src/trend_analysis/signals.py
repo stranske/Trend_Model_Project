@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
@@ -157,6 +157,19 @@ def trend_spec_from_mapping(
     retain_disabled_vol_target: bool = False,
 ) -> TrendSpec:
     """Build the shared signal contract from canonical keys."""
+
+    if isinstance(signals, Mapping):
+        removed_aliases = {
+            "trend_" + "window": "window",
+            "trend_" + "lag": "lag",
+            "trend_" + "min_periods": "min_periods",
+            "trend_" + "zscore": "zscore",
+            "trend_" + "vol_adjust": "vol_adjust",
+            "trend_" + "vol_target": "vol_target",
+        }
+        for key, replacement in removed_aliases.items():
+            if key in signals:
+                raise ValueError(f"signals.{key} was removed; use signals.{replacement}")
 
     def setting(key: str, default: Any = None) -> Any:
         value = _config_value(signals, key)

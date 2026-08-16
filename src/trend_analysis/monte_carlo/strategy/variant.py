@@ -74,6 +74,7 @@ _ALLOWED_WEIGHTING_NAMES = {
     "hrp",
     "erc",
     "robust",
+    "robust_mean_variance",
     "robust_mv",
     "robust_risk_parity",
     "score",
