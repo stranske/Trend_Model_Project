@@ -3510,11 +3510,8 @@ def _run_threshold_hold_multi_periods(
             z_entry_soft = float(th_cfg.get("z_entry_soft", 1.0))
             attempted_adds = sorted(set(proposed_holdings) - set(before_reb))
             for mgr in attempted_adds:
-                try:
-                    val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
-                    z = float(val) if pd.notna(val) else float("nan")
-                except Exception:
-                    z = float("nan")
+                val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
+                z = float(val) if pd.notna(val) else float("nan")
                 reason = (
                     "z_entry"
                     if (pd.notna(z) and z > z_entry_soft - NUMERICAL_TOLERANCE_HIGH)
@@ -3592,11 +3589,8 @@ def _run_threshold_hold_multi_periods(
                 new_candidates = [str(h) for h in proposed_holdings if str(h) not in current_set]
 
                 def _zscore(mgr: str) -> float:
-                    try:
-                        val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
-                        return float(val) if pd.notna(val) else float("nan")
-                    except Exception:
-                        return float("nan")
+                    val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
+                    return float(val) if pd.notna(val) else float("nan")
 
                 def _random_key(mgr: str) -> float:
                     # For random mode: use a seeded random value for stable ordering
@@ -3712,11 +3706,8 @@ def _run_threshold_hold_multi_periods(
                 if desired_total > max_changes:
 
                     def _zscore(mgr: str) -> float:
-                        try:
-                            val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
-                            return float(val) if pd.notna(val) else float("nan")
-                        except Exception:
-                            return float("nan")
+                        val = pd.to_numeric(sf.loc[mgr, "zscore"], errors="coerce")
+                        return float(val) if pd.notna(val) else float("nan")
 
                     # Exits/drops are always honoured; turnover budget limits
                     # *additions* (replacements) rather than keeping a fund
@@ -3801,15 +3792,10 @@ def _run_threshold_hold_multi_periods(
             for f in sorted(dropped_reb):
                 if str(f) in pruned_existing:
                     continue
-                try:
-                    val = (
-                        pd.to_numeric(sf.loc[f, "zscore"], errors="coerce")
-                        if f in sf.index
-                        else pd.NA
-                    )
-                    z = float(val) if pd.notna(val) else float("nan")
-                except Exception:
-                    z = float("nan")
+                val = (
+                    pd.to_numeric(sf.loc[f, "zscore"], errors="coerce") if f in sf.index else pd.NA
+                )
+                z = float(val) if pd.notna(val) else float("nan")
                 if pd.notna(z) and z_exit_hard is not None and z <= z_exit_hard:
                     reason = "z_exit_hard"
                     forced_exits.add(str(f))
@@ -3836,15 +3822,10 @@ def _run_threshold_hold_multi_periods(
             for f in sorted(added_reb):
                 if str(f) in already_added:
                     continue
-                try:
-                    val = (
-                        pd.to_numeric(sf.loc[f, "zscore"], errors="coerce")
-                        if f in sf.index
-                        else pd.NA
-                    )
-                    z = float(val) if pd.notna(val) else float("nan")
-                except Exception:
-                    z = float("nan")
+                val = (
+                    pd.to_numeric(sf.loc[f, "zscore"], errors="coerce") if f in sf.index else pd.NA
+                )
+                z = float(val) if pd.notna(val) else float("nan")
                 reason = (
                     "z_entry"
                     if (pd.notna(z) and z > z_entry_soft - NUMERICAL_TOLERANCE_HIGH)
