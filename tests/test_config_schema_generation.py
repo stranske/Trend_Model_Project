@@ -55,11 +55,13 @@ def test_weighting_name_remains_open_to_registered_plugins() -> None:
 
 
 def test_defaults_declare_portfolio_weighting_once() -> None:
-    defaults = generate_schema()["properties"]["portfolio"]["properties"]["weighting"]
+    portfolio_defaults = generate_schema()["properties"]["portfolio"]["properties"]
+    defaults = portfolio_defaults["weighting"]
     source = Path("config/defaults.yml").read_text(encoding="utf-8")
 
     assert source.count("\n  weighting:\n") == 1
     assert defaults["properties"]["name"]["default"] == "equal"
+    assert portfolio_defaults["constraints"]["properties"]["min_weight_strikes"]["default"] == 2
 
 
 def test_checked_in_schemas_match_generator() -> None:

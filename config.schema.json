@@ -91,7 +91,7 @@
         "long_only": true,
         "max_active_positions": 0,
         "max_weight": 0.25,
-        "min_weight_strikes": 0
+        "min_weight_strikes": 2
       },
       "cost_model": {
         "half_spread_bps": 0,
@@ -973,7 +973,7 @@
           "long_only": true,
           "max_active_positions": 0,
           "max_weight": 0.25,
-          "min_weight_strikes": 0
+          "min_weight_strikes": 2
         },
         "cost_model": {
           "half_spread_bps": 0,
@@ -1048,7 +1048,7 @@
             "long_only": true,
             "max_active_positions": 0,
             "max_weight": 0.25,
-            "min_weight_strikes": 0
+            "min_weight_strikes": 2
           },
           "description": "Portfolio constraint settings.",
           "nl_editable": true,
@@ -1164,7 +1164,7 @@
             },
             "min_weight_strikes": {
               "constraints": {},
-              "default": 0,
+              "default": 2,
               "description": "Config option for portfolio.constraints.min_weight_strikes.",
               "nl_editable": true,
               "type": "integer"

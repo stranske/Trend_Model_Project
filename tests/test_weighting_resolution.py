@@ -3,11 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+import pandas as pd
 
 from trend_analysis.multi_period.engine import (
     _portfolio_weighting_config,
     _resolve_portfolio_weighting,
 )
+from trend_analysis.plugins import WeightEngine, weight_engine_registry
 from trend_analysis.weighting import EqualWeight, ScorePropSimple
 from trend_analysis.weights.risk_parity import RiskParity
 
@@ -64,6 +66,28 @@ def test_nested_score_weighting_name_is_preserved() -> None:
 def test_unknown_weighting_raises() -> None:
     with pytest.raises(ValueError, match="ew.*robust"):
         _resolve_portfolio_weighting({"weighting": {"name": "not_a_scheme"}})
+
+
+def test_registered_third_party_weighting_is_reachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    class ThirdPartyWeighting(WeightEngine):
+        def weight(self, cov: pd.DataFrame) -> pd.Series:
+            return pd.Series(1.0 / len(cov), index=cov.index)
+
+    monkeypatch.setitem(
+        weight_engine_registry._plugins,
+        "third_party_weight_engine",
+        ThirdPartyWeighting,
+    )
+
+    weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
+        {"weighting": {"name": "third_party_weight_engine"}}
+    )
+
+    assert scheme == "third_party_weight_engine"
+    assert use_risk is True
+    assert isinstance(risk_engine, ThirdPartyWeighting)
+    assert fallback is None
+    assert isinstance(weighting, EqualWeight)
 
 
 def test_weighting_config_must_be_mapping() -> None:

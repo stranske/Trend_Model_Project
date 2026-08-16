@@ -193,10 +193,6 @@ _RISK_WEIGHTING_NAMES = {
     "robust_risk_parity",
 }
 _SUPPORTED_WEIGHTING_NAMES = SUPPORTED_PORTFOLIO_WEIGHTING_NAMES
-_SUPPORTED_NORMALISED_WEIGHTING_NAMES = {
-    resolve_portfolio_weighting_name({"weighting": {"name": name}})
-    for name in _SUPPORTED_WEIGHTING_NAMES
-}
 
 
 def _resolve_portfolio_weighting(
@@ -217,13 +213,6 @@ def _resolve_portfolio_weighting(
         raise ValueError("portfolio.weighting.params must be a mapping")
     w_params = cast(Mapping[str, Any], raw_params)
     weighting_name = resolve_portfolio_weighting_name(portfolio_cfg)
-
-    if weighting_name not in _SUPPORTED_NORMALISED_WEIGHTING_NAMES:
-        allowed = ", ".join(sorted(_SUPPORTED_WEIGHTING_NAMES))
-        raise ValueError(
-            f"Unknown portfolio weighting scheme {weighting_name!r}. "
-            f"Supported values: {allowed}."
-        )
 
     w_column = cast(str, w_params.get("column", "Sharpe"))
     if weighting_name == "equal":
@@ -256,9 +245,17 @@ def _resolve_portfolio_weighting(
             weighting_name,
         )
 
-    try:
-        from ..plugins import create_weight_engine
+    from ..plugins import create_weight_engine, weight_engine_registry
 
+    registered_weighting_names = set(weight_engine_registry.available())
+    if weighting_name not in registered_weighting_names:
+        allowed = ", ".join(sorted(_SUPPORTED_WEIGHTING_NAMES | registered_weighting_names))
+        raise ValueError(
+            f"Unknown portfolio weighting scheme {weighting_name!r}. "
+            f"Supported values: {allowed}."
+        )
+
+    try:
         robustness_cfg = portfolio_cfg.get("robustness")
         weight_engine_params = weight_engine_params_from_robustness(
             weighting_name,

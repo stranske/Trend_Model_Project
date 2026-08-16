@@ -27,6 +27,7 @@ SUPPORTED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
         "adaptive",
         "adaptive_bayes",
         "bayes",
+        "convex_constrained",
         "equal",
         "erc",
         "ew",
@@ -41,6 +42,7 @@ SUPPORTED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
         "score_prop",
         "score_prop_bayes",
         "score_prop_simple",
+        "vol_inverse",
     }
 )
 
