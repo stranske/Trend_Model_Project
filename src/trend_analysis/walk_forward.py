@@ -254,6 +254,17 @@ def _compute_turnover(prev: pd.Series, new: pd.Series) -> float:
     return float(delta.abs().sum())
 
 
+def _pool_fold_returns(fold_returns: Sequence[pd.Series]) -> pd.Series:
+    """Return one chronological out-of-sample observation per calendar date.
+
+    Later folds were trained on more recent data, so their prediction wins when
+    overlapping test windows contain the same date.
+    """
+
+    pooled = pd.concat(fold_returns)
+    return pooled[~pooled.index.duplicated(keep="last")].sort_index()
+
+
 def evaluate_parameter_grid(
     returns: pd.DataFrame,
     windows: WindowConfig,
@@ -313,16 +324,7 @@ def evaluate_parameter_grid(
             for key, value in params.items():
                 record[f"param_{key}"] = value
             records.append(record)
-        # Walk-forward test windows may overlap when ``step < test``.  DSR's
-        # sample-size term must use independent calendar observations, so keep
-        # the newest fold's result for each date rather than counting an
-        # overlap twice.  Retaining the index here is essential: ``ignore_index``
-        # would make duplicate calendar dates impossible to detect.
-        trial_returns = pd.concat(trial_fold_returns)
-        trial_returns = trial_returns.loc[
-            ~trial_returns.index.duplicated(keep="last")
-        ].sort_index()
-        trial_results.append((params, trial_returns))
+        trial_results.append((params, _pool_fold_returns(trial_fold_returns)))
 
     folds_df = pd.DataFrame.from_records(records)
     param_cols = [col for col in folds_df.columns if col.startswith("param_")]
