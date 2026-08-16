@@ -120,19 +120,19 @@ def demonstrate_config_usage():
         "portfolio": {
             "weighting": {
                 "name": "robust_mv",
-                "params": {
-                    "shrinkage": {"enabled": True, "method": "ledoit_wolf"},
-                    "condition_check": {
-                        "enabled": True,
-                        "threshold": 1e10,
-                        "safe_mode": "hrp",
-                        "diagonal_loading_factor": 1e-6,
-                    },
-                    "logging": {
-                        "log_method_switches": True,
-                        "log_shrinkage_intensity": True,
-                        "log_condition_numbers": True,
-                    },
+            },
+            "robustness": {
+                "shrinkage": {"enabled": True, "method": "ledoit_wolf"},
+                "condition_check": {
+                    "enabled": True,
+                    "threshold": 1e10,
+                    "safe_mode": "hrp",
+                    "diagonal_loading_factor": 1e-6,
+                },
+                "logging": {
+                    "log_method_switches": True,
+                    "log_shrinkage_intensity": True,
+                    "log_condition_numbers": True,
                 },
             },
         }
