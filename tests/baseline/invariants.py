@@ -38,12 +38,28 @@ def check_all(
     def add(name, ok, detail, severity="error"):
         results.append(InvariantResult(name, bool(ok), severity, detail))
 
-    # 1. Weights sum to ~1 (or gross exposure within leverage cap).
+    # 1a. Weights sum to ~1.
+    #
+    # This used to be OR-ed with the gross-exposure check below, which made it
+    # unfalsifiable in the under-invested direction: any book with gross <= the
+    # leverage cap passed, so a portfolio that was 80% -- or 0% -- invested was
+    # reported as "weight sum near one". That is how #5914 shipped: the demo
+    # baseline held the SPX benchmark as if it were a fund, the harness stripped
+    # it from the recorded weights, and the resulting 0.80 sum sailed through
+    # this invariant. Keep the two conditions separate so neither can mask the
+    # other.
     gross = float(out.fund_weights.abs().sum())
     add(
         "weight_sum_near_one",
-        abs(d["weight_sum"] - 1.0) <= WEIGHT_SUM_TOL or gross <= leverage_cap + WEIGHT_SUM_TOL,
-        f"weight_sum={d['weight_sum']:.4f}, gross={gross:.4f}, cap={leverage_cap}",
+        abs(d["weight_sum"] - 1.0) <= WEIGHT_SUM_TOL,
+        f"weight_sum={d['weight_sum']:.4f}",
+    )
+
+    # 1b. Gross exposure stays within the leverage cap.
+    add(
+        "gross_within_leverage_cap",
+        gross <= leverage_cap + WEIGHT_SUM_TOL,
+        f"gross={gross:.4f}, cap={leverage_cap}",
     )
 
     # 2. long_only => no negative weights.
