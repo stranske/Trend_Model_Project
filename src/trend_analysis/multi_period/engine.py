@@ -3144,7 +3144,9 @@ def _run_threshold_hold_multi_periods(
 
                         return holdings
 
-                    sf_for_selection = _filter_entry_frame(sf)
+                    sf_for_selection = (
+                        sf if inclusion_approach == "threshold" else _filter_entry_frame(sf)
+                    )
                     holdings = _score_and_select_holdings(
                         sf_for_selection,
                         rank_score_by=rank_score_by,
@@ -4071,7 +4073,7 @@ def _run_threshold_hold_multi_periods(
             if prev_final_weights is None:
                 period_turnover = 0.0
             else:
-                period_turnover = 0.5 * float(prev_final_weights.abs().sum())
+                period_turnover = float(prev_final_weights.abs().sum())
             period_cost = _period_turnover_cost(
                 period_turnover,
                 tc_bps=tc_bps,

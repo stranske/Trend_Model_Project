@@ -435,6 +435,82 @@ def test_threshold_qualifiers_are_not_backfilled_to_minimum_funds(
     }
 
 
+def test_threshold_seed_applies_bottom_k_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    class TrackingEqualWeight:
+        def __init__(self) -> None:
+            self.calls: list[list[str]] = []
+
+        def weight(self, selected: pd.DataFrame, _date: pd.Timestamp | None = None) -> pd.DataFrame:
+            self.calls.append([str(fund) for fund in selected.index])
+            if selected.empty:
+                return pd.DataFrame(columns=["weight"])
+            return pd.DataFrame(
+                {"weight": [1.0 / len(selected)] * len(selected)},
+                index=selected.index,
+            )
+
+    weighting = TrackingEqualWeight()
+    monkeypatch.setattr(engine, "EqualWeight", lambda: weighting)
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "threshold",
+            "threshold": -10.0,
+            "score_by": "Sharpe",
+            "transform": "raw",
+            "bottom_k": 1,
+            "n": 4,
+        }
+    )
+    cfg.portfolio["threshold_hold"]["target_n"] = 4
+    cfg.portfolio["constraints"]["max_funds"] = 4
+    _patch_scenario(
+        monkeypatch,
+        period_count=1,
+        metric_by_in_end={"2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0}},
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    assert results[0]["selected_funds"] == ["A", "B", "C", "D"]
+    assert weighting.calls[0] == ["A", "B", "C", "D"]
+
+
+def test_threshold_liquidation_to_cash_charges_full_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["transaction_cost_bps"] = 100.0
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "threshold",
+            "threshold": 2.0,
+            "score_by": "Sharpe",
+            "transform": "raw",
+        }
+    )
+    cfg.portfolio["threshold_hold"]["z_exit_hard"] = 0.0
+    _patch_scenario(
+        monkeypatch,
+        period_count=2,
+        metric_by_in_end={
+            "2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "2020-03": {"A": 1.0, "B": 1.0, "C": 1.0, "D": 1.0, "E": 1.0},
+        },
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    assert _snapshot(results[1]) == {
+        "funds": [],
+        "weights": {},
+        "turnover": 1.0,
+        "cost": 0.01,
+        "events": [("dropped", "A", "z_exit_hard"), ("dropped", "B", "z_exit_hard")],
+        "tenure": {},
+    }
+
+
 @pytest.mark.parametrize(
     ("selection_mode", "extra_portfolio", "expected_funds"),
     [
