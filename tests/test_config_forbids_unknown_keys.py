@@ -104,3 +104,28 @@ def test_declared_legacy_sections_remain_optional(tmp_path: Path) -> None:
     assert model.extra == {"note": "legacy-extra"}
     assert model.strategy == {"name": "legacy-strategy"}
     assert model.walk_forward == {"enabled": False}
+
+
+def test_active_config_guidance_uses_canonical_cost_keys() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    active_guidance = (
+        "docs/UserGuide.md",
+        "docs/config.md",
+        "docs/phase-2/multi_period_types.md",
+        "tools/prompt_dataset.yml",
+    )
+    retired = (
+        "portfolio.transaction_cost_bps",
+        "portfolio.cost_model.bps_per_trade",
+        "portfolio.cost_model.slippage_bps",
+    )
+
+    for relative in active_guidance:
+        text = (repo_root / relative).read_text(encoding="utf-8")
+        assert not [key for key in retired if key in text], relative
+
+    user_guide = (repo_root / "docs/UserGuide.md").read_text(encoding="utf-8")
+    prompt_dataset = (repo_root / "tools/prompt_dataset.yml").read_text(encoding="utf-8")
+    assert "portfolio.cost_model.per_trade_bps" in user_guide
+    assert "portfolio.cost_model.half_spread_bps" in user_guide
+    assert "path: portfolio.cost_model.half_spread_bps" in prompt_dataset

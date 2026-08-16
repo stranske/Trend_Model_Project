@@ -328,23 +328,21 @@ See `README.md` for a short overview of the repository structure and the example
 Two optional portfolio execution controls make simulation results closer to
 realistic implementation:
 
-- `portfolio.transaction_cost_bps` – linear cost, in basis points, applied to
-   the absolute turnover each rebalancing period. Must be a non‑negative
+- `portfolio.cost_model.per_trade_bps` – linear cost, in basis points, applied
+   to the absolute turnover each rebalancing period. It must be a non‑negative
    number (e.g. `10` = 10 bps = 0.10%). The summary metrics internally
-   subtract these costs when computing risk/return figures. When a nested
-   `portfolio.cost_model.bps_per_trade` value is supplied it overrides this
-   top-level field so configs can keep transaction costs and slippage together.
+   subtract these costs when computing risk/return figures.
    **Single-period note:** this turnover-based cost is charged only by the
    multi-period engine. On a single-period run it is ignored (the app emits a
    `UserWarning`); use `run.monthly_cost`, or run multi-period, to model costs
    for a single-period analysis.
-- `portfolio.cost_model.slippage_bps` – optional extra spread per turnover
+- `portfolio.cost_model.half_spread_bps` – optional extra spread per turnover
    event to mimic fill slippage. Defaults to `0`. Positive values reduce the
    first post-rebalance return by the specified number of basis points.
 - `run.monthly_cost` – flat decimal per-period fee subtracted from every fund
    return before portfolio statistics are calculated. For example, `0.001`
    subtracts 10 bps from each monthly return. This is not scaled by turnover or
-   exposure; use `portfolio.transaction_cost_bps` / `portfolio.cost_model` for
+   exposure; use `portfolio.cost_model` for
    turnover-based trading costs.
 - `portfolio.max_turnover` – soft cap on total turnover (sum of absolute
    weight changes) for a single rebalance expressed as a fraction of gross

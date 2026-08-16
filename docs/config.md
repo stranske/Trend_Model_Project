@@ -27,8 +27,8 @@ model is constructed:
 - `trend.config_schema.CoreConfig` is a stdlib-only contract used by the CLI
   and Streamlit app to fail fast on missing CSV inputs, invalid frequencies, or
   obviously broken cost settings. It resolves data paths relative to the config
-  file, normalises them to absolute paths, and defaults `cost_model` fields to
-  the top-level `transaction_cost_bps` when explicit values are not provided.
+  file, normalises them to absolute paths, and defaults the canonical
+  `cost_model` fields when explicit values are not provided.
 - `trend_analysis.config.model.TrendConfig` is a pared-down Pydantic model
   enforced at runtime. It re-validates the same data/portfolio knobs while also
   covering runtime-only options such as calendars, risk targets, and turnover
@@ -40,7 +40,7 @@ model is constructed:
 | --- | --- | --- |
 | Data paths | Resolves `csv_path`, `universe_membership_path`, and `managers_glob` relative to the config file or project root; rejects missing files | Accepts the normalised values from `CoreConfig.to_payload()` and re-validates they point to real files or matching globs using the same base path |
 | Frequency | Normalises to upper-case strings and restricts values to `D`, `W`, `M`, `ME` | Enforces the same allowed set (with `ME` preserved) |
-| Costs | Fills `cost_model` defaults from `transaction_cost_bps` so the payload is always explicit | Reads the explicit values and keeps them non-negative during model validation |
+| Costs | Fills canonical `cost_model` defaults so the payload is always explicit | Reads the explicit values and keeps them non-negative during model validation |
 | Data source selection | Accepts either `csv_path` or `managers_glob` (or both) but requires at least one | Same contract; rejects empty inputs after `CoreConfig` has already normalised them |
 | Risk controls | Not present; only used later in the pipeline | Validates `vol_adjust` and other runtime-only knobs |
 
@@ -53,12 +53,11 @@ model is constructed:
   with the same allowed frequency values (`D`, `W`, `M`, `ME`).
 - `data.universe_membership_path`, when provided, is resolved to an existing
   file in both layers.
-- `portfolio.transaction_cost_bps` and every linear `cost_model` field (bps per
-  trade, slippage, per-trade bps, half-spread) remain non-negative and must
+- `portfolio.cost_model.per_trade_bps` and
+  `portfolio.cost_model.half_spread_bps` remain non-negative and must
   round-trip unchanged through `CoreConfig.to_payload()` into `TrendConfig`.
-  Note: `transaction_cost_bps` is a turnover-based lever charged only by the
-  multi-period engine; single-period runs ignore it and emit a `UserWarning`
-  (use `run.monthly_cost` for single-period cost modeling).
+  These are turnover-based levers charged only by the multi-period engine;
+  use `run.monthly_cost` for flat single-period cost modeling.
 - `run.monthly_cost` is a flat decimal per-period fee. It is subtracted from
   every fund return before statistics are calculated and is not scaled by
   turnover or exposure.
