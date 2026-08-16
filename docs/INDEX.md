@@ -184,7 +184,6 @@ Use this index to find the current contributor guides and to understand which ov
 | `resolve_mypy_pin.py` | Resolve mypy version pin | `reusable-10-ci-python.yml` |
 | `validate_quarantine_ttl.py` | Validate test quarantine TTL | Tests |
 | `agents_index.py` | List agent bootstrap files | Tests |
-| `simulate_codex_bootstrap.py` | Simulate Codex bootstrap logic | Tests |
 | `simulate_failure_tracker.js` | Test failure tracking | Tests |
 | `test_failure_signature.py` | Signature hashing for failures | `health_summarize.py` |
 | `strip_output.py` | Strip Jupyter notebook outputs | `pre-commit` hook |

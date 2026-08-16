@@ -8,6 +8,8 @@ def test_retired_local_bootstrap_surfaces_stay_removed() -> None:
         ".github/actions/codex-bootstrap-lite/action.yml",
         "scripts/verify_codex_bootstrap.py",
         "tests/scripts/test_verify_codex_bootstrap_timestamps.py",
+        "tools/simulate_codex_bootstrap.py",
+        "tests/test_simulate_codex_bootstrap.py",
         "docs/agent_codex_troubleshooting.md",
         "docs/codex-simulation.md",
         "docs/codex_bootstrap_verification.md",
@@ -41,6 +43,9 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         ".github/workflows/README.md",
         "docs/AGENTS_POLICY.md",
         "docs/ci/AGENTS_POLICY.md",
+        "docs/WORKFLOW_GUIDE.md",
+        "docs/ci/WORKFLOWS.md",
+        "docs/ci/WORKFLOW_SYSTEM.md",
         "docs/ops/codex-bootstrap-facts.md",
     )
 
