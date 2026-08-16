@@ -119,6 +119,17 @@ def _hash_universe(universe: Iterable[str]) -> str:
 
 def _stats_cfg_hash(cfg: "RiskStatsConfig") -> str:
     base = asdict(cfg)
+    benchmark = base.get("benchmark")
+    if isinstance(benchmark, (pd.Series, pd.DataFrame)):
+        benchmark_frame = benchmark.to_frame() if isinstance(benchmark, pd.Series) else benchmark
+        digest = hashlib.sha256()
+        digest.update(pd.util.hash_pandas_object(benchmark_frame, index=True).values.tobytes())
+        digest.update("\x1f".join(map(str, benchmark_frame.columns)).encode("utf-8"))
+        digest.update("\x1f".join(map(str, benchmark_frame.dtypes)).encode("utf-8"))
+        base["benchmark"] = {
+            "shape": benchmark_frame.shape,
+            "fingerprint": digest.hexdigest(),
+        }
     extras = {k: v for k, v in vars(cfg).items() if k not in base}
     if extras:
         base["__extras__"] = extras
@@ -721,6 +732,7 @@ class RiskStatsConfig:
     )
     risk_free: float = 0.0
     periods_per_year: int = 12
+    benchmark: pd.Series | pd.DataFrame | None = None
 
 
 METRIC_REGISTRY: Dict[str, Callable[..., float | pd.Series]] = {}
@@ -737,6 +749,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "sortino_ratio": "Sortino",
     "max_drawdown": "MaxDrawdown",
     "information_ratio": "InformationRatio",
+    "alpha": "Alpha",
     "avg_corr": "AvgCorr",
 }
 
@@ -830,6 +843,17 @@ register_metric("InformationRatio")(
     )
 )
 
+register_metric("Alpha")(
+    lambda s, *, periods_per_year=12, risk_free=0.0, benchmark=None, **k: _metrics.alpha(
+        s,
+        benchmark=(
+            benchmark
+            if benchmark is not None
+            else (risk_free if isinstance(risk_free, (pd.Series, pd.DataFrame)) else None)
+        ),
+    )
+)
+
 
 # Average correlation metric (frame-aware via metric context)
 @register_metric("AvgCorr")
@@ -871,6 +895,7 @@ def _compute_metric_series(
     stats_cfg: RiskStatsConfig,
     *,
     risk_free_override: float | pd.Series | None = None,
+    benchmark: pd.Series | pd.DataFrame | None = None,
 ) -> pd.Series:
     """Return a pd.Series (index = fund code, value = metric score).
 
@@ -885,12 +910,15 @@ def _compute_metric_series(
         rf_value: float | pd.Series = (
             risk_free_override if risk_free_override is not None else stats_cfg.risk_free
         )
-        return in_sample_df.apply(
-            fn,
-            periods_per_year=stats_cfg.periods_per_year,
-            risk_free=rf_value,
-            axis=0,
-        )
+        metric_kwargs: dict[str, Any] = {
+            "periods_per_year": stats_cfg.periods_per_year,
+            "risk_free": rf_value,
+            "axis": 0,
+        }
+        resolved_benchmark = benchmark if benchmark is not None else stats_cfg.benchmark
+        if resolved_benchmark is not None and metric_name in {"Alpha", "alpha", "InformationRatio"}:
+            metric_kwargs["benchmark"] = resolved_benchmark
+        return in_sample_df.apply(fn, **metric_kwargs)
     finally:
         _METRIC_CONTEXT.reset(token)
 

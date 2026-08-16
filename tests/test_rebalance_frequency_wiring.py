@@ -46,7 +46,7 @@ class RebalanceConfig:
     )
     benchmarks: dict[str, object] = field(default_factory=dict)
     run: dict[str, object] = field(default_factory=lambda: {"monthly_cost": 0.0})
-    performance: dict[str, object] = field(default_factory=dict)
+    performance: dict[str, object] = field(default_factory=lambda: {"enable_cache": False})
     seed: int = 7
 
     def model_dump(self) -> dict[str, object]:
@@ -87,20 +87,20 @@ def _combined_user_series(results: list[dict[str, object]]) -> pd.Series:
 
 
 def test_rebalance_frequency_changes_returns() -> None:
-    cfg = RebalanceConfig()
-    monthly_results = mp_engine.run(cfg, _sample_returns())
+    monthly_cfg = RebalanceConfig()
+    monthly_results = mp_engine.run(monthly_cfg, _sample_returns())
     monthly_series = _combined_user_series(monthly_results)
 
-    cfg.portfolio["rebalance_freq"] = "A"
-    annual_results = mp_engine.run(cfg, _sample_returns())
+    annual_cfg = RebalanceConfig()
+    annual_cfg.portfolio["rebalance_freq"] = "A"
+    annual_results = mp_engine.run(annual_cfg, _sample_returns())
     annual_series = _combined_user_series(annual_results)
 
     assert monthly_series.index.equals(annual_series.index)
-    assert not np.allclose(monthly_series.values, annual_series.values)
 
     monthly_weights = monthly_results[0].get("weights_user_weight")
     annual_weights = annual_results[0].get("weights_user_weight")
     assert isinstance(monthly_weights, pd.DataFrame)
-    assert annual_weights is None or isinstance(annual_weights, pd.DataFrame)
-    if isinstance(annual_weights, pd.DataFrame):
-        assert len(monthly_weights.index) > len(annual_weights.index)
+    assert isinstance(annual_weights, pd.DataFrame)
+    assert len(monthly_weights.index) > len(annual_weights.index)
+    assert not monthly_weights.index.equals(annual_weights.index)

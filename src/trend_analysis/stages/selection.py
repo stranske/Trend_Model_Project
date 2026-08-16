@@ -344,6 +344,7 @@ def _select_universe(
     rank_kwargs: Mapping[str, Any] | None,
     manual_funds: list[str] | None,
     indices_list: list[str] | None,
+    benchmarks: Mapping[str, str] | None = None,
     seed: int,
     stats_cfg: RiskStatsConfig | None,
     risk_free_column: str | None,
@@ -446,7 +447,21 @@ def _select_universe(
     # Keep a caller-supplied configuration immutable so it can be reused across
     # separate analyses without leaking a prior window's annualisation.
     extra_metrics = getattr(stats_cfg, "extra_metrics", None)
-    stats_cfg = replace(stats_cfg, periods_per_year=int(window.periods_per_year))
+    benchmark: pd.Series | pd.DataFrame | None = stats_cfg.benchmark
+    benchmark_column: str | None = None
+    if benchmarks:
+        for column in benchmarks.values():
+            if column in window.in_df.columns:
+                benchmark = window.in_df[column]
+                benchmark_column = column
+                break
+    if benchmark_column and benchmark_column in fund_cols:
+        fund_cols = [col for col in fund_cols if col != benchmark_column]
+    stats_cfg = replace(
+        stats_cfg,
+        periods_per_year=int(window.periods_per_year),
+        benchmark=benchmark,
+    )
     if extra_metrics is not None:
         setattr(stats_cfg, "extra_metrics", extra_metrics)
 
