@@ -1,7 +1,75 @@
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
+
+_DRAFT_PR_PHRASE = re.compile(
+    r"\bdraft(?:[-\s]+)(?:prs?|pull(?:[-\s]+)requests?)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_ACTION = re.compile(
+    r"\b(?:bootstrap|convert|create|file|keep|leave|make|mark|open|publish|"
+    r"set|start|submit|turn|use|work(?:ing)?)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_NORMATIVE = re.compile(
+    r"\b(?:allowed|default|enabled|must|required|should)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_PROHIBITION = re.compile(
+    r"\b(?:do\s+not|does\s+not|must\s+not|never|no|not|should\s+not|without)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_FORBIDDEN = re.compile(
+    r"\b(?:disabled|forbidden|not\s+allowed|prohibited)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_affirmative_draft_instruction(text: str) -> bool:
+    """Return whether current guidance tells an operator to use a draft PR."""
+
+    for line in text.splitlines():
+        for match in _DRAFT_PR_PHRASE.finditer(line):
+            before = line[max(0, match.start() - 100) : match.start()]
+            after = line[match.end() : match.end() + 60]
+            if before.rstrip().lower().endswith("non-"):
+                continue
+            if _DRAFT_PR_PROHIBITION.search(before) or _DRAFT_PR_FORBIDDEN.search(after):
+                continue
+            if _DRAFT_PR_ACTION.search(before) or _DRAFT_PR_NORMATIVE.search(after):
+                return True
+    return False
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Open a draft PR.",
+        "Open draft PRs for both fixes.",
+        "Create draft pull requests.",
+        "Submit draft-pull-requests for review.",
+        "Draft PRs are required.",
+    ),
+)
+def test_affirmative_draft_instruction_detector_rejects_creation_guidance(text: str) -> None:
+    assert _has_affirmative_draft_instruction(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Do not create a draft PR.",
+        "Never open draft PRs.",
+        "Use a non-draft PR.",
+        "Draft pull requests are prohibited.",
+        "The workflow has no draft-PR input.",
+    ),
+)
+def test_affirmative_draft_instruction_detector_accepts_prohibitions(text: str) -> None:
+    assert not _has_affirmative_draft_instruction(text)
 
 
 def test_retired_local_bootstrap_surfaces_stay_removed() -> None:
@@ -122,15 +190,11 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "agents-keepalive-loop.yml",
         "agents-pr-meta-v4.yml",
     )
-    affirmative_draft_instruction = re.compile(
-        r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
-        re.IGNORECASE,
-    )
     stale = []
     for relative in operator_docs:
         text = (ROOT / relative).read_text(encoding="utf-8")
         matches = [token for token in retired_tokens if token in text]
-        if affirmative_draft_instruction.search(text):
+        if _has_affirmative_draft_instruction(text):
             matches.append("affirmative draft-PR instruction")
         if matches:
             stale.append((relative, matches))

@@ -786,6 +786,9 @@ tasks are complete or the iteration limit is reached.
 **Verification checklist**:
 - [ ] `agents-80-pr-event-hub.yml` exists with PR event triggers
 - [ ] `agents-81-gate-followups.yml` listens for Gate completion
+- [ ] Repository variable `USE_CONSOLIDATED_WORKFLOWS` is `true` so Agents 81
+      evaluates automatic Gate follow-ups (`workflow_dispatch` intentionally
+      bypasses this variable for manual recovery)
 - [ ] `agents-keepalive-sweep.yml` exists with a schedule trigger
 - [ ] `.github/codex/AGENT_INSTRUCTIONS.md` exists
 - [ ] `.github/codex/prompts/keepalive_next_task.md` exists
@@ -801,6 +804,9 @@ tasks are complete or the iteration limit is reached.
 **Troubleshooting**:
 - "gate-not-concluded": Gate has not finished; wait or inspect the Gate workflow
 - "head changed": Restart the exact-head review and Gate window
+- Gate completes but no follow-up: Confirm `USE_CONSOLIDATED_WORKFLOWS` is
+  `true`; a false or missing value skips automatic Agents 81 evaluation, while
+  `workflow_dispatch` still permits a manual recovery run
 - Missing codex files: Add from `templates/consumer-repo/.github/codex/`
 
 ---
@@ -811,6 +817,7 @@ tasks are complete or the iteration limit is reached.
 when the `autofix` or `autofix:clean` label is added to a PR.
 
 **Workflows involved**:
+
 | Workflow | Role |
 |----------|------|
 | `autofix.yml` | Thin caller that triggers on label, delegates to reusable workflow |
@@ -1020,7 +1027,7 @@ Autofix can repair a labeled PR before Gate is evaluated again.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | "Module not found" errors | Missing JS scripts | Add scripts from template |
-| Gate completes but no follow-up | Agents 81 did not receive the Gate run | Inspect its `workflow_run` trigger and summary |
+| Gate completes but no follow-up | `USE_CONSOLIDATED_WORKFLOWS` is not `true`, so Agents 81 skipped the automatic Gate run | Set the repository variable to `true`, then inspect its `workflow_run` trigger and summary; `workflow_dispatch` bypasses the variable for manual recovery |
 | Follow-up reports `head changed` | The PR moved after Gate ran | Restart review and Gate on the new exact head |
 | Follow-up reports `gate-not-concluded` | Gate is still running | Wait for the exact-head Gate conclusion |
 

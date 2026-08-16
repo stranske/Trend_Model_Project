@@ -108,6 +108,7 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Apply the registry-backed `agent:codex` label or manually dispatch **Agents Issue Intake** in `agent_bridge` mode. The shared implementation remains in `stranske/Workflows`; do not copy it into this consumer repository.
 - **Agents Auto-Pilot** invokes Agents 71 and the Agents 72 dispatch wrapper for end-to-end issues. Agents 81 handles guarded post-Gate delivery; Agents 73 is not locally invoked.
 - **Agents Keepalive Sweep** periodically re-evaluates stalled non-draft agent PRs through the consolidated gate-followup loop. Labels and lifecycle metadata, not draft state, pause or stage work.
+
 ### Manual dispatch quick steps
 
 1. Open **Actions → Agents Issue Intake → Run workflow**.
