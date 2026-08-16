@@ -163,6 +163,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "WORKFLOW_USER_GUIDE.md",
         ".github/workflows/README.md",
         "docs/AGENTS_POLICY.md",
+        "docs/CI_SYSTEM_GUIDE.md",
         "docs/ci/AGENTS_POLICY.md",
         "docs/WORKFLOW_GUIDE.md",
         "docs/ci/WORKFLOWS.md",

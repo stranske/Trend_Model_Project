@@ -61,19 +61,21 @@ The Workflows repo includes a sophisticated agent automation system:
 
 | Component | Purpose |
 |-----------|---------|
-| **Agents 63 Issue Intake** | Converts labeled issues into agent work items |
-| **Agents 70 Orchestrator** | Central control for readiness, bootstrap, keepalive |
-| **Agents 71-73 Codex Belt** | Dispatcher → Worker → Conveyor pipeline for PRs |
-| **Keepalive System** | Monitors stalled agent PRs and nudges them |
+| **Agents Issue Intake** | Creates or refreshes ready-for-review PRs from labeled issues |
+| **Agents Auto-Pilot** | Runs the end-to-end issue automation route |
+| **Agents 71-72 Codex Belt** | Claims queued work and dispatches the active worker |
+| **Agents 80 PR Event Hub** | Routes supported pull-request events |
+| **Agents 81 Gate Followups** | Evaluates exact-head Gate results and guarded delivery |
+| **Keepalive Sweep** | Re-evaluates stalled eligible PRs through Agents 81 |
 | **Autofix** | Automatic formatting fixes on PRs |
 
 ### Key Features
 
-- **Readiness probes**: Validates agent availability before work
-- **Bootstrap**: Creates branches and PRs from labeled issues
-- **Keepalive**: Monitors agent PRs and posts reminder comments
-- **Conveyor**: Auto-merges successful PRs and cleans up
-- **Watchdog**: Detects stalled automation
+- **Ready-for-review bootstrap**: Creates branches and non-draft PRs from labeled issues
+- **Exact-head Gate**: Validates the current PR head before follow-up work
+- **Guarded delivery**: Agents 81 evaluates eligible PRs after Gate completes
+- **Keepalive recovery**: Re-enters Agents 81 for stalled eligible PRs
+- **Protected-workflow enforcement**: Prevents the retired topology from returning
 
 ---
 
@@ -123,22 +125,20 @@ Quick start:
 
 ### Agent Workflow
 
-```
-Issue created → agent:codex label added
+```text
+Issue created → agent label or Agents Auto-Pilot
                       ↓
-          Issue Intake validates
+        Issue Intake creates a ready PR
                       ↓
-        Bootstrap creates branch + PR
+          Agents 71-72 run the worker
                       ↓
-         Agent works on the code
+           Gate validates exact head
                       ↓
-            CI runs on changes
+        Agents 81 evaluates follow-up
                       ↓
-    ┌─────────────────┴─────────────────┐
-    │                                    │
- CI passes                          CI fails
-    │                                    │
-Conveyor merges               Keepalive nudges agent
+             Guarded delivery
+
+Keepalive Sweep re-enters Agents 81 for stalled eligible PRs.
 ```
 
 ---
