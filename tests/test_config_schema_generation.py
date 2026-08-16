@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from trend_analysis.config_contract import SUPPORTED_PORTFOLIO_WEIGHTING_NAMES
+from pathlib import Path
+
 from trend_analysis.config.schema_generator import generate_schema
 from trend_analysis.config.schema_validation import validate_config_data
 
@@ -35,13 +36,29 @@ def test_schema_includes_metadata() -> None:
         assert "nl_editable" in node
 
 
-def test_weighting_enum_uses_runtime_supported_names() -> None:
+def test_weighting_name_remains_open_to_registered_plugins() -> None:
     schema = generate_schema()
     weighting_name = schema["properties"]["portfolio"]["properties"]["weighting"]["properties"][
         "name"
     ]
 
-    assert set(weighting_name["enum"]) == set(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES)
+    assert weighting_name["type"] == "string"
+    assert "enum" not in weighting_name
+    assert (
+        validate_config_data(
+            {"portfolio": {"weighting": {"name": "third_party_weight_engine"}}},
+            schema,
+        )
+        == []
+    )
+
+
+def test_defaults_declare_portfolio_weighting_once() -> None:
+    defaults = generate_schema()["properties"]["portfolio"]["properties"]["weighting"]
+    source = Path("config/defaults.yml").read_text(encoding="utf-8")
+
+    assert source.count("\n  weighting:\n") == 1
+    assert defaults["properties"]["name"]["default"] == "equal"
 
 
 def test_schema_validation_flags_unknown_keys() -> None:

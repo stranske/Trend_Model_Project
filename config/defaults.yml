@@ -92,10 +92,6 @@ portfolio:
     name: zscore            # or 'rank'
     params:
       threshold: 1.0        # σ
-  weighting:
-    name: score_prop_bayes
-    params:
-      shrink_tau: 0.25
   constraints:
     long_only: true
     max_weight: 0.25
