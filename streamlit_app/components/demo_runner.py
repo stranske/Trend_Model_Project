@@ -18,6 +18,9 @@ from streamlit_app.components.data_schema import (
     load_and_validate_file,
 )
 from streamlit_app.components.policy_engine import MetricSpec, PolicyConfig
+from streamlit_app.components.universe_membership_input import (
+    membership_cache_fingerprint,
+)
 from trend_analysis.api import run_simulation
 from trend_analysis.config import Config
 from trend_analysis.presets import get_trend_preset, list_trend_presets
@@ -388,7 +391,12 @@ def _analysis_run_key(
     sanitized_funds = [c for c in applied_funds if c not in prohibited]
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
+    membership_hash = hashlib.sha256(
+        membership_cache_fingerprint(state).encode("utf-8")
+    ).hexdigest()[:12]
+    return (
+        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:" f"{membership_hash}:{model_blob}"
+    )
 
 
 def _store_demo_result_state(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,19 @@ from streamlit_app.components.data_schema import (
     infer_benchmarks,
     infer_risk_free_candidates,
 )
+from streamlit_app.components.universe_membership_input import (
+    UNIVERSE_MEMBERSHIP_SESSION_KEY,
+    UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY,
+    UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY,
+    clear_active_universe_membership,
+    invalidate_analysis_for_membership_change,
+    persist_membership_upload,
+    resolve_universe_membership_path,
+    set_active_universe_membership,
+    summarise_membership,
+    validate_membership_file,
+)
 from streamlit_app.components.upload_guard import (
     UploadViolation,
     guard_and_buffer_upload,
@@ -34,6 +48,7 @@ from trend_analysis.io.date_correction import (
     format_corrections_for_display,
 )
 from trend_analysis.io.market_data import MarketDataValidationError
+from utils.paths import proj_path
 
 apply_ds_theme()
 apply_density_compact()
@@ -94,6 +109,73 @@ def _dataset_summary(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any]) -> str
         freq = meta.get("frequency_label") or meta.get("frequency")
     freq_part = f" • {freq} frequency" if freq else ""
     return f"{rows} rows × {cols} columns • {start} → {end}{freq_part}"
+
+
+def _render_universe_membership_controls() -> None:
+    from streamlit_app.components.upload_guard import DEFAULT_UPLOAD_DIR
+
+    st.markdown("---")
+    st.subheader("Universe membership (optional)")
+    st.caption(
+        "Provide a point-in-time membership table to remove survivorship bias. "
+        "Leave empty to keep today's full-sample behaviour."
+    )
+    demo_path = proj_path() / "demo" / "demo_universe_membership.csv"
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if demo_path.exists() and st.button("Use demo membership", key="use_demo_membership"):
+            validate_membership_file(demo_path)
+            changed = st.session_state.get(UNIVERSE_MEMBERSHIP_SESSION_KEY) != str(demo_path)
+            clear_active_universe_membership(st.session_state)
+            set_active_universe_membership(
+                str(demo_path), summarise_membership(demo_path), st.session_state
+            )
+            if changed:
+                invalidate_analysis_for_membership_change()
+    with col_b:
+        if st.button("Clear membership", key="clear_universe_membership"):
+            if clear_active_universe_membership(st.session_state):
+                invalidate_analysis_for_membership_change()
+
+    uploaded = st.file_uploader(
+        "Upload membership CSV (fund, effective_date, end_date)",
+        type=["csv"],
+        accept_multiple_files=False,
+        key=(
+            "universe_membership_upload::"
+            f"{st.session_state.get(UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY, 0)}"
+        ),
+    )
+    if uploaded is not None:
+        try:
+            upload_bytes = uploaded.getvalue()
+            upload_digest = hashlib.sha256(upload_bytes).hexdigest()
+            if st.session_state.get(UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY) != upload_digest:
+                saved = persist_membership_upload(
+                    upload_bytes,
+                    upload_dir=DEFAULT_UPLOAD_DIR,
+                    filename=uploaded.name,
+                )
+                changed = set_active_universe_membership(
+                    saved, summarise_membership(saved), st.session_state
+                )
+                st.session_state[UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY] = upload_digest
+                if changed:
+                    invalidate_analysis_for_membership_change()
+            st.success("Membership file validated and ready.")
+        except Exception as exc:
+            st.error(f"Membership file rejected: {exc}")
+
+    active_path = resolve_universe_membership_path()
+    if active_path:
+        summary = st.session_state.get(UNIVERSE_MEMBERSHIP_SUMMARY_KEY) or summarise_membership(
+            active_path
+        )
+        st.info(
+            "Membership active for "
+            f"{summary['fund_count']} fund(s); "
+            f"{summary['exited_fund_count']} fund(s) have exit windows."
+        )
 
 
 def _render_validation(meta: SchemaMeta | dict[str, Any]) -> None:
@@ -539,6 +621,7 @@ def render_data_page() -> None:
     if app_state.has_valid_upload():
         df, meta = app_state.get_uploaded_data()
         if df is not None:
+            _render_universe_membership_controls()
             st.markdown("---")
             st.subheader("Column Configuration")
 

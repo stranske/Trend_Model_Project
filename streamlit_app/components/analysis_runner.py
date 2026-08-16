@@ -20,6 +20,12 @@ from utils.paths import proj_path
 
 from .data_cache import cache_key_for_frame
 from .guardrails import infer_frequency
+from .universe_membership_input import (
+    UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    membership_cache_fingerprint,
+    resolve_universe_membership_path,
+    summarise_membership,
+)
 from .upload_guard import DEFAULT_UPLOAD_DIR
 
 
@@ -376,6 +382,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
         benchmark=payload.benchmark,
         frequency=frequency,
         csv_path=csv_path,
+        universe_membership_path=resolve_universe_membership_path(),
     )
 
 
@@ -428,7 +435,7 @@ def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
 
     payload_dict = build_config_payload(
         csv_path=csv_path,
-        universe_membership_path=None,
+        universe_membership_path=resolve_universe_membership_path(),
         managers_glob=None,
         date_column=date_column,
         frequency=frequency,
@@ -546,6 +553,20 @@ def _assert_config_feasible(config: Any) -> None:
         raise ValueError(f"Infeasible configuration; the simulation was not run:\n{detail}")
 
 
+def _mask_returns_for_membership(returns: pd.DataFrame, membership_path: str) -> pd.DataFrame:
+    from trend_analysis.universe import (
+        apply_membership_windows,
+        load_universe_membership,
+    )
+
+    membership = load_universe_membership(membership_path)
+    if "Date" in returns.columns:
+        indexed = returns.set_index("Date")
+        masked = apply_membership_windows(indexed, membership)
+        return masked.reset_index()
+    return apply_membership_windows(returns, membership)
+
+
 def _execute_analysis(payload: AnalysisPayload):
     from trend_analysis.api import run_simulation
 
@@ -553,6 +574,13 @@ def _execute_analysis(payload: AnalysisPayload):
     _validate_streamlit_payload(payload)
     _assert_config_feasible(config)
     returns = _prepare_returns(payload.returns)
+    membership_path = resolve_universe_membership_path()
+    if membership_path:
+        st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(membership_path)
+        if not bool(payload.model_state.get("multi_period_enabled")):
+            returns = _mask_returns_for_membership(returns, membership_path)
+    else:
+        st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
     return run_simulation(config, returns)
 
 
@@ -566,6 +594,7 @@ def run_cached_analysis(
     model_state_blob: str,
     benchmark: str | None,
     data_hash: str,
+    membership_fingerprint: str,
 ):
     """
     Run the analysis pipeline with caching.
@@ -604,7 +633,13 @@ def run_analysis(
 
     blob = _hashable_model_state(model_state)
     effective_hash = data_hash or cache_key_for_frame(df)
-    return run_cached_analysis(df, blob, benchmark, effective_hash)
+    return run_cached_analysis(
+        df,
+        blob,
+        benchmark,
+        effective_hash,
+        membership_cache_fingerprint(),
+    )
 
 
 def clear_cached_analysis() -> None:
