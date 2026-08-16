@@ -12,6 +12,12 @@ import pytest
 from scripts import sync_test_dependencies as sync
 
 
+def test_base_project_modules_excludes_removed_packages() -> None:
+    removed = {"trend_portfolio_app", "trend_model"}
+
+    assert sync._BASE_PROJECT_MODULES.isdisjoint(removed)
+
+
 def _write_pyproject(base: Path, dev: list[str] | None = None) -> None:
     dev = dev or []
     content = textwrap.dedent("""
