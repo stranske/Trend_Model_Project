@@ -96,6 +96,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "docs/prompts/library.md",
         "docs/ci_reuse.md",
         "docs/SETUP_CHECKLIST.md",
+        ".github/workflows/agents-auto-pilot.yml",
     )
 
     retired_tokens = (
@@ -119,6 +120,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "raw.githubusercontent.com/stranske/Workflows/v1",
         "@v1",
         "agents-keepalive-loop.yml",
+        "agents-pr-meta-v4.yml",
     )
     affirmative_draft_instruction = re.compile(
         r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
