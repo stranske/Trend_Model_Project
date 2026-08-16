@@ -13,7 +13,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio
+from trend_analysis.metrics import (
+    annual_return,
+    deflated_sharpe_ratio,
+    estimate_sharpe_moments,
+    max_drawdown,
+    sharpe_ratio,
+)
 from trend_analysis.util.frequency import infer_periods_per_year
 from trend_analysis.util.json_compat import (
     JSON_UNSUPPORTED,
@@ -171,6 +177,37 @@ def _parameter_grid(strategy: StrategyConfig) -> list[dict[str, float | int]]:
     return combos
 
 
+def _sweep_deflated_sharpe(
+    returns: pd.Series,
+    *,
+    n_trials: int,
+    sharpe_variance: float | None = None,
+) -> float:
+    """Return the DSR for one sweep trial's out-of-sample returns.
+
+    A sweep can produce too few observations for finite sample skew and
+    kurtosis.  In that case the DSR is unavailable rather than being computed
+    from placeholder moments.
+    """
+
+    sharpe, n_obs, skew, kurtosis = estimate_sharpe_moments(returns)
+    if n_obs < 2 or not all(np.isfinite(value) for value in (sharpe, skew, kurtosis)):
+        return float("nan")
+    try:
+        return deflated_sharpe_ratio(
+            sharpe,
+            n_obs,
+            skew,
+            kurtosis,
+            n_trials,
+            sharpe_variance=sharpe_variance,
+        )
+    except ValueError as exc:
+        if str(exc) != "invalid Sharpe moment combination":
+            raise
+        return float("nan")
+
+
 def _tie_breaker(index: pd.Index, rng: np.random.Generator | None) -> pd.Series:
     if rng is None:
         return pd.Series(np.arange(len(index)), index=index, dtype=float)
@@ -232,10 +269,12 @@ def evaluate_parameter_grid(
     periods_per_year = infer_periods_per_year(returns.index)
 
     records: list[dict[str, Any]] = []
+    trial_results: list[tuple[dict[str, float | int], pd.Series]] = []
 
     for combo in combos:
         params = base_params | combo
         prev_weights = pd.Series(dtype=float)
+        trial_fold_returns: list[pd.Series] = []
         for fold_idx, (train_idx, test_idx) in enumerate(splits, start=1):
             train_df = returns.loc[train_idx]
             test_df = returns.loc[test_idx]
@@ -248,6 +287,7 @@ def evaluate_parameter_grid(
             else:
                 subset = test_df.reindex(columns=weights.index, fill_value=0.0)
                 fold_returns = subset.mul(weights, axis=1).sum(axis=1)
+            trial_fold_returns.append(fold_returns)
 
             cagr = annual_return(fold_returns, periods_per_year=periods_per_year)
             sharpe = sharpe_ratio(fold_returns, risk_free=0.0, periods_per_year=periods_per_year)
@@ -273,6 +313,7 @@ def evaluate_parameter_grid(
             for key, value in params.items():
                 record[f"param_{key}"] = value
             records.append(record)
+        trial_results.append((params, pd.concat(trial_fold_returns, ignore_index=True)))
 
     folds_df = pd.DataFrame.from_records(records)
     param_cols = [col for col in folds_df.columns if col.startswith("param_")]
@@ -298,6 +339,34 @@ def evaluate_parameter_grid(
             "turnover": "mean_turnover",
         }
     )
+    n_trials = len(trial_results)
+    trial_sharpes = np.asarray(
+        [estimate_sharpe_moments(trial_returns)[0] for _, trial_returns in trial_results],
+        dtype=float,
+    )
+    finite_trial_sharpes = trial_sharpes[np.isfinite(trial_sharpes)]
+    trial_sharpe_variance = (
+        float(finite_trial_sharpes.var(ddof=1)) if finite_trial_sharpes.size > 1 else None
+    )
+    dsr_records: list[dict[str, Any]] = []
+    for params, trial_returns in trial_results:
+        dsr_record: dict[str, Any] = {f"param_{key}": value for key, value in params.items()}
+        dsr_record.update(
+            {
+                "deflated_sharpe_ratio": _sweep_deflated_sharpe(
+                    trial_returns,
+                    n_trials=n_trials,
+                    sharpe_variance=trial_sharpe_variance,
+                ),
+                "n_trials": n_trials,
+                "trial_sharpe_variance": trial_sharpe_variance,
+            }
+        )
+        dsr_records.append(dsr_record)
+    dsr_summary = pd.DataFrame.from_records(dsr_records).drop_duplicates(subset=param_cols)
+    summary = summary.merge(dsr_summary, on=param_cols, how="left", validate="one_to_one")
+    dsr_values = summary.pop("deflated_sharpe_ratio")
+    summary.insert(summary.columns.get_loc("mean_sharpe") + 1, "deflated_sharpe_ratio", dsr_values)
     summary.insert(0, "fold_id", None)
     return folds_df, summary
 
