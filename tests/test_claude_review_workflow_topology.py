@@ -14,7 +14,8 @@ def test_only_current_non_blocking_claude_review_lane_remains() -> None:
 
     text = current.read_text(encoding="utf-8")
     automatic_claude_reviewers = []
-    for workflow in WORKFLOWS.glob("*.yml"):
+    workflow_files = [*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")]
+    for workflow in sorted(workflow_files):
         workflow_text = workflow.read_text(encoding="utf-8")
         if "anthropics/claude-code-action" in workflow_text and re.search(
             r"^  pull_request:\s*$", workflow_text, re.MULTILINE
