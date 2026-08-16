@@ -25,6 +25,8 @@ RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "examples",
     REPO_ROOT / "tests",
     REPO_ROOT / "docs",
+    REPO_ROOT / ".github" / "workflows",
+    REPO_ROOT / "tools",
     REPO_ROOT / "Agents.md",
     REPO_ROOT / "AUDIT_REPORT.md",
     REPO_ROOT / "coverage-summary.md",
@@ -170,6 +172,20 @@ def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path) -> None:
     launcher.write_text("#!/usr/bin/env python\n", encoding="utf-8")
 
     assert launcher in _text_files(tmp_path)
+
+
+def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -> None:
+    """Automation and repository tools are active runtime entry points too."""
+
+    workflow = tmp_path / ".github" / "workflows" / "check.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("run: python -m trend.cli check\n", encoding="utf-8")
+    tool = tmp_path / "tools" / "coverage_guard.py"
+    tool.parent.mkdir()
+    tool.write_text("from trend import cli\n", encoding="utf-8")
+
+    assert workflow in _text_files(tmp_path / ".github" / "workflows")
+    assert tool in _text_files(tmp_path / "tools")
 
 
 @pytest.mark.parametrize(
