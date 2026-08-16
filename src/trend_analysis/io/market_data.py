@@ -172,7 +172,7 @@ def _missing_policy_fill_details(
             count=count,
         )
         for column, count in result.filled.items()
-        if count > 0
+        if count > 0 and column not in result.dropped_assets
     }
 
 

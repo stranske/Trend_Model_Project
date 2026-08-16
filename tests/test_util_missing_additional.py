@@ -187,6 +187,7 @@ def test_all_ingest_paths_share_missing_policy_contract() -> None:
             "A": [None, 0.02, 0.03],
             "B": [0.01, 0.02, 0.03],
             "C": [0.01, None, 0.03],
+            "D": [0.01, None, None],
         }
     )
     numeric = frame.set_index(pd.to_datetime(frame["Date"])).drop(columns="Date")
@@ -204,6 +205,7 @@ def test_all_ingest_paths_share_missing_policy_contract() -> None:
     )
 
     pd.testing.assert_frame_equal(validated.frame, expected)
-    assert diagnostics.dropped_assets == ("A",)
-    assert validated.metadata.missing_policy_dropped == ["A"]
+    assert diagnostics.dropped_assets == ("A", "D")
+    assert validated.metadata.missing_policy_dropped == ["A", "D"]
+    assert "D" not in validated.metadata.missing_policy_filled
     assert validated.frame.loc[pd.Timestamp("2024-02-29"), "C"] == 0.01

@@ -214,7 +214,9 @@ def apply_missing_policy(
             filled_counts[column_key] = filled_before - filled_after
             limit_used[column_key] = col_limit
             if series.isna().any():
-                if enforce_completeness:
+                has_alternative = len(cols) > 1 or result_columns
+                has_observation = bool(series.notna().any())
+                if enforce_completeness and (has_alternative or not has_observation):
                     dropped.append(column_key)
                     continue
             result_columns[col] = series

@@ -196,7 +196,7 @@ def test_missing_policy_ffill_with_limit() -> None:
     assert "FundB" in (meta["missing_policy_summary"] or "")
 
 
-def test_missing_policy_respects_limit() -> None:
+def test_single_series_missing_policy_preserves_partial_finite_fill() -> None:
     dates = pd.date_range("2024-01-01", periods=6, freq="D")
     df = pd.DataFrame(
         {
@@ -211,9 +211,11 @@ def test_missing_policy_respects_limit() -> None:
             ],
         }
     )
-    with pytest.raises(MarketDataValidationError) as exc:
-        validate_market_data(df, missing_policy="ffill", missing_limit=2)
-    assert "policy" in str(exc.value).lower()
+    validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
+
+    assert validated["FundA"].isna().sum() == 1
+    assert validated.metadata.missing_policy_dropped == []
+    assert validated.metadata.missing_policy_filled["FundA"].count == 2
 
 
 def test_missing_policy_per_column_overrides() -> None:
@@ -313,12 +315,12 @@ def test_apply_missing_policy_empty_frame_returns_defaults() -> None:
     assert summary.default_limit is None
 
 
-def test_apply_missing_policy_enforces_gap_limit() -> None:
+def test_apply_missing_policy_preserves_single_series_finite_fill() -> None:
     frame = pd.DataFrame({"A": [1.0, None, None, 2.0]})
     result, summary = apply_missing_policy(frame, policy="ffill", limit=1)
-    # Column should be dropped because gap exceeds limit
-    assert "A" not in result.columns
-    assert summary.dropped_assets == ("A",)
+    assert result["A"].isna().sum() == 1
+    assert summary.dropped_assets == ()
+    assert summary.filled == {"A": 1}
 
 
 def test_apply_missing_policy_zero_fill() -> None:
