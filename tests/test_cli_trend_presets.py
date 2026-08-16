@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from trend_analysis.cli import _apply_trend_spec_preset
+from trend.cli_helpers import _apply_trend_spec_preset
 from trend_analysis.config import load_config
 from trend_analysis.signal_presets import get_trend_spec_preset
 

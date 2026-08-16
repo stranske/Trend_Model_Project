@@ -34,7 +34,7 @@ def _warn() -> None:
 def main(argv: List[str] | None = None) -> int:
     _warn()
     try:
-        from trend_analysis.cli import main as trend_main
+        from trend.cli import main as trend_main
     except Exception as exc:  # pragma: no cover
         print(f"Failed to import trend CLI: {exc}", file=sys.stderr)
         return 1

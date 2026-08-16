@@ -4,9 +4,8 @@ The table below captures the current "soft" coverage snapshot gathered from runn
 
 | File | Coverage | Notes |
 | --- | --- | --- |
-| `src/trend_analysis/cli.py` | 0% | Command-line entry point remains untested. |
+| `src/trend/cli.py` | Canonical | Command-line entry point coverage is enforced by the final surface gate. |
 | `src/trend_analysis/presets.py` | 0% | Preset registry logic entirely uncovered. |
-| `src/trend_analysis/run_analysis.py` | 0% | Pipeline wrapper lacks coverage. |
 | `src/trend_analysis/signal_presets.py` | 0% | Signal preset definitions not exercised. |
 | `src/trend_analysis/multi_period/engine.py` | 0% | Multi-period engine core lacks tests. |
 | `src/trend_analysis/export/bundle.py` | 7% | Bundle exporter has minimal coverage. |
@@ -23,4 +22,3 @@ The table below captures the current "soft" coverage snapshot gathered from runn
 | `src/trend_analysis/config/model.py` | 23% | Config model definitions under-covered. |
 | `src/trend_analysis/signals.py` | 27% | Signal generation functions require tests. |
 | `src/trend_analysis/__init__.py` | 100% | Achieved full coverage via targeted tests. |
-

@@ -16,7 +16,7 @@
 | 90.3% | trend_analysis/multi_period/loaders.py |
 | 90.8% | trend_analysis/diagnostics.py |
 | 91.4% | trend_portfolio_app/data_schema.py |
-| 91.6% | trend_analysis/cli.py |
+| 91.6% | trend/cli.py |
 | 91.9% | trend_analysis/multi_period/engine.py |
 | 92.3% | trend_analysis/api_server/__init__.py |
 | 92.5% | trend_analysis/schedules.py |

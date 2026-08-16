@@ -795,7 +795,7 @@ New tab: **Monte Carlo Simulation**
 ### Milestone 6: Folds + UX
 - [x] Fold/vintage support (`src/trend_analysis/monte_carlo/folds.py`)
 - [x] Aggregation outputs + distributions (`src/trend_analysis/monte_carlo/aggregator.py`)
-- [x] CLI commands (`src/trend_analysis/cli.py`)
+- [x] CLI commands (`src/trend/cli.py`)
 - [x] Streamlit MC tab (`streamlit_app/pages/5_Monte_Carlo.py`)
 
 ---

@@ -14,10 +14,7 @@ ALLOWED_INTERNAL_PREFIXES = {REPO_ROOT / name for name in (".venv", "venv", ".to
 
 joblib = pytest.importorskip("joblib")
 
-ENTRYPOINT_MODULES = (
-    "trend.cli",
-    "trend_analysis.cli",
-)
+ENTRYPOINT_MODULES = ("trend.cli",)
 
 
 def _is_under(path: Path, root: Path) -> bool:

@@ -35,8 +35,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 try:
     import trend_analysis as ta
+    from trend import cli
     from trend_analysis import (
-        cli,
         export,
         gui,
         metrics,
@@ -2162,14 +2162,14 @@ _check_module_exports()
 def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
     subprocess.run(
-        [sys.executable, "-m", "trend_analysis.cli", "--help"],
+        [sys.executable, "-m", "trend.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
     )
     subprocess.run(
-        [sys.executable, "-m", "trend_analysis.cli", "--help"],
+        [sys.executable, "-m", "trend.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2261,7 +2261,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",
@@ -2275,7 +2275,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",
@@ -2289,7 +2289,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",

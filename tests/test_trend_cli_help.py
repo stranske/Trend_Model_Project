@@ -67,4 +67,3 @@ def test_cli_quickstart_documents_each_command_on_its_implemented_surface() -> N
     assert "trend report -c config/trend.toml" in quickstart
     assert "trend run -c config/trend.toml -o" not in quickstart
     assert "trend mc list" in quickstart
-    assert "python -m trend_analysis.cli mc list" not in quickstart

@@ -11,7 +11,7 @@
   5. `src/trend_analysis/config/model.py` — 44 %
   6. `src/trend_analysis/config/models.py` — 46 %
   7. `src/trend_analysis/data.py` — 29 %
-  8. `src/trend_analysis/cli.py` — 10 %
+  8. `src/trend/cli.py` — canonical command surface
   9. `src/trend_analysis/regimes.py` — 19 %
   10. `src/trend_analysis/core/metric_cache.py` — 36 %
 

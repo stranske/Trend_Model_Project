@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from trend_analysis import cli
+from trend import cli
 from trend_analysis.constants import (
     DEFAULT_OUTPUT_DIRECTORY,
     DEFAULT_OUTPUT_FORMATS,

@@ -63,13 +63,13 @@ def test_spec_proxy_restores_module_registration(load_trend_analysis):
 
 def test_lazy_loader_imports_module_on_demand(load_trend_analysis):
     module = load_trend_analysis()
-    sys.modules.pop("trend_analysis.cli", None)
-    module.__dict__.pop("cli", None)
+    sys.modules.pop("trend_analysis.proxy", None)
+    module.__dict__.pop("proxy", None)
 
-    lazy_loaded = module.cli
+    lazy_loaded = module.proxy
 
-    assert lazy_loaded is sys.modules["trend_analysis.cli"]
-    assert module.__dict__["cli"] is lazy_loaded
+    assert lazy_loaded is sys.modules["trend_analysis.proxy"]
+    assert module.__dict__["proxy"] is lazy_loaded
 
 
 def test_lazy_loader_rejects_unknown_attribute(load_trend_analysis):

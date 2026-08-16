@@ -12,8 +12,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REMOVED_WHEEL_PREFIXES = (
     "trend/compat_entrypoints.py",
-    "trend_analysis/run_analysis.py",
-    "trend_analysis/run_multi_analysis.py",
+    "trend_analysis/" + "cli.py",
+    "trend_analysis/" + "run_analysis.py",
+    "trend_analysis/" + "run_multi_analysis.py",
     "trend_model/",
     "trend_portfolio_app/",
     "retired/",

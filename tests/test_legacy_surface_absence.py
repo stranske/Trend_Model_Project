@@ -17,17 +17,30 @@ ARCHIVE_ROOTS = (
     REPO_ROOT / "docs" / "keepalive",
     REPO_ROOT / "notebooks" / "old",
 )
+TEXT_SUFFIXES = {".cfg", ".ini", ".md", ".py", ".rst", ".sh", ".toml", ".txt", ".yaml", ".yml"}
 RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "src",
     REPO_ROOT / "streamlit_app",
     REPO_ROOT / "scripts",
+    REPO_ROOT / "examples",
+    REPO_ROOT / "tests",
     REPO_ROOT / "docs",
+    REPO_ROOT / "Agents.md",
+    REPO_ROOT / "AUDIT_REPORT.md",
+    REPO_ROOT / "coverage-summary.md",
+    REPO_ROOT / "README.md",
     REPO_ROOT / "pyproject.toml",
 )
 FORBIDDEN_RUNTIME_IMPORTS = (
     "trend." + "compat_entrypoints",
+    "trend_analysis." + "cli",
     "trend_analysis." + "run_analysis",
     "trend_analysis." + "run_multi_analysis",
+)
+FORBIDDEN_RUNTIME_REFERENCES = FORBIDDEN_RUNTIME_IMPORTS + (
+    "trend_analysis/" + "cli.py",
+    "trend_analysis/" + "run_analysis.py",
+    "trend_analysis/" + "run_multi_analysis.py",
 )
 FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
@@ -35,8 +48,9 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
 )
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
-    "src/trend_analysis/run_analysis.py",
-    "src/trend_analysis/run_multi_analysis.py",
+    "src/trend_analysis/" + "cli.py",
+    "src/trend_analysis/" + "run_analysis.py",
+    "src/trend_analysis/" + "run_multi_analysis.py",
     "src/trend_model",
     "src/trend_portfolio_app",
     "retired/trend_portfolio_app",
@@ -57,13 +71,13 @@ def _text_files(root: Path) -> list[Path]:
         path
         for path in root.rglob("*")
         if path.is_file()
+        and path.suffix.lower() in TEXT_SUFFIXES
         and "__pycache__" not in path.parts
-        and path.suffix != ".pyc"
         and not _is_archived(path)
     ]
 
 
-def test_removed_runtime_paths_do_not_return() -> None:
+def test_removed_runtime_surfaces_do_not_return() -> None:
     """Retired packages, apps, and scripts must stay absent from the checkout."""
 
     returned = [path for path in REMOVED_PATHS if (REPO_ROOT / path).exists()]
@@ -77,9 +91,9 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
     for root in RUNTIME_TEXT_ROOTS:
         for path in _text_files(root):
             text = path.read_text(encoding="utf-8", errors="ignore")
-            for module in FORBIDDEN_RUNTIME_IMPORTS:
-                if module in text:
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
+            for reference in FORBIDDEN_RUNTIME_REFERENCES:
+                if reference in text:
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 
@@ -145,7 +159,7 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
         for forbidden in FORBIDDEN_RUNTIME_IMPORTS
         if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
     ]
-    assert "trend.compat_entrypoints" in offenders
+    assert "trend." + "compat_entrypoints" in offenders
 
 
 @pytest.mark.parametrize(

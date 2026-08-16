@@ -4,26 +4,13 @@ Purpose: map the current YAML configuration flow, validation, and runtime entryp
 
 ## Config Load Paths (file -> parse -> validate -> use)
 
-### CLI (trend-model)
-- Entry: `src/trend_analysis/cli.py` (`trend-model run`).
-- Load: `load_config(args.config)` from `src/trend_analysis/config/models.py`.
-  - Reads YAML via `yaml.safe_load`, validates required top-level dict sections, then calls `validate_trend_config` (Pydantic-backed) when available.
-  - Returns `Config` (Pydantic or fallback) object.
-- Use: `run_simulation(cfg, df)` in `src/trend_analysis/api.py`, which dispatches to pipeline logic (`trend_analysis/pipeline_entrypoints.py` and `trend_analysis/pipeline.py`).
-
-### CLI (trend)
+### CLI (`trend`)
 - Entry: `src/trend/cli.py` (`trend run`).
 - Load:
   - `_load_configuration` calls `load_core_config(cfg_path)` from `src/trend/config_schema.py` for lightweight validation.
   - Then calls `load_config(cfg_path)` from `src/trend_analysis/config/models.py` for full config validation and object creation.
   - `ensure_run_spec` from `src/trend/spec.py` attaches run spec metadata.
 - Use: `_run_pipeline` in `src/trend/cli.py`, which calls `run_simulation(cfg, returns)` in `src/trend_analysis/api.py`.
-
-### CLI (trend-analysis-multi)
-- Historical compatibility note: the removed multi-analysis runner is no longer an entry point; use `trend mc` for the supported Monte Carlo workflow.
-- Load: `load(args.config)` from `src/trend_analysis/config/models.py`.
-  - Reads YAML via `yaml.safe_load`, validates required sections, merges legacy `output` into `export`, then runs `validate_trend_config` when available.
-- Use: `trend_analysis.multi_period.run_from_config(cfg)` to run the multi-period engine.
 
 ### Streamlit app
 - Entry: `streamlit_app/app.py` (launched by `trend-model gui` or `trend app`).

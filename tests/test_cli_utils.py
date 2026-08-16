@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from trend_analysis import cli
+from trend.cli_helpers import _apply_universe_mask
+from trend.cli_support import extract_cache_stats
 
 
 def test_extract_cache_stats_returns_last_snapshot():
@@ -20,7 +21,7 @@ def test_extract_cache_stats_returns_last_snapshot():
         "irrelevant": [pd.Series([1, 2, 3])],
     }
 
-    result = cli._extract_cache_stats(payload)
+    result = extract_cache_stats(payload)
 
     assert result == {"entries": 5, "hits": 6, "misses": 7, "incremental_updates": 8}
 
@@ -40,7 +41,7 @@ def test_extract_cache_stats_walks_nested_sequences():
         ],
     )
 
-    result = cli._extract_cache_stats(payload)
+    result = extract_cache_stats(payload)
 
     assert result == {"entries": 9, "hits": 10, "misses": 11, "incremental_updates": 12}
 
@@ -50,7 +51,7 @@ def test_apply_universe_mask_with_missing_date_column_raises():
     mask = pd.DataFrame(index=pd.RangeIndex(2), columns=["A"], data=True)
 
     with pytest.raises(KeyError):
-        cli._apply_universe_mask(df, mask, date_column="date")
+        _apply_universe_mask(df, mask, date_column="date")
 
 
 def test_apply_universe_mask_applies_membership_and_preserves_dates():
@@ -69,7 +70,7 @@ def test_apply_universe_mask_applies_membership_and_preserves_dates():
         index=df["date"],
     )
 
-    masked = cli._apply_universe_mask(df, mask, date_column="date")
+    masked = _apply_universe_mask(df, mask, date_column="date")
 
     assert masked.loc[0, "A"] == 1.0
     assert pd.isna(masked.loc[1, "A"])
@@ -87,4 +88,4 @@ def test_apply_universe_mask_raises_for_missing_members():
     mask = pd.DataFrame({"B": [True]}, index=df["date"])
 
     with pytest.raises(KeyError):
-        cli._apply_universe_mask(df, mask, date_column="date")
+        _apply_universe_mask(df, mask, date_column="date")

@@ -1,68 +1,8 @@
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.cli import (
-    _apply_universe_mask,
-    _extract_cache_stats,
-    _resolve_artifact_paths,
-)
-
-
-def test_resolve_artifact_paths_deduplicates_and_normalises_excel_alias():
-    resolved = _resolve_artifact_paths(
-        Path("/tmp/out"),
-        "result",
-        ["summary", "details"],
-        ["csv", "excel", "json", "CSV"],
-    )
-    assert resolved == [
-        Path("/tmp/out/result_summary.csv"),
-        Path("/tmp/out/result_details.csv"),
-        Path("/tmp/out/result.xlsx"),
-        Path("/tmp/out/result_summary.json"),
-        Path("/tmp/out/result_details.json"),
-    ]
-
-
-def test_extract_cache_stats_returns_last_integer_like_snapshot():
-    payload = {
-        "meta": {"hits": 1.0, "entries": 2, "misses": 3, "incremental_updates": 0},
-        "nested": [
-            {"entries": 5, "hits": 4.2, "misses": 1, "incremental_updates": 3},
-            np.array([1, 2, 3]),
-            {
-                "entries": 10,
-                "hits": 9,
-                "misses": 1,
-                "incremental_updates": 7,
-                "extra": "ignored",
-            },
-        ],
-    }
-
-    assert _extract_cache_stats(payload) == {
-        "entries": 10,
-        "hits": 9,
-        "misses": 1,
-        "incremental_updates": 7,
-    }
-
-
-def test_extract_cache_stats_ignores_invalid_candidates():
-    class CustomSized:
-        def __len__(self):
-            return 3
-
-    payload = [
-        {"entries": "a", "hits": 1, "misses": 1, "incremental_updates": 1},
-        pd.DataFrame({"a": [1, 2]}),
-        CustomSized(),
-    ]
-
-    assert _extract_cache_stats(payload) is None
+from trend.cli_helpers import _apply_universe_mask
 
 
 def test_apply_universe_mask_respects_membership_and_date_column_case_insensitive():

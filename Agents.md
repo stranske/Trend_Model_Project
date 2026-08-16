@@ -73,7 +73,7 @@ The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
 | Export / I/O | `trend_analysis/export/` | root-level `exports.py` |
 | Domain kernels | `trend_analysis/core/` | standalone `core/` directory |
 | Pipeline orchestration | `trend_analysis/pipeline.py` | duplicated control flow |
-| CLI entry-point | `trend_analysis/cli.py` | bespoke `scripts/*.py` |
+| CLI entry-point | `trend/cli.py` | bespoke `scripts/*.py` |
 | Config | `config/defaults.yml` via `trend_analysis.config.load()` | hard-coded constants |
 | Tests | `tests/` (pytest with coverage gate) | — |
 
