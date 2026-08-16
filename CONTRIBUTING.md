@@ -47,23 +47,17 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
   issue as the canonical health dashboards; rerun Gate when you need a fresh
   post-summary update.
   if you need either refreshed.
-- **Agent automation** – The
-  [`agents-70-orchestrator.yml`](.github/workflows/agents-70-orchestrator.yml)
-  workflow is the single dispatch point for scheduled Codex automation and the
-  preferred manual entry path. It invokes
-  [`reusable-16-agents.yml`](.github/workflows/reusable-16-agents.yml) directly
-  to run readiness checks, watchdogs, and Codex bootstrapping. Applying the
-  `agent:codex` label flags an issue for bootstrap handling in the next
-  run; remove the label to opt out before the dispatcher cycles. Keep
-  downstream automation pointed at the orchestrator so every entry route shares
-  the same guardrails and permissions surface.
+- **Agent automation** – Apply `agent:codex` to an issue or manually dispatch
+  [`agents-issue-intake.yml`](.github/workflows/agents-issue-intake.yml) in
+  `agent_bridge` mode. The intake calls the shared implementation in
+  `stranske/Workflows`; the local Agents 71-73 belt handles queued delivery.
+  Do not restore the retired consumer-side Agents 70 wrapper.
 
 ### Manual workflow_dispatch quickstart
 
 - **Maintenance helper (Maint 45 Cosmetic Repair)** – Actions → **Maint 45 Cosmetic Repair** → **Run workflow**. Choose the base branch, interpreter, and whether to run in dry-run mode using the provided inputs before the workflow hydrates the cosmetic repair script.
 - **Legacy workflow disable (Maint 47)** – Actions → **Maint 47 Disable Legacy Workflows** → **Run workflow**. Toggle `dry_run` to preview and supply optional `extra_allowlist` entries when archiving workflows so the Actions UI stays aligned with the on-disk roster.
-- **Agent automation (Agents 70 Orchestrator)** – Actions → **Agents 70 Orchestrator** → **Run workflow**. Supply booleans as strings (`true`/`false`) for readiness, watchdog, bootstrap, verification, and keepalive toggles or pass an advanced payload through `options_json` when you need to flip several paths at once.
-- **Verify agent assignment (Agents 64)** – Actions → **Agents 64 Verify Agent Assignment** → **Run workflow**. Provide the `issue_number` you want to audit and optional comma-separated `valid_assignees`; the workflow writes its status table to the Actions run summary and returns JSON outputs for downstream automation.
+- **Agent automation** – Actions → **Agents Issue Intake** → **Run workflow**. Choose `agent_bridge`, supply the issue number, and leave the bridge agent as `codex`. Automation PRs are always ready for review; dependency and staging state belongs in labels and the PR body.
 
 ### Health self-check run summaries
 

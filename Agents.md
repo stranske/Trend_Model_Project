@@ -41,21 +41,20 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 
 ## Automation Entry Points
 
-### Agents 70 Orchestrator
-- **File**: `.github/workflows/agents-70-orchestrator.yml`
-- **Role**: Single automation front door for all agent operations
-- **Triggers**: 20-minute schedule sweep plus manual `workflow_dispatch`
-
-### Agents 63 Issue Intake
-- **File**: `.github/workflows/agents-63-issue-intake.yml`
+### Agents Issue Intake
+- **File**: `.github/workflows/agents-issue-intake.yml`
 - **Role**: Bootstrap Codex PRs on `agent:codex` labeled issues
 - **Triggers**: Issue events (`opened`, `labeled`, `reopened`) plus manual dispatch
 
-### Agents 64 Verify Agent Assignment
-- **File**: `.github/workflows/agents-64-verify-agent-assignment.yml`
-- **Role**: Validates agent assignment before orchestrator proceeds
+### Agents 71-73 Codex Belt
+- **Files**: `.github/workflows/agents-71-codex-belt-dispatcher.yml`,
+  `.github/workflows/agents-72-codex-belt-worker.yml`, and
+  `.github/workflows/agents-73-codex-belt-conveyor.yml`
+- **Role**: Select queued issues, create or refresh ready-for-review PRs, and
+  advance exact-head deliveries after Gate
 
-Legacy consumer wrappers were retired. See [docs/archive/ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md).
+The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
+`stranske/Workflows`; do not restore a local replacement.
 
 ---
 
