@@ -176,6 +176,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "docs/prompts/library.md",
         "docs/ci_reuse.md",
         "docs/SETUP_CHECKLIST.md",
+        "NEXT_STEPS_MONITORING.md",
         ".github/workflows/agents-auto-pilot.yml",
     )
 
@@ -212,6 +213,24 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
             stale.append((relative, matches))
 
     assert not stale, f"retired consumer automation remains in: {stale}"
+
+
+def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
+    workflow = (ROOT / ".github/workflows/agents-81-gate-followups.yml").read_text(encoding="utf-8")
+    labels = (ROOT / "docs/LABELS.md").read_text(encoding="utf-8")
+    monitoring = (ROOT / "NEXT_STEPS_MONITORING.md").read_text(encoding="utf-8")
+
+    assert "reusable-codex-run.yml@main" in workflow
+    assert "reusable-claude-run.yml@main" in workflow
+    assert "reusable-cursor-run.yml@main" not in workflow
+    assert "reusable-gemini-run.yml@main" not in workflow
+    assert "no Cursor runner job" in labels
+    assert "no Gemini runner job" in labels
+
+    assert "INPUT_FORCE_RETRY" in workflow
+    assert "github.event.inputs.force_retry" in workflow
+    assert "applying it alone does not set" in monitoring
+    assert "-f force_retry=true" in monitoring
 
     retired_dispatch_targets = (
         "agents-keepalive-loop.yml",

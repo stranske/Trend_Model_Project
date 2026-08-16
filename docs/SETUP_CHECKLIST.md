@@ -170,7 +170,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 | Label | Color | Description | Required For |
 |-------|-------|-------------|--------------|
 | `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
-| `agent:retry` | `#D93F0B` | Retries keepalive loop for agent PRs | Keepalive recovery |
+| `agent:retry` | `#D93F0B` | Optional recovery-request marker; does not trigger a retry by itself | Operator visibility |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
 | `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
 | `agents:auto-pilot` | `#0052CC` | Triggers end-to-end auto-pilot pipeline | Issue automation |
@@ -212,7 +212,7 @@ REPO="stranske/<your-repo>"
 
 # Create required labels
 gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
-gh label create "agent:retry" --color "D93F0B" --description "Retries keepalive loop" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
+gh label create "agent:retry" --color "D93F0B" --description "Marks a requested keepalive recovery" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
 gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
 gh label create "agents:auto-pilot" --color "0052CC" --description "Runs full auto-pilot issue pipeline" --repo "$REPO" 2>/dev/null || echo "agents:auto-pilot exists"
