@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 import pandas as pd
 
 from streamlit_app.components.analysis_runner import ModelSettings
+from streamlit_app.components.universe_membership_input import membership_cache_fingerprint
 from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
@@ -388,7 +389,13 @@ def _analysis_run_key(
     sanitized_funds = [c for c in applied_funds if c not in prohibited]
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
+    membership_hash = hashlib.sha256(
+        membership_cache_fingerprint(state).encode("utf-8")
+    ).hexdigest()[:12]
+    return (
+        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:"
+        f"{membership_hash}:{model_blob}"
+    )
 
 
 def _store_demo_result_state(
