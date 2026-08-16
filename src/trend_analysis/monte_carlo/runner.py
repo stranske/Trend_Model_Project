@@ -42,13 +42,9 @@ from trend_analysis.api import run_simulation
 from trend_analysis.config.models import Config, ConfigType
 from trend_analysis.constants import NUMERICAL_TOLERANCE_LOW
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
-from trend_analysis.io.market_data import (
-    MarketDataMode,
-    load_market_data_csv,
-    load_market_data_parquet,
-)
 from trend_analysis.monte_carlo.config import resolve_risk_free_source
 from trend_analysis.monte_carlo.costs import CostProcess, CostProcessOutput
+from trend_analysis.monte_carlo.history import load_price_history
 from trend_analysis.monte_carlo.models import (
     RegimeConditionedBootstrapModel,
     StationaryBootstrapModel,
@@ -1101,16 +1097,7 @@ class MonteCarloRunner:
         raise ValueError("price_history must be provided or data.csv_path must be configured")
 
     def _load_history_from_path(self, path: Path) -> pd.DataFrame:
-        suffix = path.suffix.lower()
-        if suffix == ".parquet":
-            validated = load_market_data_parquet(str(path))
-        else:
-            validated = load_market_data_csv(str(path))
-        frame = validated.frame.copy()
-        mode = validated.metadata.mode
-        if mode == MarketDataMode.RETURNS:
-            return self._returns_to_prices(frame)
-        return frame
+        return load_price_history(path)
 
     def _returns_to_prices(self, returns: pd.DataFrame) -> pd.DataFrame:
         if returns.empty:

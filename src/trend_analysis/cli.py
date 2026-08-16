@@ -39,16 +39,7 @@ from .config.ui_mapping import build_config_from_ui_state
 from .constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from .diagnostics import coerce_pipeline_result
 from .identity import IdentityMap
-from .io.market_data import (
-    MarketDataMode,
-    MarketDataValidationError,
-)
-from .io.market_data import (
-    load_market_data_csv as load_mc_market_data_csv,
-)
-from .io.market_data import (
-    load_market_data_parquet as load_mc_market_data_parquet,
-)
+from .io.market_data import MarketDataValidationError
 from .io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from .logging_setup import setup_logging
 from .monte_carlo.registry import (
@@ -57,6 +48,7 @@ from .monte_carlo.registry import (
     load_scenario,
     load_scenario_from_path,
 )
+from .monte_carlo.history import load_price_history
 from .monte_carlo.results import MonteCarloResults, export_results
 from .monte_carlo.runner import MonteCarloRunner
 from .monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
@@ -1350,21 +1342,6 @@ def _resolve_mc_output_dir(
     return Path(fallback)
 
 
-def _load_mc_price_history(path: Path) -> pd.DataFrame:
-    if path.suffix.lower() == ".parquet":
-        validated = load_mc_market_data_parquet(str(path))
-    else:
-        validated = load_mc_market_data_csv(str(path))
-    frame = validated.frame.copy()
-    if validated.metadata.mode == MarketDataMode.RETURNS:
-        if frame.empty:
-            raise ValueError("returns data must not be empty")
-        if (frame <= -1.0).any().any():
-            raise ValueError("returns contain values <= -1; cannot convert to prices")
-        return (1.0 + frame).cumprod() * 100.0
-    return frame
-
-
 def _validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
     errors: list[str] = []
     runner: MonteCarloRunner | None = None
@@ -1980,8 +1957,8 @@ def _handle_mc_command(args: argparse.Namespace) -> int:
         price_history = None
         if data_path:
             try:
-                price_history = _load_mc_price_history(Path(data_path))
-            except (MarketDataValidationError, ValueError) as exc:
+                price_history = load_price_history(Path(data_path))
+            except (MarketDataValidationError, OSError, ValueError) as exc:
                 print(f"Scenario run failed: {exc}", file=sys.stderr)
                 return 1
 

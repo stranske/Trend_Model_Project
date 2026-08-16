@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -433,80 +432,3 @@ def test_infer_mode_reports_ambiguous_columns() -> None:
         market_data._infer_mode(df)
 
     assert "Could not classify columns" in str(exc.value)
-
-
-def test_load_market_data_csv_success(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    def fake_read_csv(path: str) -> pd.DataFrame:
-        captured["path"] = path
-        return pd.DataFrame({"Date": ["2024-01-31"], "FundA": [0.1]})
-
-    def fake_validate(frame: pd.DataFrame, *, source: str | None = None):
-        captured["source"] = source
-        captured["frame_columns"] = list(frame.columns)
-        return SimpleNamespace(result="ok")
-
-    monkeypatch.setattr(market_data.pd, "read_csv", fake_read_csv)
-    monkeypatch.setattr(market_data, "validate_market_data", fake_validate)
-
-    result = market_data.load_market_data_csv("/tmp/data.csv")
-
-    assert result.result == "ok"
-    assert captured == {
-        "path": "/tmp/data.csv",
-        "source": "/tmp/data.csv",
-        "frame_columns": ["Date", "FundA"],
-    }
-
-
-def test_load_market_data_csv_error_paths(monkeypatch) -> None:
-    def raise_empty(*args: object, **kwargs: object) -> pd.DataFrame:
-        raise pd.errors.EmptyDataError("empty")
-
-    monkeypatch.setattr(market_data.pd, "read_csv", raise_empty)
-
-    with pytest.raises(market_data.MarketDataValidationError) as exc:
-        market_data.load_market_data_csv("file.csv")
-    assert "File contains no data" in str(exc.value)
-
-    def raise_parser(*args: object, **kwargs: object) -> pd.DataFrame:
-        raise pd.errors.ParserError("parse", "details")
-
-    monkeypatch.setattr(market_data.pd, "read_csv", raise_parser)
-
-    with pytest.raises(market_data.MarketDataValidationError) as exc:
-        market_data.load_market_data_csv("file.csv")
-    assert "Failed to parse file" in str(exc.value)
-
-
-def test_load_market_data_parquet_success(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    def fake_read_parquet(path: str) -> pd.DataFrame:
-        captured["path"] = path
-        return pd.DataFrame({"Date": ["2024-01-31"], "FundA": [0.1]})
-
-    def fake_validate(frame: pd.DataFrame, *, source: str | None = None):
-        captured["source"] = source
-        return "validated"
-
-    monkeypatch.setattr(market_data.pd, "read_parquet", fake_read_parquet)
-    monkeypatch.setattr(market_data, "validate_market_data", fake_validate)
-
-    result = market_data.load_market_data_parquet("/tmp/data.parquet")
-
-    assert result == "validated"
-    assert captured == {"path": "/tmp/data.parquet", "source": "/tmp/data.parquet"}
-
-
-def test_load_market_data_parquet_permission_error(monkeypatch) -> None:
-    def raise_permission(*args: object, **kwargs: object) -> pd.DataFrame:
-        raise PermissionError("denied")
-
-    monkeypatch.setattr(market_data.pd, "read_parquet", raise_permission)
-
-    with pytest.raises(market_data.MarketDataValidationError) as exc:
-        market_data.load_market_data_parquet("/tmp/data.parquet")
-
-    assert "Permission denied" in str(exc.value)

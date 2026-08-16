@@ -29,6 +29,10 @@ FORBIDDEN_RUNTIME_IMPORTS = (
     "trend_analysis." + "run_analysis",
     "trend_analysis." + "run_multi_analysis",
 )
+FORBIDDEN_RUNTIME_SYMBOLS = (
+    "load_market_data_" + "csv",
+    "load_market_data_" + "parquet",
+)
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/run_analysis.py",
@@ -49,7 +53,14 @@ def _is_archived(path: Path) -> bool:
 def _text_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root]
-    return [path for path in root.rglob("*") if path.is_file() and not _is_archived(path)]
+    return [
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and path.suffix != ".pyc"
+        and not _is_archived(path)
+    ]
 
 
 def test_removed_runtime_paths_do_not_return() -> None:
@@ -71,6 +82,20 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
+
+
+def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
+    """Canonical data loading must not be shadowed by compatibility shims."""
+
+    offenders: list[str] = []
+    for root in RUNTIME_TEXT_ROOTS:
+        for path in _text_files(root):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for symbol in FORBIDDEN_RUNTIME_SYMBOLS:
+                if symbol in text:
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {symbol}")
+
+    assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(offenders)
 
 
 def test_tests_do_not_import_retired_runtime_modules() -> None:

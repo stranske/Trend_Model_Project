@@ -962,42 +962,6 @@ def validate_market_data(
     return ValidatedMarketData(frame=validated, metadata=metadata)
 
 
-def load_market_data_csv(path: str) -> ValidatedMarketData:
-    """Load a CSV file and validate its contents."""
-
-    try:
-        frame = pd.read_csv(path)
-    except FileNotFoundError as exc:  # pragma: no cover - defensive guard
-        issues = [f"File not found: {path}"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-    except PermissionError as exc:  # pragma: no cover - defensive guard
-        issues = [f"Permission denied when reading: {path}"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-    except pd.errors.EmptyDataError as exc:
-        issues = [f"File contains no data: {path}"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-    except pd.errors.ParserError as exc:
-        issues = [f"Failed to parse file '{path}'"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-
-    return validate_market_data(frame, source=path)
-
-
-def load_market_data_parquet(path: str) -> ValidatedMarketData:
-    """Load a Parquet file and validate its contents."""
-
-    try:
-        frame = pd.read_parquet(path)
-    except FileNotFoundError as exc:  # pragma: no cover - defensive guard
-        issues = [f"File not found: {path}"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-    except PermissionError as exc:  # pragma: no cover - defensive guard
-        issues = [f"Permission denied when reading: {path}"]
-        raise MarketDataValidationError(_format_issues(issues), issues) from exc
-
-    return validate_market_data(frame, source=path)
-
-
 def attach_metadata(frame: pd.DataFrame, metadata: MarketDataMetadata) -> pd.DataFrame:
     """Attach metadata to a DataFrame in-place and return it."""
 
