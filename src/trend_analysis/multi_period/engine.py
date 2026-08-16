@@ -2577,6 +2577,19 @@ def _run_threshold_hold_multi_periods(
         keep = ordered[:-bottom_k]
         return filtered.loc[keep]
 
+    def _threshold_ranked_funds(score_frame: pd.DataFrame) -> list[str]:
+        if inclusion_approach != "threshold":
+            return [str(ix) for ix in score_frame.index]
+        eligible_frame = _filter_entry_frame(score_frame)
+        scores, ascending = _rank_scores_for_bottom_k(eligible_frame)
+        if scores.empty:
+            return []
+        mask = scores <= rank_threshold if ascending else scores >= rank_threshold
+        return [str(ix) for ix in scores[mask].sort_values(ascending=ascending).index]
+
+    def _threshold_eligible_funds(score_frame: pd.DataFrame) -> set[str]:
+        return set(_threshold_ranked_funds(score_frame))
+
     def _filter_entry_candidates(candidates: list[str], score_frame: pd.DataFrame) -> list[str]:
         if not candidates:
             return candidates
@@ -2584,7 +2597,31 @@ def _run_threshold_hold_multi_periods(
         if eligible_frame.empty:
             return []
         eligible = {str(ix) for ix in eligible_frame.index}
+        eligible &= _threshold_eligible_funds(score_frame)
         return [str(ix) for ix in candidates if str(ix) in eligible]
+
+    def _threshold_selection_shortfall(
+        score_frame: pd.DataFrame,
+        *,
+        selected_count: int,
+        seed_period: bool,
+    ) -> dict[str, object] | None:
+        if inclusion_approach != "threshold":
+            return None
+        target_funds: int | None = None
+        if seed_period and target_n_is_explicit:
+            target_funds = target_n if max_funds <= 0 else min(target_n, max_funds)
+        requested_funds = max(min_funds, target_funds or 0)
+        if requested_funds <= selected_count:
+            return None
+        return {
+            "reason": "threshold_hard_gate",
+            "threshold": rank_threshold,
+            "eligible_funds": len(_threshold_eligible_funds(score_frame)),
+            "selected_funds": selected_count,
+            "target_funds": target_funds,
+            "min_funds": min_funds,
+        }
 
     def _hard_exit_forced(holdings: Iterable[str], score_frame: pd.DataFrame) -> set[str]:
         if z_exit_hard is None or "zscore" not in score_frame.columns:
@@ -2747,6 +2784,7 @@ def _run_threshold_hold_multi_periods(
             return weighting.weight(sf.loc[holdings], date)
 
     for pt in periods:
+        seed_period = prev_weights is None or prev_weights.empty
         period_setup = _setup_period(
             pt,
             cooldown_periods=cooldown_periods,
@@ -3051,9 +3089,10 @@ def _run_threshold_hold_multi_periods(
                         rank_transform: str,
                         inclusion_approach: str,
                         rank_pct: float,
-                        rank_threshold: float,
                         target_n: int,
                     ) -> list[str]:
+                        if inclusion_approach == "threshold":
+                            return _threshold_ranked_funds(score_frame)
                         # Compute blended score if configured, else use single metric
                         if rank_score_by == "blended" and rank_blended_weights:
                             # Normalize weights
@@ -3099,22 +3138,6 @@ def _run_threshold_hold_multi_periods(
                             # Select top X% of funds
                             k = max(1, int(round(len(all_candidates) * rank_pct)))
                             holdings = all_candidates[:k]
-                        elif inclusion_approach == "threshold":
-                            # Select funds above threshold
-                            if rank_transform == "zscore":
-                                # Use z-score threshold
-                                mask = (
-                                    sorted_scores >= rank_threshold
-                                    if not ascending
-                                    else sorted_scores <= rank_threshold
-                                )
-                            else:
-                                mask = (
-                                    sorted_scores >= rank_threshold
-                                    if not ascending
-                                    else sorted_scores <= rank_threshold
-                                )
-                            holdings = list(sorted_scores[mask].index)
                         else:
                             # Fallback to taking target_n funds
                             holdings = all_candidates[:target_n]
@@ -3129,7 +3152,6 @@ def _run_threshold_hold_multi_periods(
                         rank_transform=rank_transform,
                         inclusion_approach=inclusion_approach,
                         rank_pct=rank_pct,
-                        rank_threshold=rank_threshold,
                         target_n=target_n,
                     )
                     # Historical behavior: weight() is invoked during seeding
@@ -3384,6 +3406,14 @@ def _run_threshold_hold_multi_periods(
                     for h in list(rebased.index)
                     if h in sf.index and h in out_df.columns and out_df[h].notna().any()
                 ]
+
+                if inclusion_approach == "threshold":
+                    threshold_eligible = _threshold_eligible_funds(sf)
+                    proposed_holdings = [
+                        manager
+                        for manager in proposed_holdings
+                        if manager in before_reb or manager in threshold_eligible
+                    ]
 
             if hard_exit_forced:
                 proposed_holdings = [m for m in proposed_holdings if m not in hard_exit_forced]
@@ -3679,8 +3709,13 @@ def _run_threshold_hold_multi_periods(
                 proposed_holdings = kept_existing + admitted
 
             if len(proposed_holdings) == 0:  # guard: reseed if empty
-                selected, _ = selector.select(_filter_entry_frame(sf))
-                proposed_holdings = [str(x) for x in selected.index.tolist()]
+                if inclusion_approach == "threshold":
+                    proposed_holdings = _threshold_ranked_funds(sf)
+                    if target_n_is_explicit:
+                        proposed_holdings = proposed_holdings[:target_n]
+                else:
+                    selected, _ = selector.select(_filter_entry_frame(sf))
+                    proposed_holdings = [str(x) for x in selected.index.tolist()]
                 if cooldown_periods > 0 and cooldown_book:
                     filtered = [mgr for mgr in proposed_holdings if mgr not in cooldown_book]
                     if filtered:
@@ -4020,6 +4055,71 @@ def _run_threshold_hold_multi_periods(
         custom = turnover_cost.custom_weights
         eps = 1e-12
 
+        if inclusion_approach == "threshold" and not holdings:
+            threshold_shortfall = _threshold_selection_shortfall(
+                sf,
+                selected_count=0,
+                seed_period=seed_period,
+            )
+            if threshold_shortfall is not None:
+                logger.warning(
+                    "Threshold hard gate left period %s/%s below the requested size: %s",
+                    pt.in_start,
+                    pt.out_start,
+                    threshold_shortfall,
+                )
+            if prev_final_weights is None:
+                period_turnover = 0.0
+            else:
+                period_turnover = 0.5 * float(prev_final_weights.abs().sum())
+            period_cost = _period_turnover_cost(
+                period_turnover,
+                tc_bps=tc_bps,
+                slippage_bps=slippage_bps,
+            )
+            empty_result: dict[str, Any] = {
+                "selected_funds": [],
+                "in_sample_scaled": pd.DataFrame(),
+                "out_sample_scaled": pd.DataFrame(),
+                "in_sample_stats": {},
+                "out_sample_stats": {},
+                "out_sample_stats_raw": {},
+                "in_ew_stats": None,
+                "out_ew_stats": None,
+                "out_ew_stats_raw": None,
+                "in_user_stats": None,
+                "out_user_stats": None,
+                "out_user_stats_raw": None,
+                "ew_weights": {},
+                "fund_weights": {},
+                "benchmark_stats": {},
+                "benchmark_ir": {},
+                "score_frame": sf.copy(),
+                "selection_score_frame": sf.copy(),
+                "selection_metric": metric,
+                "weight_engine_fallback": weight_engine_fallback,
+            }
+            if threshold_shortfall is not None:
+                empty_result["selection_shortfall"] = threshold_shortfall
+            period_result = _assemble_period_result(
+                result=empty_result,
+                realised_holdings=[],
+                period=pt,
+                missing_policy_diagnostic=missing_policy_diagnostic,
+                weight_engine_fallback=weight_engine_fallback,
+                manager_changes=events,
+                period_turnover=period_turnover,
+                period_cost=period_cost,
+                holdings_tenure=holdings_tenure,
+                effective_weights=pd.Series(dtype=float),
+                eps=eps,
+            )
+            holdings_tenure = period_result.holdings_tenure
+            prev_final_weights = period_result.prev_final_weights
+            prev_weights = period_result.prev_weights
+            results.append(period_result.result)
+            continue
+
         res = _call_pipeline_with_diag(
             df,
             pt.in_start[:7],
@@ -4225,6 +4325,19 @@ def _run_threshold_hold_multi_periods(
 
         effective_nonzero = effective_w[effective_w.abs() > eps].copy()
         realised_holdings = [str(x) for x in effective_nonzero.index]
+        threshold_shortfall = _threshold_selection_shortfall(
+            sf,
+            selected_count=len(realised_holdings),
+            seed_period=seed_period,
+        )
+        if threshold_shortfall is not None:
+            res_dict["selection_shortfall"] = threshold_shortfall
+            logger.warning(
+                "Threshold hard gate left period %s/%s below the requested size: %s",
+                pt.in_start,
+                pt.out_start,
+                threshold_shortfall,
+            )
         # Do not emit zero-weight positions: they are not real holdings and
         # confuse downstream audits (e.g., a dropped fund showing up with 0.0).
         res_dict["fund_weights"] = {str(k): float(v) for k, v in effective_nonzero.items()}
