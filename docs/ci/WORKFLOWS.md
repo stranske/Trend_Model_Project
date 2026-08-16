@@ -9,14 +9,16 @@ This page captures the target layout for the automation that protects pull reque
 
 ```mermaid
 flowchart LR
-    intake["Agents Issue Intake\n.agents-issue-intake.yml"] --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
+    intake["Agents Issue Intake\n.agents-issue-intake.yml"] --> bridge["Shared issue bridge"]
+    autoPilot["Agents Auto-Pilot"] --> dispatcher["Agents 71 dispatcher"] --> workerDispatch["Agents 72 dispatch wrapper"]
+    workerDispatch --> readyPr["Ready-for-review PR"] --> gateFollowups["Gate + Agents 81"]
     gate --> healthGuard["Health checks\n.health-4x-*.yml"]
     gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
 ```
 
 - **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before its inline `summary` job publishes the commit status and PR comment. The **Gate summary job** keeps that follow-up comment updated with the latest artifacts.
 - **Autofix path:** When invoked directly, [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) can stage hygiene fixes or generate patch artifacts; it is no longer triggered automatically after Gate completes.
-- **Agents control plane:** [Agents Issue Intake](../../.github/workflows/agents-issue-intake.yml) handles registered agent labels and manual bootstrap, the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) owns dispatcher → worker → conveyor delivery, and [Agents Keepalive Sweep](../../.github/workflows/agents-keepalive-sweep.yml) periodically re-evaluates stalled non-draft agent PRs.
+- **Agents control plane:** [Agents Issue Intake](../../.github/workflows/agents-issue-intake.yml) handles registered agent labels and manual bootstrap. [Agents Auto-Pilot](../../.github/workflows/agents-auto-pilot.yml) invokes the dispatchable Agents 71 selector and Agents 72 wrapper for end-to-end issues. [Agents 81](../../.github/workflows/agents-81-gate-followups.yml) owns active guarded post-Gate delivery, while [Agents Keepalive Sweep](../../.github/workflows/agents-keepalive-sweep.yml) periodically re-evaluates stalled non-draft agent PRs.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 40 Sweep](../../.github/workflows/health-40-sweep.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml), and [Health 50 Security Scan](../../.github/workflows/health-50-security-scan.yml) workflows provide scheduled drift detection, enforcement snapshots, and security scanning.
 
 Start with the [Workflow System Overview](WORKFLOW_SYSTEM.md) for the
@@ -90,12 +92,13 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 ## Agents Control Plane
 
-The local agent workflows are the consumer entry points for the shared Workflows implementation:
+The local agent surface combines entry points, routers, and callable-only components:
 
 * [`agents-issue-intake.yml`](../../.github/workflows/agents-issue-intake.yml) is the canonical consumer front door for registered agent labels and manual `agent_bridge` dispatch.
-* [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) and [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
-* [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) advances exact-head deliveries after Gate.
-* [`agents-80-pr-event-hub.yml`](../../.github/workflows/agents-80-pr-event-hub.yml) and [`agents-81-gate-followups.yml`](../../.github/workflows/agents-81-gate-followups.yml) route PR and Gate events.
+* [`agents-auto-pilot.yml`](../../.github/workflows/agents-auto-pilot.yml) is the end-to-end label/manual entry point. It dispatches [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml), then [`agents-72-codex-belt-worker-dispatch.yml`](../../.github/workflows/agents-72-codex-belt-worker-dispatch.yml).
+* [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) is callable-only and runs through the 72 dispatch wrapper.
+* [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml) is callable-only and has no local caller; it is not a current consumer entry point.
+* [`agents-80-pr-event-hub.yml`](../../.github/workflows/agents-80-pr-event-hub.yml) routes PR events, and [`agents-81-gate-followups.yml`](../../.github/workflows/agents-81-gate-followups.yml) owns Gate follow-up and guarded delivery.
 * [`agents-keepalive-sweep.yml`](../../.github/workflows/agents-keepalive-sweep.yml) periodically re-evaluates stalled non-draft agent PRs.
 * [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
 * [`autofix.yml`](../../.github/workflows/autofix.yml) detects formatting failures in agent PRs, applies automated fixes via ruff, and pushes autofix branches when the autofix label is present.

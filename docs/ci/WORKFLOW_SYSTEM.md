@@ -8,8 +8,9 @@ contributor experiences on a pull request or on the maintenance calendar:
 1. **PR checks** – gatekeeping for every pull request (Gate with Gate summary job handling opt-in autofix follow-up).
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
   the repository clean (Gate summary job, Maint Coverage Guard, Maint 45, recurring health checks).
-3. **Issue / agents automation** – consumer intake, Codex belt delivery, and
-   consolidated keepalive routing backed by the shared Workflows implementation.
+3. **Issue / agents automation** – consumer intake, Auto-Pilot with Agents
+   71/72 dispatch, Agents 81 guarded delivery, and consolidated keepalive
+   routing backed by the shared Workflows implementation.
 4. **Error checking, linting, and testing topology** – reusable workflows that
    fan out lint, type, test, and container verification across the matrix.
 
@@ -90,8 +91,9 @@ the surface polished, and the agents stack orchestrates follow-up work.
 - **The Gate summary job** runs after the main fan-out finishes and aggregates
   the results, while the remaining maintenance workflows keep the default
   branch protected on a schedule or by manual dispatch.
-- **Agents automation** consumes labelled issues through the local intake and
-  Codex belt while Health 45 Agents Guard protects workflow edits.
+- **Agents automation** consumes ordinary labels through local intake. The
+  `agents:auto-pilot` route invokes Agents 71 and the Agents 72 wrapper, while
+  Agents 81 handles guarded delivery and Health 45 protects workflow edits.
 - **Reusable lint/test/topology workflows** execute only when called; they
   provide the shared matrix for Gate and manual reruns so contributors see the
   same results regardless of entry point.
@@ -248,7 +250,8 @@ explain why a particular status appears in the Checks tab.
 
 - **When it runs.** On registered `agent:*` issue-label events and manual dispatch.
 - **What it does.** Routes the issue to the shared Workflows bridge and starts
-  the local ready-for-review Codex belt lifecycle.
+  the shared ready-for-review bootstrap lifecycle. End-to-end Auto-Pilot is a
+  separate label/manual route.
 - **Merge impact.** Not a PR status. Failures belong in the shared Workflows
   source or this thin consumer caller; do not restore the retired wrapper.
 
@@ -324,9 +327,11 @@ and where to watch the result:
    keeping the repo healthy. Maint 46 is recovery-only now: it only wakes up
    when Gate fails to emit its own summary so there is a single source of
    truth on green runs.
-4. **Issue and agents automation picks up queued work.** Labelled issues flow
-   through Agents Issue Intake into the local Agents 71–73 belt. Health 45
-   Agents Guard independently protects changes to this workflow surface.
+4. **Issue and agents automation picks up queued work.** Registered agent labels
+   flow through Agents Issue Intake. The separate `agents:auto-pilot` route
+   dispatches Agents 71 and the Agents 72 wrapper, while Agents 81 owns guarded
+   post-Gate delivery. Health 45 Agents Guard independently protects changes to
+   this workflow surface.
 5. **Manual investigations reuse the topology.** When contributors need to
    rerun linting, typing, or container checks locally, they can dispatch the
    `selftest-reusable-ci.yml` workflow or call the reusable CI entries directly,
@@ -365,8 +370,9 @@ fires where” without diving into the full tables:
     Maint 45: [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Trend_Model_Project/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
   - **Issue / agents automation**
-    - **Primary workflows.** `agents-issue-intake.yml`, the belt chain
-      (`agents-71/72/73`), `agents-80-pr-event-hub.yml`,
+    - **Primary workflows.** `agents-issue-intake.yml`, `agents-auto-pilot.yml`,
+      `agents-71-codex-belt-dispatcher.yml`,
+      `agents-72-codex-belt-worker-dispatch.yml`, `agents-80-pr-event-hub.yml`,
       `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, and
       `agents-guard.yml`.
     - **Triggers.** A mix of labelled issues, manual dispatches, schedules, and
@@ -455,7 +461,7 @@ status updates:
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
-| Issue / agents automation | Intake (`issues`, `workflow_dispatch`), belt (`workflow_dispatch`, `repository_dispatch`, `workflow_run`), and keepalive (`schedule`) | `agents-issue-intake.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
+| Issue / agents automation | Intake and Auto-Pilot (`issues`, `workflow_dispatch`), 71/72 wrappers (`workflow_dispatch`), event routers, and keepalive (`schedule`) | `agents-issue-intake.yml`, `agents-auto-pilot.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. Callable-only 72 worker and 73 conveyor definitions are not operator entry points. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
@@ -522,25 +528,29 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents Issue Intake** – `.github/workflows/agents-issue-intake.yml` is the
   consumer entry point for registered agent labels and manual `agent_bridge`
   dispatch. Shared implementation remains in `stranske/Workflows`.
+- **Agents Auto-Pilot** – `.github/workflows/agents-auto-pilot.yml` is the
+  label/manual end-to-end controller. It dispatches Agents 71 to claim the
+  issue and the Agents 72 dispatch wrapper to run the worker.
 - **Agents 71 Codex Belt Dispatcher** – `.github/workflows/agents-71-codex-belt-dispatcher.yml`
   scans for open issues labelled `agent:codex` + `status:ready`, creates or
   refreshes the deterministic `codex/issue-*` branch, marks the issue
-  `status:in-progress`, and fires a `repository_dispatch` for the worker using
-  `ACTIONS_BOT_PAT` so downstream workflows trigger.
-- **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml`
+  `status:in-progress`, and returns its outputs. It is manually dispatchable
+  and called by Auto-Pilot, but does not invoke the worker itself.
+- **Agents 72 Codex Belt Worker Dispatch** – `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
+  is the dispatchable wrapper used by Auto-Pilot and operators.
+- **Agents 72 Codex Belt Worker** – `.github/workflows/agents-72-codex-belt-worker.yml` is callable-only. It
   re-validates labels, ensures the branch diverges from the base (injecting an
   empty commit when needed), opens or updates the automation PR, applies labels
   (`agent:codex`, `autofix:clean`, `from:codex`), assigns the connector accounts, and
   posts the `@codex start` activation comment.
 - **Agents 73 Codex Belt Conveyor** – `.github/workflows/agents-73-codex-belt-conveyor.yml`
-  listens for successful Gate runs on `codex/issue-*` branches, squash merges,
-  deletes the branch, closes the source issue (removing `status:in-progress`),
-  drops audit breadcrumbs, and re-dispatches the belt dispatcher.
+  is callable-only and has no local caller. Do not treat it as a Gate listener
+  or operator entry point. Agents 81 owns the active guarded merge sweep.
 - **Keepalive sweep.** `.github/workflows/agents-keepalive-sweep.yml` periodically
   re-evaluates eligible non-draft agent PRs through the consolidated Gate
   follow-up workflow. `agents:paused`, `needs-human`, and max-run controls remain
   explicit labels or metadata rather than draft-state substitutes.
-- **Guardrail** – The intake and belt surfaces are locked
+- **Guardrail** – The intake and agent automation surfaces are locked
   down by CODEOWNERS, branch protection, the Health 45 Agents Guard check, and a
   repository ruleset. See [Agents Workflow Protection Policy](./AGENTS_POLICY.md)
   for the change allowlist and override procedure.
@@ -599,6 +609,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 60 Release** (`maint-60-release.yml`, maintenance bucket) | `push` (tags `v*`) | Create GitHub releases automatically when version tags are pushed. | ⚪ Tag-triggered | [Release workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-60-release.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents Issue Intake** (`agents-issue-intake.yml`, agents bucket) | `issues`, `workflow_dispatch` | Canonical consumer front door for agent issue intake and shared bridge dispatch. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-issue-intake.yml) |
+| **Agents Auto-Pilot** (`agents-auto-pilot.yml`, agents bucket) | `issues`, `pull_request`, `workflow_dispatch` | End-to-end issue controller that invokes Agents 71 and the Agents 72 dispatch wrapper. | ⚪ Critical surface (end-to-end automation) | [Auto-Pilot runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-auto-pilot.yml) |
 | **Agents Moderate Connector Comments** (`agents-moderate-connector.yml`, agents bucket) | `issue_comment` (`created`) | Guard connector-authored comments on PR threads using allow/deny lists and optional debug labelling. | ⚪ Event-driven | [Moderation workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-moderate-connector.yml) |
 | **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/autofix.yml) |
 | **Reusable Python CI** (`reusable-10-ci-python.yml`, error-checking bucket) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
@@ -640,7 +651,7 @@ snapshots for audit trails.
   green, posting the consolidated summary comment as the informational "state of
   CI" snapshot—it is intentionally *not* configured as a required status check.
 - **Code Owner reviews.** Enable **Require review from Code Owners** so changes
-  to `agents-issue-intake.yml` and the Agents 71–73 belt stay maintainer gated on top of the immutable
+  to `agents-issue-intake.yml` and the protected agent automation surface stay maintainer gated on top of the immutable
   guardrails.
 - **Types.** When mypy is pinned, run it in the pinned interpreter only to avoid
   stdlib stub drift. `reusable-10-ci-python.yml` reads the desired version from

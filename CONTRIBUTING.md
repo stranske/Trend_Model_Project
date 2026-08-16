@@ -6,7 +6,7 @@ Before diving into automation specifics, read the [Workflow System Overview](doc
 required merge policy, observability surfaces, and the
 [keep vs retire roster](docs/ci/WORKFLOW_SYSTEM.md#final-topology-keep-vs-retire). The quick orientation checklist, scenario cheat
 sheet, and bucket reference inside that guide make it trivial for new contributors to see what runs where before changing YAML.
-The document also explains how Gate, the summary job, and the agents orchestrator collaborate, and the
+The document also explains how Gate, the summary job, and agent automation collaborate, and the
 [How to change a workflow safely](docs/ci/WORKFLOW_SYSTEM.md#how-to-change-a-workflow-safely) section outlines the guardrail and approval
 sequence for edits. Refer back to the [workflow catalog](docs/ci/WORKFLOWS.md) when you need
 per-workflow triggers, permissions, or naming guidance, and check [ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md) if you need the historical
@@ -50,7 +50,9 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
 - **Agent automation** – Apply `agent:codex` to an issue or manually dispatch
   [`agents-issue-intake.yml`](.github/workflows/agents-issue-intake.yml) in
   `agent_bridge` mode. The intake calls the shared implementation in
-  `stranske/Workflows`; the local Agents 71-73 belt handles queued delivery.
+  `stranske/Workflows`. For the end-to-end route, `agents:auto-pilot` invokes
+  Agents 71 and the Agents 72 dispatch wrapper; Agents 81 handles guarded
+  post-Gate delivery. The callable-only Agents 73 workflow has no local caller.
   Do not restore the retired consumer-side Agents 70 wrapper.
 
 ### Manual workflow_dispatch quickstart

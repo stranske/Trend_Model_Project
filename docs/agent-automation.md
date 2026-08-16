@@ -8,25 +8,24 @@ not a second implementation of the shared orchestration logic.
 ## Current flow
 
 ```text
-agent label or manual dispatch
-        |
-        v
-Agents Issue Intake
-        |
-        v
-Agents 71-73 Codex Belt
-        |
-        v
-ready-for-review PR -> Gate -> exact-head delivery
+agent:* label/manual intake -> Agents Issue Intake -> shared issue bridge
+
+agents:auto-pilot/manual Auto-Pilot -> Agents 71 -> Agents 72 dispatch wrapper
+                                           |
+                                           v
+                               ready-for-review PR -> Gate -> Agents 81
 ```
 
 - `agents-issue-intake.yml` is the canonical local front door. It reacts to
   registered agent labels and supports manual `agent_bridge` dispatch.
-- `agents-71-codex-belt-dispatcher.yml` selects queued work.
-- `agents-72-codex-belt-worker.yml` creates or refreshes the implementation PR.
-- `agents-73-codex-belt-conveyor.yml` advances a reviewed, green exact head.
+- `agents-auto-pilot.yml` is the end-to-end label/manual route. It invokes the
+  dispatchable Agents 71 queue selector and the Agents 72 dispatch wrapper.
+- `agents-72-codex-belt-worker.yml` is callable-only and is invoked by
+  `agents-72-codex-belt-worker-dispatch.yml` to create or refresh the PR.
+- `agents-73-codex-belt-conveyor.yml` is callable-only and currently has no
+  local caller. It is not an Actions entry point or the active delivery route.
 - `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml` route PR and
-  Gate events without duplicating the worker logic.
+  Gate events; Agents 81 owns the active guarded post-Gate merge sweep.
 - `agents-keepalive-sweep.yml` periodically re-evaluates stalled non-draft agent
   PRs.
 
@@ -40,7 +39,9 @@ holds belong in labels, checks, and exact-head metadata.
 1. Open **Actions -> Agents Issue Intake -> Run workflow**.
 2. Choose `agent_bridge`, provide the issue number, and keep the registered
    agent selection unless the issue has an explicit route.
-3. Review the intake and belt summaries for the created ready-for-review PR.
+3. Review the intake summary for the created ready-for-review PR. For an
+   `agents:auto-pilot` issue, also inspect Auto-Pilot, Agents 71, and the Agents
+   72 dispatch-wrapper runs.
 4. Confirm Gate and all review threads against the unchanged head before merge.
 
 Equivalent CLI dispatch:

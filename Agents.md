@@ -46,12 +46,16 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 - **Role**: Bootstrap Codex PRs on `agent:codex` labeled issues
 - **Triggers**: Issue events (`opened`, `labeled`, `reopened`) plus manual dispatch
 
-### Agents 71-73 Codex Belt
-- **Files**: `.github/workflows/agents-71-codex-belt-dispatcher.yml`,
-  `.github/workflows/agents-72-codex-belt-worker.yml`, and
-  `.github/workflows/agents-73-codex-belt-conveyor.yml`
-- **Role**: Select queued issues, create or refresh ready-for-review PRs, and
-  advance exact-head deliveries after Gate
+### Agents Auto-Pilot and Belt Dispatch
+- **Entry points**: `.github/workflows/agents-auto-pilot.yml`,
+  `.github/workflows/agents-71-codex-belt-dispatcher.yml`, and
+  `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
+- **Role**: Auto-Pilot invokes Agents 71 to claim queued issues and the Agents
+  72 wrapper to run the callable worker. Agents 81 owns guarded post-Gate
+  delivery.
+- **Callable only**: `.github/workflows/agents-72-codex-belt-worker.yml` and
+  `.github/workflows/agents-73-codex-belt-conveyor.yml`; the latter currently
+  has no local caller and is not an operator entry point.
 
 The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
 `stranske/Workflows`; do not restore a local replacement.

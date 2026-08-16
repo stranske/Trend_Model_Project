@@ -497,11 +497,11 @@ entry points used by this repository:
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | Required CI and exact-head enforcement | **YES** |
 | `agents-issue-intake.yml` | Registered-label and manual agent intake | No |
+| `agents-auto-pilot.yml` | End-to-end issue automation | No |
 | `agents-71-codex-belt-dispatcher.yml` | Selects queued Codex work | No |
-| `agents-72-codex-belt-worker.yml` | Creates or refreshes ready-for-review PRs | No |
-| `agents-73-codex-belt-conveyor.yml` | Advances reviewed exact-head deliveries | No |
+| `agents-72-codex-belt-worker-dispatch.yml` | Dispatches the callable worker | No |
 | `agents-80-pr-event-hub.yml` | Routes PR events | **YES** |
-| `agents-81-gate-followups.yml` | Routes Gate completion events | **YES** |
+| `agents-81-gate-followups.yml` | Routes Gate events and guarded delivery | **YES** |
 | `agents-keepalive-sweep.yml` | Re-evaluates stalled agent PRs | **YES** |
 | `agents-keepalive-loop-reporter.yml` | Reports keepalive loop completion | **YES** |
 | `agents-verifier.yml` | Post-merge verification | No |
@@ -523,7 +523,8 @@ entry points used by this repository:
 **Validation checklist:**
 
 - [ ] `agents-issue-intake.yml` exists as the local front door
-- [ ] The Agents 71-73 belt and 80-81 event routers match the template
+- [ ] Auto-Pilot, the Agents 71/72 dispatch path, and 80-81 event routers match the template
+- [ ] The 72 worker and 73 conveyor are recorded as callable-only, not operator entry points
 - [ ] The retired consumer orchestrator wrapper is absent
 - [ ] No local bootstrap simulator or draft-PR control is present
 
@@ -1136,7 +1137,9 @@ inputs:
 │   └── keepalive-instruction.md
 └── workflows/
     ├── agents-issue-intake.yml
+    ├── agents-auto-pilot.yml
     ├── agents-71-codex-belt-dispatcher.yml
+    ├── agents-72-codex-belt-worker-dispatch.yml
     ├── agents-72-codex-belt-worker.yml
     ├── agents-73-codex-belt-conveyor.yml
     ├── agents-80-pr-event-hub.yml

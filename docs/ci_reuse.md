@@ -13,7 +13,8 @@ implementations into this guide.
 | Required PR gate | `.github/workflows/pr-00-gate.yml` |
 | Python CI caller | `.github/workflows/ci.yml` |
 | Agent issue intake | `.github/workflows/agents-issue-intake.yml` |
-| Codex queue and delivery | `.github/workflows/agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml` |
+| End-to-end issue automation | `.github/workflows/agents-auto-pilot.yml` |
+| Codex queue/worker dispatch | `.github/workflows/agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml` |
 | PR and Gate event routing | `.github/workflows/agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml` |
 | Keepalive | `.github/workflows/agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml` |
 
@@ -21,6 +22,11 @@ The files above are deployed consumer surfaces. Shared implementation changes
 belong in Workflows first and reach this repository through the managed sync
 path. Product-specific CI behavior remains local when it is not part of the
 consumer template.
+
+The underlying `agents-72-codex-belt-worker.yml` and
+`agents-73-codex-belt-conveyor.yml` files expose only `workflow_call`. The 72
+dispatch wrapper invokes the worker. No local job invokes the 73 conveyor, so
+Agents 81—not the conveyor—is the active guarded post-Gate delivery route.
 
 ## Agent dispatch
 

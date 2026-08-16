@@ -34,8 +34,10 @@ this repository.
 1. Apply the registry-backed `agent:*` label required by the issue-intake
    workflow.
 2. To run intake manually, open **Actions → Agents Issue Intake → Run
-   workflow**, choose `agent_bridge`, and supply the issue number. Scheduled
-   queue progression uses the local Agents 71-73 belt.
+   workflow**, choose `agent_bridge`, and supply the issue number. For the
+   end-to-end issue pipeline, apply `agents:auto-pilot` or manually dispatch
+   **Agents Auto-Pilot**; it invokes Agents 71 and the Agents 72 dispatch
+   wrapper. Agents 73 is callable-only and has no local caller.
 3. Diagnose shared bootstrap failures in Workflows rather than copying its
    actions or reusable workflows into this repo.
 4. Keep `Agents.md` and `CONTRIBUTING.md` aligned with the ready-for-review

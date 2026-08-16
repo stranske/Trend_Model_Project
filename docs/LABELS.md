@@ -306,7 +306,9 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 2. Used in conjunction with `agent:codex` to signal readiness
 3. May trigger the next step in the agent automation pipeline
 
-**Workflow:** `agents-issue-intake.yml` (Agents Issue Intake), followed by the Agents 71-73 Codex Belt
+**Workflow:** `agents-issue-intake.yml` handles ordinary agent intake. The
+separate `agents:auto-pilot` route dispatches Agents 71 and the Agents 72
+wrapper when end-to-end automation is requested.
 
 ---
 
@@ -645,9 +647,8 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Consumers:** `.github/scripts/runtime_ac_merge_guard.js`,
 `.github/workflows/agents-73-codex-belt-conveyor.yml`,
-`.github/workflows/reusable-70-orchestrator-main.yml`,
-`.github/workflows/maint-71-merge-sync-prs.yml`,
-`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
+`.github/workflows/agents-81-gate-followups.yml`. Agents 73 is callable-only;
+Agents 81 is the active local guarded merge route.
 
 ---
 
@@ -664,7 +665,8 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/scripts/merge_manager.js`,
-`.github/workflows/reusable-70-orchestrator-main.yml`.
+`.github/workflows/agents-auto-pilot.yml`,
+`.github/workflows/agents-81-gate-followups.yml`.
 
 ---
 
@@ -676,11 +678,11 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Effect:**
 1. Records that an issue has active belt work in progress.
-2. Is removed by the conveyor after the active work hands off or completes.
+2. Is cleared by the active completion path after work hands off or completes.
 
 **Consumers:** `.github/workflows/agents-71-codex-belt-dispatcher.yml`,
-`.github/workflows/agents-72-codex-belt-worker.yml`,
-`.github/workflows/agents-73-codex-belt-conveyor.yml`.
+`.github/workflows/agents-72-codex-belt-worker.yml`. The callable-only Agents
+73 component also clears it when invoked.
 
 ---
 

@@ -4,7 +4,8 @@
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
 remains the required merge check, while **Agents Issue Intake** is the local bootstrap entry point and the
-**Agents 71–73 Codex Belt** automates the queue → branch → PR → merge conveyor for labeled Codex issues. For the executive
+**Agents Auto-Pilot** route invokes the dispatchable Agents 71 queue selector and Agents 72 worker wrapper for end-to-end issues.
+Agents 81 owns active post-Gate delivery; the callable-only Agents 73 definition has no local caller. For the executive
 summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
@@ -21,7 +22,7 @@ operational detail for the kept set.
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-11-ci-smoke.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-47-disable-legacy-workflows.yml`, `maint-50-tool-version-check.yml`, `maint-51-dependency-refresh.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-coverage-guard.yml` |
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
-| `agents-` | Agent orchestration entry points | `agents-issue-intake.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, `agents-guard.yml` |
+| `agents-` | Agent automation and reusable components | `agents-issue-intake.yml`, `agents-auto-pilot.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, `agents-guard.yml` |
 | `reusable-` | Reusable CI composites invoked by local workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
 | `autofix.yml` | CI autofix loop | `autofix.yml` |
@@ -65,9 +66,11 @@ _Inline Gate helper_
 
 ### Agents & Issues
 - **`agents-issue-intake.yml`** — Canonical consumer front door that seeds ready-for-review Codex bootstrap PRs on `agent:codex`/`agents:codex` labels, exposes manual dispatch inputs, and calls the shared Workflows implementation.
-- **`agents-71-codex-belt-dispatcher.yml`** — Cron + manual dispatcher that selects the next `agent:codex` + `status:ready` issue, prepares the deterministic `codex/issue-*` branch, labels the source issue as in-progress, and repository-dispatches the worker.
-- **`agents-72-codex-belt-worker.yml`** — Repository-dispatch consumer that re-validates labels, ensures the branch diverges from the base (empty commit when needed), and opens or refreshes the Codex automation PR with labels, assignees, and activation comment.
-- **`agents-73-codex-belt-conveyor.yml`** — Gate follower that squash-merges successful belt PRs, deletes the branch, closes the originating issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue keeps moving.
+- **`agents-auto-pilot.yml`** — Label/manual end-to-end controller that dispatches Agents 71, then the Agents 72 dispatch wrapper, and monitors the resulting ready-for-review PR.
+- **`agents-71-codex-belt-dispatcher.yml`** — Manual/callable queue selector used by Auto-Pilot to prepare the deterministic `codex/issue-*` branch and mark the issue in progress. It has no cron trigger and does not itself invoke the worker.
+- **`agents-72-codex-belt-worker-dispatch.yml`** — Dispatchable wrapper used by Auto-Pilot and operators to invoke the callable worker.
+- **`agents-72-codex-belt-worker.yml`** — `workflow_call` component that creates or refreshes the ready-for-review automation PR. It is not directly dispatchable.
+- **`agents-73-codex-belt-conveyor.yml`** — `workflow_call` component with no local caller. Do not advertise it as an automatic Gate follower; Agents 81 is the active guarded post-Gate delivery route.
 - **`agents-guard.yml`** (aka Health 45 Agents Guard) — PR workflow that validates agent-related labels and permissions.
 - **`agents-pr-meta.yml`** — PR metadata manager that serializes Codex activation commands and PR body decoration through dedicated jobs sharing a concurrency group keyed by PR number.
 - **`agents-moderate-connector.yml`** — Comment moderation workflow that filters connector-authored comments based on allow/deny lists.
@@ -107,14 +110,14 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Agent Operations
 - Apply the registry-backed `agent:codex` label or manually dispatch **Agents Issue Intake** in `agent_bridge` mode. The shared implementation remains in `stranske/Workflows`; do not copy it into this consumer repository.
-- The **Agents 71–73 Codex Belt** owns the queue automation loop—dispatcher selects issues, worker opens or refreshes a ready-for-review PR, and conveyor advances exact-head deliveries after Gate.
+- **Agents Auto-Pilot** invokes Agents 71 and the Agents 72 dispatch wrapper for end-to-end issues. Agents 81 handles guarded post-Gate delivery; Agents 73 is not locally invoked.
 - **Agents Keepalive Sweep** periodically re-evaluates stalled non-draft agent PRs through the consolidated gate-followup loop. Labels and lifecycle metadata, not draft state, pause or stage work.
 
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents Issue Intake → Run workflow**.
 2. Choose `agent_bridge`, supply the issue number, and leave the bridge agent as `codex` unless routing requires another registered agent.
-3. Review the intake and belt run summaries for the spawned ready-for-review PR and exact-head Gate state.
+3. Review the intake summary—or, for `agents:auto-pilot`, the Auto-Pilot, Agents 71, and Agents 72 wrapper summaries—for the spawned ready-for-review PR. Use Agents 81 for the exact-head Gate follow-up state.
 4. For CLI usage, run `gh workflow run agents-issue-intake.yml --field mode=agent_bridge --field issue_number=NUMBER` with a token allowed to dispatch workflows.
 
 ### Troubleshooting signals

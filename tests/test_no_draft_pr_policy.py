@@ -36,6 +36,42 @@ def test_active_intake_has_no_draft_control() -> None:
     assert "agent_pr_draft" not in intake
 
 
+def test_documented_agent_entrypoints_match_workflow_topology() -> None:
+    workflows = ROOT / ".github" / "workflows"
+    dispatchable = (
+        "agents-auto-pilot.yml",
+        "agents-71-codex-belt-dispatcher.yml",
+        "agents-72-codex-belt-worker-dispatch.yml",
+    )
+    for filename in dispatchable:
+        text = (workflows / filename).read_text(encoding="utf-8")
+        assert "workflow_dispatch:" in text, filename
+
+    callable_only = (
+        "agents-72-codex-belt-worker.yml",
+        "agents-73-codex-belt-conveyor.yml",
+    )
+    for filename in callable_only:
+        text = (workflows / filename).read_text(encoding="utf-8")
+        assert "workflow_call:" in text, filename
+        assert "workflow_dispatch:" not in text, filename
+
+    wrapper = (workflows / "agents-72-codex-belt-worker-dispatch.yml").read_text(encoding="utf-8")
+    auto_pilot = (workflows / "agents-auto-pilot.yml").read_text(encoding="utf-8")
+    assert "uses: ./.github/workflows/agents-72-codex-belt-worker.yml" in wrapper
+    assert "workflow_id: 'agents-71-codex-belt-dispatcher.yml'" in auto_pilot
+    assert "workflow_id: 'agents-72-codex-belt-worker-dispatch.yml'" in auto_pilot
+
+    quick_start = (workflows / "README.md").read_text(encoding="utf-8")
+    primary_table = quick_start.split("## Primary Entry Points", maxsplit=1)[1].split(
+        "The old consumer orchestrator", maxsplit=1
+    )[0]
+    assert "`agents-auto-pilot.yml`" in primary_table
+    assert "`agents-72-codex-belt-worker-dispatch.yml`" in primary_table
+    assert "`agents-72-codex-belt-worker.yml`" not in primary_table
+    assert "`agents-73-codex-belt-conveyor.yml`" not in primary_table
+
+
 def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> None:
     operator_docs = (
         "Agents.md",
