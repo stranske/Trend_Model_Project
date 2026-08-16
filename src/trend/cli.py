@@ -19,6 +19,7 @@ import pandas as pd
 import yaml
 
 from trend.cli_commands import (
+    PreparedCommandInputs,
     prepare_command_inputs,
     run_analysis_command,
     run_app_command,
@@ -63,10 +64,13 @@ from trend_analysis.config.coverage import (
 )
 from trend_analysis.config.schema_validation import load_config as load_config_yaml
 from trend_analysis.config.schema_validation import load_config as load_schema_config
+from trend_analysis.config.ui_mapping import build_config_from_ui_state
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
 from trend_analysis.identity import IdentityMap
+from trend_analysis.io.market_data import MarketDataValidationError
+from trend_analysis.io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from trend_analysis.llm import (
     ConfigPatchChain,
     LLMProviderConfig,
@@ -277,6 +281,16 @@ def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
             "Reuse a prior completed run for the content-addressed run_id "
             "instead of recomputing; reports the existing manifest path"
         ),
+    )
+    run_p.add_argument(
+        "--auto-fix-dates",
+        action="store_true",
+        help="Apply Streamlit-style date corrections to replay input data",
+    )
+    run_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Approve Streamlit-style date corrections without prompting",
     )
 
     report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
@@ -540,6 +554,162 @@ def _ensure_dataframe(path: Path) -> pd.DataFrame:
     if df is None:
         raise FileNotFoundError(str(path))
     return df
+
+
+def _load_ui_payload(path: Path) -> tuple[dict[str, Any], Mapping[str, Any]]:
+    """Load a nested or flat Streamlit model-state export."""
+
+    try:
+        payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TrendCLIError(f"Unable to load Streamlit JSON export: {exc}") from exc
+    if not isinstance(payload_any, Mapping):
+        raise TrendCLIError("Streamlit JSON export must contain an object at the root")
+    payload = dict(payload_any)
+    model_state = payload.get("model_state")
+    if isinstance(model_state, Mapping):
+        return payload, model_state
+    return {"model_state": payload}, payload
+
+
+def _looks_like_model_state(payload: Mapping[str, Any]) -> bool:
+    """Distinguish flat Streamlit exports from schema-native JSON configs."""
+
+    ui_keys = {
+        "lookback_periods",
+        "evaluation_periods",
+        "selection_count",
+        "metric_weights",
+        "signal_window",
+        "signal_lag",
+        "signal_min_periods",
+        "signal_zscore",
+        "signal_vol_adjust",
+        "signal_vol_target",
+        "vol_adjust_enabled",
+        "risk_target",
+        "multi_period_enabled",
+        "multi_period_frequency",
+        "start_date",
+        "end_date",
+        "date_mode",
+    }
+    schema_keys = {
+        "version",
+        "data",
+        "preprocessing",
+        "vol_adjust",
+        "sample_split",
+        "portfolio",
+        "metrics",
+        "export",
+        "run",
+        "benchmarks",
+        "regime",
+        "robustness",
+        "multi_period",
+    }
+    if any(key in payload for key in schema_keys):
+        return False
+    hits = sum(key in payload for key in ui_keys)
+    return hits >= 3 or ("metric_weights" in payload and "selection_count" in payload)
+
+
+def _should_handle_as_ui_config(path: Path) -> bool:
+    if path.suffix.lower() != ".json":
+        return False
+    try:
+        payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload_any, Mapping):
+        return False
+    return "model_state" in payload_any or _looks_like_model_state(payload_any)
+
+
+def _confirm_ui_date_fixes(data_path: Path, *, yes: bool) -> None:
+    try:
+        issues = inspect_ui_date_issues(data_path)
+    except MarketDataValidationError as exc:
+        details = "\n".join(f"- {issue}" for issue in exc.issues)
+        suffix = f"\n{details}" if details else ""
+        raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
+
+    has_fixable = issues.has_corrections or issues.total_droppable_rows > 0
+    if not has_fixable or yes:
+        return
+    if not sys.stdin.isatty():
+        raise TrendCLIError("Date corrections require confirmation. Re-run with --yes to approve.")
+    prompt = (
+        f"Apply {len(issues.corrections)} date correction(s) and "
+        f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
+    )
+    if input(prompt).strip().lower() not in {"y", "yes"}:
+        raise TrendCLIError("Date corrections cancelled")
+
+
+def _prepare_ui_command_inputs(
+    args: argparse.Namespace,
+    *,
+    prepare_config: Callable[[Any], None],
+) -> PreparedCommandInputs:
+    """Map a Streamlit export onto the canonical ``trend run`` inputs."""
+
+    params_path = Path(args.config).resolve()
+    if not args.returns:
+        raise TrendCLIError("Streamlit JSON replay requires --input/--returns data")
+    data_path = Path(args.returns).resolve()
+    payload, model_state = _load_ui_payload(params_path)
+
+    if "risk_free_column" not in model_state:
+        risk_free = payload.get("selected_risk_free")
+        if isinstance(risk_free, str) and risk_free.strip():
+            model_state = dict(model_state)
+            model_state["risk_free_column"] = risk_free.strip()
+
+    benchmark = payload.get("selected_benchmark")
+    if not benchmark:
+        candidate = model_state.get("info_ratio_benchmark")
+        if isinstance(candidate, str) and candidate.strip():
+            benchmark = candidate.strip()
+
+    if args.auto_fix_dates:
+        _confirm_ui_date_fixes(data_path, yes=args.yes)
+    try:
+        returns, metadata, summary = load_ui_dataset(
+            data_path,
+            auto_fix_dates=args.auto_fix_dates,
+        )
+    except MarketDataValidationError as exc:
+        details = "\n".join(f"- {issue}" for issue in exc.issues)
+        suffix = f"\n{details}" if details else ""
+        raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
+
+    if summary.corrected_dates or summary.dropped_rows:
+        changes = []
+        if summary.corrected_dates:
+            changes.append(f"{summary.corrected_dates} date correction(s)")
+        if summary.dropped_rows:
+            changes.append(f"{summary.dropped_rows} row(s) dropped")
+        print(f"Applied UI-style date fixes: {', '.join(changes)}")
+
+    cfg = build_config_from_ui_state(
+        returns=returns,
+        model_state=model_state,
+        benchmark=benchmark if isinstance(benchmark, str) else None,
+        frequency=metadata.frequency,
+        csv_path=str(data_path) if data_path.suffix.lower() == ".csv" else None,
+    )
+    prepare_config(cfg)
+    ensure_run_spec(cfg, base_path=params_path.parent, required=True)
+    seed = _determine_seed(cfg, args.seed)
+    return PreparedCommandInputs(
+        cfg_path=params_path,
+        cfg=cfg,
+        returns_path=data_path,
+        returns_df=returns.reset_index(),
+        seed=seed,
+    )
 
 
 def _determine_seed(cfg: Any, override: int | None) -> int:
@@ -2090,15 +2260,22 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             if coverage_tracker is not None:
                 wrap_config_for_coverage(cfg, coverage_tracker)
 
-        prepared = prepare_command_inputs(
-            args,
-            load_configuration=_load_configuration,
-            prepare_config=_prepare_config_for_command,
-            ensure_run_spec=ensure_run_spec,
-            resolve_returns_path=_resolve_returns_path,
-            ensure_dataframe=_ensure_dataframe,
-            determine_seed=_determine_seed,
-        )
+        config_path = Path(args.config).resolve()
+        if command == "run" and _should_handle_as_ui_config(config_path):
+            prepared = _prepare_ui_command_inputs(
+                args,
+                prepare_config=_prepare_config_for_command,
+            )
+        else:
+            prepared = prepare_command_inputs(
+                args,
+                load_configuration=_load_configuration,
+                prepare_config=_prepare_config_for_command,
+                ensure_run_spec=ensure_run_spec,
+                resolve_returns_path=_resolve_returns_path,
+                ensure_dataframe=_ensure_dataframe,
+                determine_seed=_determine_seed,
+            )
         cfg_path = prepared.cfg_path
         cfg = prepared.cfg
         returns_path = prepared.returns_path

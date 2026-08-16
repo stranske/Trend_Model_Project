@@ -570,6 +570,102 @@ def test_main_run_command_uses_extracted_shared_preparation(
     assert received["returns_df"].equals(prepared.returns_df)
 
 
+def test_main_run_replays_streamlit_json_through_canonical_mapping(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    params_path = tmp_path / "streamlit-export.json"
+    params_path.write_text(
+        json.dumps(
+            {
+                "model_state": {
+                    "selection_count": 3,
+                    "metric_weights": {"Sharpe": 1.0},
+                    "signal_window": 63,
+                },
+                "selected_benchmark": "SPX",
+                "selected_risk_free": "RF",
+            }
+        ),
+        encoding="utf-8",
+    )
+    data_path = tmp_path / "returns.csv"
+    data_path.write_text("Date,A\n2020-01-31,0.01\n", encoding="utf-8")
+    returns = pd.DataFrame(
+        {"A": [0.01]},
+        index=pd.DatetimeIndex(["2020-01-31"], name="Date"),
+    )
+    cfg = _make_config()
+    mapped: dict[str, object] = {}
+    dispatched: dict[str, object] = {}
+
+    def fake_build_config_from_ui_state(**kwargs: object) -> object:
+        mapped.update(kwargs)
+        return cfg
+
+    def fake_run_analysis_command(
+        args: object,
+        cfg_path: Path,
+        command_cfg: object,
+        returns_path: Path,
+        returns_df: pd.DataFrame,
+        **_kwargs: object,
+    ) -> int:
+        dispatched.update(
+            cfg_path=cfg_path,
+            cfg=command_cfg,
+            returns_path=returns_path,
+            returns_df=returns_df,
+        )
+        return 0
+
+    monkeypatch.setattr(
+        trend_cli,
+        "load_ui_dataset",
+        lambda *_args, **_kwargs: (
+            returns,
+            SimpleNamespace(frequency="M"),
+            SimpleNamespace(corrected_dates=0, dropped_rows=0),
+        ),
+    )
+    monkeypatch.setattr(trend_cli, "build_config_from_ui_state", fake_build_config_from_ui_state)
+    monkeypatch.setattr(trend_cli, "ensure_run_spec", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(trend_cli, "run_analysis_command", fake_run_analysis_command)
+
+    exit_code = trend_cli.main(["run", "--config", str(params_path), "--input", str(data_path)])
+
+    assert exit_code == 0
+    assert mapped["benchmark"] == "SPX"
+    assert mapped["frequency"] == "M"
+    assert mapped["csv_path"] == str(data_path.resolve())
+    assert mapped["model_state"]["risk_free_column"] == "RF"
+    assert dispatched["cfg_path"] == params_path.resolve()
+    assert dispatched["cfg"] is cfg
+    assert dispatched["returns_path"] == data_path.resolve()
+    assert dispatched["returns_df"].columns.tolist() == ["Date", "A"]
+
+
+def test_flat_streamlit_json_detection_excludes_schema_config(tmp_path: Path) -> None:
+    flat_path = tmp_path / "flat.json"
+    flat_path.write_text(
+        json.dumps(
+            {
+                "selection_count": 3,
+                "metric_weights": {"Sharpe": 1.0},
+                "signal_window": 63,
+            }
+        ),
+        encoding="utf-8",
+    )
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(
+        json.dumps({"version": "1", "portfolio": {"selection_count": 3}}),
+        encoding="utf-8",
+    )
+
+    assert trend_cli._should_handle_as_ui_config(flat_path)
+    assert not trend_cli._should_handle_as_ui_config(schema_path)
+
+
 def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = _make_config()
     returns_path = tmp_path / "returns.csv"
