@@ -9,9 +9,9 @@ categories:
     require-all: false
     paths:
       - "**/*.py"
+      - src/trend_analysis/preset_data/**
       - pyproject.toml
       - requirements*.txt
-      - src/trend_analysis/preset_data/**
   workflow-change:
     require-all: false
     paths:
