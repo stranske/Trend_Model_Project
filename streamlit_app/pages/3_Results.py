@@ -20,6 +20,7 @@ from streamlit_app.components import (
     comparison_llm,
     explain_results,
 )
+from streamlit_app.components.universe_membership_input import UNIVERSE_MEMBERSHIP_SUMMARY_KEY
 from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend_analysis.diagnostics import PipelineReasonCode
 from trend_analysis.util.weights import normalize_weights
@@ -2095,6 +2096,13 @@ def render_results_page() -> None:
         run_clicked = st.button("Run analysis")
     else:
         st.success(_completed_state_line(result, len(sanitized_funds)))
+        summary = st.session_state.get(UNIVERSE_MEMBERSHIP_SUMMARY_KEY)
+        if isinstance(summary, dict) and summary.get("fund_count"):
+            st.caption(
+                "Universe membership applied: "
+                f"{summary['fund_count']} fund(s) tracked; "
+                f"{summary.get('exited_fund_count', 0)} with exit windows."
+            )
         run_clicked = st.button("Re-run with custom settings")
 
     if run_clicked or result is None:

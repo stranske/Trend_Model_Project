@@ -20,6 +20,11 @@ from utils.paths import proj_path
 
 from .data_cache import cache_key_for_frame
 from .guardrails import infer_frequency
+from .universe_membership_input import (
+    UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    resolve_universe_membership_path,
+    summarise_membership,
+)
 from .upload_guard import DEFAULT_UPLOAD_DIR
 
 
@@ -376,6 +381,7 @@ def _build_config(payload: AnalysisPayload) -> Config:
         benchmark=payload.benchmark,
         frequency=frequency,
         csv_path=csv_path,
+        universe_membership_path=resolve_universe_membership_path(),
     )
 
 
@@ -428,7 +434,7 @@ def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
 
     payload_dict = build_config_payload(
         csv_path=csv_path,
-        universe_membership_path=None,
+        universe_membership_path=resolve_universe_membership_path(),
         managers_glob=None,
         date_column=date_column,
         frequency=frequency,
@@ -553,6 +559,11 @@ def _execute_analysis(payload: AnalysisPayload):
     _validate_streamlit_payload(payload)
     _assert_config_feasible(config)
     returns = _prepare_returns(payload.returns)
+    membership_path = resolve_universe_membership_path()
+    if membership_path:
+        st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(membership_path)
+    else:
+        st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
     return run_simulation(config, returns)
 
 

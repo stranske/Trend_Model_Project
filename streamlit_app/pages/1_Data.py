@@ -27,8 +27,17 @@ from streamlit_app.components.upload_guard import (
     guard_and_buffer_upload,
     hash_path,
 )
+from streamlit_app.components.universe_membership_input import (
+    UNIVERSE_MEMBERSHIP_SESSION_KEY,
+    UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    persist_membership_upload,
+    resolve_universe_membership_path,
+    summarise_membership,
+    validate_membership_file,
+)
 from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend.input_validation import InputValidationError
+from utils.paths import proj_path
 from trend_analysis.io.date_correction import (
     apply_date_corrections,
     format_corrections_for_display,
@@ -94,6 +103,60 @@ def _dataset_summary(df: pd.DataFrame, meta: SchemaMeta | dict[str, Any]) -> str
         freq = meta.get("frequency_label") or meta.get("frequency")
     freq_part = f" • {freq} frequency" if freq else ""
     return f"{rows} rows × {cols} columns • {start} → {end}{freq_part}"
+
+
+def _render_universe_membership_controls() -> None:
+    from streamlit_app.components.upload_guard import DEFAULT_UPLOAD_DIR
+
+    st.markdown("---")
+    st.subheader("Universe membership (optional)")
+    st.caption(
+        "Provide a point-in-time membership table to remove survivorship bias. "
+        "Leave empty to keep today's full-sample behaviour."
+    )
+    demo_path = proj_path() / "demo" / "demo_universe_membership.csv"
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if demo_path.exists() and st.button("Use demo membership", key="use_demo_membership"):
+            validate_membership_file(demo_path)
+            st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = str(demo_path)
+            st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(demo_path)
+    with col_b:
+        if st.button("Clear membership", key="clear_universe_membership"):
+            st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
+            st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
+
+    uploaded = st.file_uploader(
+        "Upload membership CSV (fund, effective_date, end_date)",
+        type=["csv"],
+        accept_multiple_files=False,
+        key="universe_membership_upload",
+    )
+    if uploaded is not None:
+        try:
+            saved = persist_membership_upload(
+                uploaded.getvalue(),
+                upload_dir=DEFAULT_UPLOAD_DIR,
+                filename=f"universe-membership-{uploaded.name}",
+            )
+            st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = saved
+            st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(saved)
+            st.success("Membership file validated and ready.")
+        except Exception as exc:
+            st.error(f"Membership file rejected: {exc}")
+            st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
+            st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
+
+    active_path = resolve_universe_membership_path()
+    if active_path:
+        summary = st.session_state.get(UNIVERSE_MEMBERSHIP_SUMMARY_KEY) or summarise_membership(
+            active_path
+        )
+        st.info(
+            "Membership active for "
+            f"{summary['fund_count']} fund(s); "
+            f"{summary['exited_fund_count']} fund(s) have exit windows."
+        )
 
 
 def _render_validation(meta: SchemaMeta | dict[str, Any]) -> None:
@@ -539,6 +602,7 @@ def render_data_page() -> None:
     if app_state.has_valid_upload():
         df, meta = app_state.get_uploaded_data()
         if df is not None:
+            _render_universe_membership_controls()
             st.markdown("---")
             st.subheader("Column Configuration")
 
