@@ -1,8 +1,11 @@
 # Template Setup Guide for Workflow Adoption
 
-This guide explains how to adopt the automation workflows from this repository in other similar projects. It highlights variables, secrets, and optional features you can customize.
+This guide explains how to configure the managed automation delivered to this
+repository. Workflow files are owned by the Workflows sync manifest; repair the
+source template and use managed delivery instead of copying individual files.
+It highlights variables, secrets, and optional features you can customize.
 
-Last updated: 2025-09-17
+Last updated: 2026-08-16
 
 ## 1. Repository Variables (Settings → Variables → Actions)
 
@@ -39,16 +42,18 @@ GitHub Apps have separate rate limit pools (5000 req/hr each). Configure multipl
 **Current distribution:**
 | App | Rate Pool | Workflows |
 |-----|-----------|-----------|
-| KEEPALIVE_APP | 5000/hr | keepalive-loop |
-| WORKFLOWS_APP | 5000/hr | autofix-loop |
-| GH_APP | 5000/hr | issue-intake, autofix, bot-comment-handler |
+| KEEPALIVE_APP | 5000/hr | Agents 81 running-state and summary writes |
+| WORKFLOWS_APP | 5000/hr | Agents 81 fallback and autofix delivery |
+| GH_APP | 5000/hr | Supplemental issue and PR event handling |
 
 To add additional apps:
 1. Create a new GitHub App at https://github.com/settings/apps/new
 2. Grant permissions: `contents: write`, `pull_requests: write`, `actions: write`
 3. Install on your repository
 4. Add `KEEPALIVE_APP_ID` and `KEEPALIVE_APP_PRIVATE_KEY` secrets
-5. Update `agents-keepalive-loop.yml` to use `KEEPALIVE_APP_*` instead of `WORKFLOWS_APP_*`
+5. Verify `agents-81-gate-followups.yml` can mint the dedicated
+   `KEEPALIVE_APP_*` token and fall back to `WORKFLOWS_APP_*`. Make any workflow
+   change in the Workflows source template, then deliver it through managed sync.
 
 ### Personal Access Tokens
 
@@ -105,11 +110,13 @@ Security posture: The `pull_request_target` workflows in this template do not ch
 
 ## 8. Adoption Checklist
 
-1. Create repository variables listed in Section 1.
-2. Add optional secrets in Section 2 (or skip if not needed).
-3. Verify default branch in workflows; adjust branch filters.
-4. If using Docker, set `IMAGE_NAME` and verify `HEALTH_*`.
-5. Run a small test PR to confirm CI and autofix flows.
+1. Confirm the repository is registered in the Workflows sync manifest.
+2. Create repository variables listed in Section 1.
+3. Add optional secrets in Section 2 (or skip if not needed).
+4. Verify default-branch settings in the source template; do not patch a
+   generated workflow locally.
+5. If using Docker, set `IMAGE_NAME` and verify `HEALTH_*`.
+6. Run a small test PR to confirm CI, Agents 81 follow-up, and autofix flows.
 
 ## 9. Troubleshooting
 

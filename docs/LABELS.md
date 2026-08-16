@@ -128,7 +128,7 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Lifecycle:** Applied at issue claim / PR creation by an opener that already has Claude capacity. Removed when work completes (PR merged or issue closed). Co-applied with `agents:keepalive` on the PR so keepalive is enabled.
 
-**Workflow:** `agents-bot-comment-handler.yml`, `agents-auto-label.yml`, `agents-keepalive-loop.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
+**Workflow:** `agents-auto-label.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
 
 ---
 
@@ -147,7 +147,7 @@ This document describes all labels that trigger automated workflows or affect CI
 - Repository has a valid `CURSOR_API_KEY` secret (per `.github/agents/registry.yml`)
 - Issue or PR should have clear requirements
 
-**Workflow:** `agents-keepalive-loop.yml`, `agents-autofix-loop.yml`; runner is `reusable-cursor-run.yml` per `.github/agents/registry.yml`.
+**Workflow:** `agents-81-gate-followups.yml`, `agents-autofix-loop.yml`; runner is `reusable-cursor-run.yml` per `.github/agents/registry.yml`.
 
 ---
 
@@ -165,7 +165,7 @@ This document describes all labels that trigger automated workflows or affect CI
 **Prerequisites:**
 - Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
 
-**Workflow:** `agents-keepalive-loop.yml`; runner is `reusable-gemini-run.yml` per `.github/agents/registry.yml`.
+**Workflow:** `agents-81-gate-followups.yml`; runner is `reusable-gemini-run.yml` per `.github/agents/registry.yml`.
 
 ---
 
@@ -210,16 +210,16 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Effect:**
 1. Signals keepalive to force a re-dispatch of the matching runner on its next tick
-2. Removed by `agents-keepalive-loop.yml` at the top of the resulting run so the label is reusable
+2. Removed by `agents-81-gate-followups.yml` at the top of the resulting run so the label is reusable
 3. Co-removed: any stale `agent:rate-limited` label is also removed at the same time
 
 **Prerequisites:**
 - PR has a concrete `agent:codex` or `agent:claude` label so a runner can be re-dispatched
 - PR has `agents:keepalive`
 
-**Lifecycle:** Applied by `agents-auto-pilot.yml` on dispatch failure handling, by openers/closers during quick recovery, or manually to force one keepalive re-run. Consumed and cleaned by `agents-keepalive-loop.yml`.
+**Lifecycle:** Applied by `agents-auto-pilot.yml` on dispatch failure handling, by openers/closers during quick recovery, or manually to force one keepalive re-run. Consumed and cleaned by `agents-81-gate-followups.yml`.
 
-**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-keepalive-loop.yml`.
+**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-81-gate-followups.yml`.
 
 ---
 
@@ -232,14 +232,14 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 **Effect:**
 1. Marks the PR as currently backed off due to API/runner rate limits
 2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; switch to `agent:auto` only after removing the concrete routing label
-3. Removed by `agents-keepalive-loop.yml` during the `agent:retry` labeled run, before keepalive evaluation
+3. Removed by `agents-81-gate-followups.yml` during the `agent:retry` labeled run, before keepalive evaluation
 
 **Prerequisites:**
 - Applied automatically; no manual action required
 
-**Lifecycle:** Applied by `agents-auto-pilot.yml` when a dispatch hits a rate limit. Cleaned by the retry-label handler in `agents-keepalive-loop.yml` when `agent:retry` is processed. Does not by itself trigger a runner.
+**Lifecycle:** Applied by `agents-auto-pilot.yml` when a dispatch hits a rate limit. Cleaned by the retry-label handler in `agents-81-gate-followups.yml` when `agent:retry` is processed. Does not by itself trigger a runner.
 
-**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-keepalive-loop.yml`.
+**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-81-gate-followups.yml`.
 
 ---
 
@@ -531,7 +531,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **To Resume:** Remove the `agents:paused` label.
 
-**Workflow:** `agents-keepalive-loop.yml`
+**Workflow:** `agents-81-gate-followups.yml`
 
 ---
 
@@ -550,7 +550,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 - PR must have an `agent:*` label
 - Gate workflow must pass
 
-**Workflow:** `agents-keepalive-loop.yml`
+**Workflow:** `agents-81-gate-followups.yml`
 
 ---
 
@@ -751,7 +751,7 @@ These labels are used for categorization but do not trigger workflows.
 | `agent:codex` | `agent:auto` | Invalid mixed routing; remove `agent:codex` before using `agent:auto`
 | `agent:claude` | `agent:auto` | Invalid mixed routing; remove `agent:claude` before using `agent:auto`
 | `agent:<name>` + `agents:keepalive` | `agent:retry` | Forces one re-dispatch; keepalive removes the label at the top of its run
-| `agent:retry` | (removed by `agents-keepalive-loop.yml`) | Co-removes any stale `agent:rate-limited`
+| `agent:retry` | (removed by `agents-81-gate-followups.yml`) | Co-removes any stale `agent:rate-limited`
 | `agent:rate-limited` | `agent:retry` | Retry-label handler removes stale `agent:rate-limited` before keepalive evaluation
 | `agent:codex` | `agent:codex-invite` | Selects issue-bridge `invite` mode for `agent:codex` when `force_mode: false`; with the default forced input mode, the requested mode still wins
 | `agent:codex` | `status:ready` | Agent begins processing

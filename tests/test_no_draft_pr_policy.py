@@ -89,6 +89,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "docs/ci/WORKFLOW_SYSTEM.md",
         "docs/ci/ISSUE_FORMAT_GUIDE.md",
         "docs/ops/codex-bootstrap-facts.md",
+        "docs/ops/template-setup.md",
         "docs/agent-automation.md",
         "docs/workflow-chatgpt-issue-sync.md",
         "docs/LABELS.md",
@@ -117,6 +118,7 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "allow_replay",
         "raw.githubusercontent.com/stranske/Workflows/v1",
         "@v1",
+        "agents-keepalive-loop.yml",
     )
     affirmative_draft_instruction = re.compile(
         r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
