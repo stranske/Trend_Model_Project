@@ -63,7 +63,7 @@ def _make_config() -> SimpleNamespace:
             "out_end": "2021-12",
         },
         vol_adjust={"target_vol": 0.15},
-        portfolio={"selection_mode": "all", "weighting_scheme": "equal"},
+        portfolio={"selection_mode": "all", "weighting": {"name": "equal"}},
         run={},
         benchmarks={},
     )

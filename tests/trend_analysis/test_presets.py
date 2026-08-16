@@ -29,7 +29,10 @@ def sample_config() -> dict[str, Any]:
         "selection_count": "25",
         "risk_target": "0.33",
         "metrics": {"Sharpe_Ratio": "2", "invalid": "abc"},
-        "portfolio": {"cooldown_months": "6", "weighting_scheme": "risk"},
+        "portfolio": {
+            "cooldown_periods": "6",
+            "weighting": {"name": "risk", "params": {}},
+        },
         "vol_adjust": {"window": {"length": 21}},
         "signals": {
             "window": "126",
@@ -125,7 +128,7 @@ def test_trend_preset_form_defaults_normalises_values(
     assert defaults["selection_count"] == 25
     assert defaults["risk_target"] == pytest.approx(0.33)
     assert defaults["metrics"] == {"sharpe": 2.0}
-    assert defaults["cooldown_months"] == 6
+    assert defaults["cooldown_periods"] == 6
 
 
 def test_trend_preset_form_defaults_handles_missing_portfolio(
@@ -141,8 +144,8 @@ def test_trend_preset_form_defaults_handles_missing_portfolio(
         _config=presets._freeze_mapping(custom),
     )
     defaults = preset.form_defaults()
-    assert defaults["weighting_scheme"] == "equal"
-    assert defaults["cooldown_months"] == 3
+    assert defaults["weighting_name"] == "equal"
+    assert defaults["cooldown_periods"] == 3
 
 
 def test_trend_preset_signals_and_vol_adjust_defaults(

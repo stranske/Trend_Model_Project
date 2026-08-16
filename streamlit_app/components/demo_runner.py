@@ -125,7 +125,7 @@ def _build_policy(metric_weights: Mapping[str, float], preset: Mapping[str, Any]
     return PolicyConfig(
         top_k=int(preset.get("selection_count", 10)),
         bottom_k=0,
-        cooldown_months=int(preset.get("portfolio", {}).get("cooldown_months", 3)),
+        cooldown_months=int(preset.get("portfolio", {}).get("cooldown_periods", 3)),
         min_track_months=int(preset.get("min_track_months", 24)),
         max_active=max(int(preset.get("selection_count", 10)) * 2, 50),
         max_weight=float(preset.get("portfolio", {}).get("max_weight", 0.15)),
@@ -160,7 +160,7 @@ def _build_pipeline_config(
     end = pd.Timestamp(sim_config["end"])
     lookback = int(sim_config["lookback_periods"])
     policy = sim_config["policy"]
-    weighting_scheme = sim_config["portfolio"]["weighting_scheme"]
+    weighting_name = sim_config["portfolio"]["weighting"]["name"]
 
     blended_weights = {
         PIPELINE_METRIC_ALIASES.get(metric, metric): float(weight)
@@ -185,7 +185,7 @@ def _build_pipeline_config(
             "score_by": "blended",
             "blended_weights": blended_weights,
         },
-        "weighting_scheme": weighting_scheme,
+        "weighting": {"name": weighting_name, "params": {}},
     }
     benchmarks = {"SPX": benchmark} if benchmark else {}
 
@@ -236,10 +236,10 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
         "min_track_months": int(preset_data.get("min_track_months", 24)),
         "selection_count": int(preset_data.get("selection_count", 10)),
         "risk_target": float(preset_data.get("risk_target", 0.10)),
-        "cooldown_months": policy.cooldown_months,
+        "cooldown_periods": policy.cooldown_months,
         "selected_metrics": list(metric_weights.keys()),
         "metric_weights": metric_weights,
-        "weighting_scheme": "equal",
+        "weighting_name": "equal",
     }
 
     config_state = {
@@ -267,7 +267,7 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
         "risk_target": overrides["risk_target"],
         "column_mapping": column_mapping,
         "preset_name": DEFAULT_PRESET,
-        "portfolio": {"weighting_scheme": overrides["weighting_scheme"]},
+        "portfolio": {"weighting": {"name": overrides["weighting_name"], "params": {}}},
     }
 
     pipeline_config = _build_pipeline_config(sim_config, metric_weights, benchmark)
@@ -301,11 +301,12 @@ def _update_session_state(
     if setup.config_state.get("preset_name") and isinstance(trend_payload, dict):
         trend_payload = dict(trend_payload)
         trend_payload["preset"] = setup.config_state.get("preset_name")
-    # Build model_settings for legacy compatibility
+    # Build the current model-settings snapshot consumed by the results page.
     lookback = int(overrides.get("lookback_periods", setup.sim_config.get("lookback_periods", 36)))
     selection_count = int(overrides.get("selection_count", 10))
     risk_target = float(overrides.get("risk_target", 0.10))
-    weighting_scheme = str(setup.sim_config.get("portfolio", {}).get("weighting_scheme", "equal"))
+    weighting_cfg = setup.sim_config.get("portfolio", {}).get("weighting", {})
+    weighting_name = str(weighting_cfg.get("name", "equal"))
     metric_weights_dict = {
         k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
     }
@@ -315,8 +316,8 @@ def _update_session_state(
         rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
         selection_count=selection_count,
         risk_target=risk_target,
-        weighting_scheme=weighting_scheme,
-        cooldown_periods=int(overrides.get("cooldown_months", 3)),
+        weighting_name=weighting_name,
+        cooldown_periods=int(overrides.get("cooldown_periods", 3)),
         min_history_periods=int(overrides.get("min_track_months", 24)),
         metric_weights=metric_weights_dict,
         trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
@@ -332,7 +333,7 @@ def _update_session_state(
         "min_history_periods": lookback,
         "evaluation_periods": 12,
         "selection_count": selection_count,
-        "weighting_scheme": weighting_scheme,
+        "weighting_name": weighting_name,
         "metric_weights": (
             metric_weights_dict
             if metric_weights_dict
@@ -543,7 +544,9 @@ def run_demo_with_overrides(
         policy = PolicyConfig(
             top_k=policy.top_k,
             bottom_k=policy.bottom_k,
-            cooldown_months=int(portfolio_overrides.get("cooldown_months", policy.cooldown_months)),
+            cooldown_months=int(
+                portfolio_overrides.get("cooldown_periods", policy.cooldown_months)
+            ),
             min_track_months=policy.min_track_months,
             max_active=policy.max_active,
             max_weight=float(portfolio_overrides.get("max_weight", policy.max_weight)),
@@ -576,7 +579,7 @@ def run_demo_with_overrides(
         "risk_target": float(merged.get("risk_target", 0.10)),
         "column_mapping": column_mapping,
         "preset_name": preset_name,
-        "portfolio": {"weighting_scheme": merged.get("weighting_scheme", "equal")},
+        "portfolio": {"weighting": {"name": merged.get("weighting_name", "equal"), "params": {}}},
     }
 
     pipeline_config = _build_pipeline_config(sim_config, metric_weights, benchmark)

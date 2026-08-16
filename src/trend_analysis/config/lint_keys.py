@@ -16,20 +16,15 @@ _DECLARED_PORTFOLIO_KEYS = {
     "rebalance_calendar",
     "rebalance_freq",
     "max_turnover",
-    "transaction_cost_bps",
     "lambda_tc",
     "min_tenure_n",
-    "min_tenure_periods",
     "ci_level",
     "cost_model",
-    "cost_model.bps_per_trade",
-    "cost_model.slippage_bps",
     "cost_model.per_trade_bps",
     "cost_model.half_spread_bps",
     "turnover_cap",
     "weight_policy",
     "cooldown_periods",
-    "cooldown_months",
 }
 
 _CONSUMED_PORTFOLIO_KEYS = {
@@ -41,7 +36,6 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "random_n",
     "manual_list",
     "indices_list",
-    "weighting_scheme",
     "leverage_cap",
     "rank",
     "rank.inclusion_approach",
@@ -100,12 +94,10 @@ _DYNAMIC_PORTFOLIO_SUBTREES = {
 # rejects them (#5543, follow-up to A1/#5389).
 _DECLARED_TOP_LEVEL_SECTIONS = {
     "benchmarks",
-    "checkpoint_dir",
     "data",
     "export",
     "extra",
     "identity",
-    "jobs",
     "metrics",
     "multi_period",
     "output",

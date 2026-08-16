@@ -60,7 +60,9 @@ portfolio:
     - Abrdn MOSERS Trend
     - HFRXSDV Base
     - SG Trend Index
-  transaction_cost_bps: 10
+  cost_model:
+    per_trade_bps: 10
+    half_spread_bps: 0
   max_turnover: 0.50
   rebalance_calendar: NYSE
 

@@ -64,14 +64,23 @@ _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
     ("portfolio", "weighting", "params"),
 }
 
-_ALLOWED_WEIGHTING_SCHEMES = {
+_ALLOWED_WEIGHTING_NAMES = {
+    "adaptive",
+    "adaptive_bayes",
+    "bayes",
     "equal",
+    "ew",
     "risk_parity",
     "hrp",
     "erc",
+    "robust",
     "robust_mv",
     "robust_risk_parity",
-    "custom",
+    "score",
+    "score_bayes",
+    "score_prop",
+    "score_prop_bayes",
+    "score_prop_simple",
 }
 
 
@@ -85,9 +94,6 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
         return
-
-    if "weighting_scheme" in portfolio:
-        _require_non_empty_str(portfolio.get("weighting_scheme"), "portfolio.weighting_scheme")
 
     if "weighting" not in portfolio:
         return
@@ -103,8 +109,6 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
 def _allow_weighting_params_extension(overrides: Mapping[str, Any]) -> bool:
     portfolio = overrides.get("portfolio")
     if not isinstance(portfolio, Mapping):
-        return False
-    if "weighting_scheme" not in portfolio:
         return False
     weighting = portfolio.get("weighting")
     if not isinstance(weighting, Mapping):
@@ -256,13 +260,14 @@ class StrategyVariant:
 
         portfolio = merged.get("portfolio")
         if isinstance(portfolio, Mapping):
-            scheme = portfolio.get("weighting_scheme")
-            if isinstance(scheme, str) and scheme.strip():
-                scheme_value = scheme.strip().lower()
-                if scheme_value not in _ALLOWED_WEIGHTING_SCHEMES:
-                    allowed = ", ".join(sorted(_ALLOWED_WEIGHTING_SCHEMES))
+            weighting = portfolio.get("weighting")
+            if isinstance(weighting, Mapping):
+                name = weighting.get("name")
+                name_value = str(name).strip().lower()
+                if name_value not in _ALLOWED_WEIGHTING_NAMES:
+                    allowed = ", ".join(sorted(_ALLOWED_WEIGHTING_NAMES))
                     raise ValueError(
-                        "Strategy '{name}' config invalid: portfolio.weighting_scheme must be one of: {allowed}".format(
+                        "Strategy '{name}' config invalid: portfolio.weighting.name must be one of: {allowed}".format(
                             name=self.name,
                             allowed=allowed,
                         )

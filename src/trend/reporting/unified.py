@@ -478,17 +478,20 @@ def _build_param_summary(
     selection_mode = _get(portfolio, "selection_mode")
     if selection_mode:
         params.append(("Selection mode", str(selection_mode)))
-    weighting = _get(portfolio, "weighting_scheme")
+    weighting_cfg = _get(portfolio, "weighting", {})
+    weighting = _get(weighting_cfg, "name")
     if weighting:
         params.append(("Weighting scheme", str(weighting)))
     max_turnover = _get(portfolio, "max_turnover")
     if isinstance(max_turnover, (int, float)):
         params.append(("Turnover cap", _format_percent(float(max_turnover))))
-    tx_cost = _get(portfolio, "transaction_cost_bps") or _get(run_cfg, "monthly_cost")
+    cost_model_cfg = _get(portfolio, "cost_model", {})
+    tx_cost = _get(cost_model_cfg, "per_trade_bps")
+    if tx_cost is None:
+        tx_cost = _get(run_cfg, "monthly_cost")
     if isinstance(tx_cost, (int, float)):
         params.append(("Transaction cost", f"{float(tx_cost):.2f} bps"))
-    cost_model_cfg = _get(portfolio, "cost_model", {})
-    slippage = _get(cost_model_cfg, "slippage_bps")
+    slippage = _get(cost_model_cfg, "half_spread_bps")
     if isinstance(slippage, (int, float)) and float(slippage):
         params.append(("Slippage assumption", f"{float(slippage):.2f} bps"))
     rebalance = _get(portfolio, "rebalance_calendar")

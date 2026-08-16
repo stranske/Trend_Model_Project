@@ -44,7 +44,7 @@ def _make_config(**kwargs: object) -> types.SimpleNamespace:
             "out_start": "2021-01",
             "out_end": "2021-12",
         },
-        "portfolio": {"transaction_cost_bps": 10.0},
+        "portfolio": {"cost_model": {"per_trade_bps": 10.0, "half_spread_bps": 0}},
     }
     base.update(kwargs)
     return types.SimpleNamespace(**base)
@@ -229,7 +229,7 @@ def test_run_pipeline_requires_transaction_cost(
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: DummyResult())
     monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
 
-    with pytest.raises(trend_cli.TrendCLIError, match="transaction_cost_bps"):
+    with pytest.raises(trend_cli.TrendCLIError, match="cost_model"):
         trend_cli._run_pipeline(
             cfg,
             returns,
@@ -341,10 +341,9 @@ def test_load_configuration_reads_file(tmp_path: Path, monkeypatch: pytest.Monke
             portfolio:
               rebalance_calendar: NYSE
               max_turnover: 1.0
-              transaction_cost_bps: 1
               cost_model:
-                bps_per_trade: 1
-                slippage_bps: 0
+                per_trade_bps: 1
+                half_spread_bps: 0
             metrics: {}
             export: {}
             run: {}
@@ -379,7 +378,9 @@ def test_load_configuration_runs_core_then_full_validation(
             portfolio:
               rebalance_calendar: NYSE
               max_turnover: 1.0
-              transaction_cost_bps: 1
+              cost_model:
+                per_trade_bps: 1
+                half_spread_bps: 0
             metrics: {}
             export: {}
             run: {}

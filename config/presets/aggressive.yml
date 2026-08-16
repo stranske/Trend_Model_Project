@@ -32,7 +32,7 @@ signals:
 # Aggressive portfolio construction
 portfolio:
   max_weight: 0.10  # Lower max weight for diversification
-  cooldown_months: 1  # Minimal cooldown for agility
+  cooldown_periods: 1  # Minimal cooldown for agility
   
 # Higher volatility tolerance
 vol_adjust:

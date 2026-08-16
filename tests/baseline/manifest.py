@@ -63,7 +63,7 @@ def catalog_touched_keys(
     """Every parameter key referenced by any scenario or toggle.
 
     A scenario may patch an *object-valued* config key -- e.g. clearing
-    ``portfolio.custom_weights`` to null so ``portfolio.weighting_scheme`` can
+    ``portfolio.custom_weights`` to null so ``portfolio.weighting.name`` can
     actually drive the allocation (see catalog ``weighting_risk_parity`` /
     issue #5537). The schema enumerates such objects only at their leaves
     (``portfolio.custom_weights.Mgr_01`` ...), so when ``schema_leaves`` is

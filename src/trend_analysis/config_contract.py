@@ -10,7 +10,6 @@ from trend.config_schema import CoreConfigError
 SectionGet = Callable[[Any, str, Any], Any]
 
 _WEIGHTING_NAME_ALIASES = {"ew": "equal", "robust": "robust_mv"}
-_WEIGHTING_SCHEME_PLACEHOLDERS = {"equal", "custom"}
 
 
 def mapping_get(section: Any, key: str, default: Any = None) -> Any:
@@ -42,15 +41,16 @@ def resolve_portfolio_weighting_name(
     *,
     section_get: SectionGet = mapping_get,
 ) -> str:
-    """Resolve legacy and nested weighting keys with one documented precedence."""
+    """Resolve the canonical nested portfolio weighting name."""
 
+    if section_get(portfolio_cfg, "weighting_scheme", None) is not None:
+        raise CoreConfigError(
+            "portfolio.weighting_scheme was removed; use portfolio.weighting.name"
+        )
     weighting_cfg = section_get(portfolio_cfg, "weighting", {})
+    if not isinstance(weighting_cfg, Mapping):
+        raise CoreConfigError("portfolio.weighting must be a mapping")
     nested_name = section_get(weighting_cfg, "name", None)
-    legacy_name = section_get(portfolio_cfg, "weighting_scheme", None)
-    if legacy_name not in (None, ""):
-        resolved_legacy = normalise_weighting_name(legacy_name)
-        if resolved_legacy not in _WEIGHTING_SCHEME_PLACEHOLDERS or not nested_name:
-            return resolved_legacy
     return normalise_weighting_name(nested_name)
 
 
@@ -68,21 +68,6 @@ def optional_cost_bps(value: Any, *, field: str) -> float | None:
     return parsed
 
 
-def first_configured_cost(
-    section: Any,
-    primary_key: str,
-    legacy_key: str,
-    *,
-    section_get: SectionGet,
-) -> tuple[Any, str]:
-    """Return the preferred configured cost alias and its diagnostic field name."""
-
-    primary_value = section_get(section, primary_key, None)
-    if primary_value is not None:
-        return primary_value, primary_key
-    return section_get(section, legacy_key, None), legacy_key
-
-
 def resolve_portfolio_cost_bps(
     portfolio_cfg: Any,
     *,
@@ -90,37 +75,26 @@ def resolve_portfolio_cost_bps(
 ) -> tuple[float, float]:
     """Return canonical transaction-cost and slippage inputs in basis points."""
 
-    cost_model = section_get(portfolio_cfg, "cost_model", None)
-    bps_per_trade_value, bps_per_trade_key = first_configured_cost(
-        cost_model,
-        "per_trade_bps",
-        "bps_per_trade",
-        section_get=section_get,
+    for removed in ("transaction_cost_bps", "slippage_bps"):
+        if section_get(portfolio_cfg, removed, None) is not None:
+            raise CoreConfigError(f"portfolio.{removed} was removed; use portfolio.cost_model")
+    cost_model = section_get(portfolio_cfg, "cost_model", {})
+    if not isinstance(cost_model, Mapping):
+        raise CoreConfigError("portfolio.cost_model must be a mapping")
+    for removed in ("bps_per_trade", "slippage_bps"):
+        if section_get(cost_model, removed, None) is not None:
+            raise CoreConfigError(
+                f"portfolio.cost_model.{removed} was removed; use per_trade_bps and half_spread_bps"
+            )
+    per_trade_bps = optional_cost_bps(
+        section_get(cost_model, "per_trade_bps", 0.0),
+        field="cost_model.per_trade_bps",
     )
-    bps_per_trade = optional_cost_bps(
-        bps_per_trade_value,
-        field=f"cost_model.{bps_per_trade_key}",
+    half_spread_bps = optional_cost_bps(
+        section_get(cost_model, "half_spread_bps", 0.0),
+        field="cost_model.half_spread_bps",
     )
-    slippage_bps_value, slippage_bps_key = first_configured_cost(
-        cost_model,
-        "half_spread_bps",
-        "slippage_bps",
-        section_get=section_get,
-    )
-    slippage_bps = optional_cost_bps(
-        slippage_bps_value,
-        field=f"cost_model.{slippage_bps_key}",
-    )
-    if bps_per_trade is None:
-        bps_per_trade = optional_cost_bps(
-            section_get(portfolio_cfg, "transaction_cost_bps", 0.0),
-            field="transaction_cost_bps",
-        )
-    if slippage_bps is None:
-        slippage_bps = optional_cost_bps(
-            section_get(portfolio_cfg, "slippage_bps", 0.0), field="slippage_bps"
-        )
-    return float(bps_per_trade or 0.0), float(slippage_bps or 0.0)
+    return float(per_trade_bps or 0.0), float(half_spread_bps or 0.0)
 
 
 def resolve_pipeline_monthly_cost(
@@ -134,17 +108,8 @@ def resolve_pipeline_monthly_cost(
     tc_bps, slippage_bps = resolve_portfolio_cost_bps(portfolio_cfg, section_get=section_get)
     cost_model = section_get(portfolio_cfg, "cost_model", None)
     cost_values = (
-        *(
-            section_get(cost_model, key, None)
-            for key in (
-                "per_trade_bps",
-                "bps_per_trade",
-                "half_spread_bps",
-                "slippage_bps",
-            )
-        ),
-        section_get(portfolio_cfg, "transaction_cost_bps", None),
-        section_get(portfolio_cfg, "slippage_bps", None),
+        section_get(cost_model, "per_trade_bps", None),
+        section_get(cost_model, "half_spread_bps", None),
     )
     if any(value is not None for value in cost_values):
         return (tc_bps + slippage_bps) / 10000.0

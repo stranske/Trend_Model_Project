@@ -37,7 +37,9 @@ portfolio:
     params:
       shrink_tau: 0.25
   rebalance_calendar: NYSE
-  transaction_cost_bps: 0
+  cost_model:
+    per_trade_bps: 0
+    half_spread_bps: 0
   max_turnover: 1.0
 
 benchmarks:

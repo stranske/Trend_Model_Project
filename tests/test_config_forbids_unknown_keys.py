@@ -20,7 +20,7 @@ def _valid_payload(tmp_path: Path) -> dict[str, object]:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }

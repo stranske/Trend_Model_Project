@@ -85,20 +85,17 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
     """The same portfolio config yields matching costs and weighting on both paths."""
 
     portfolio = {
-        "transaction_cost_bps": 12,
-        "cost_model": {"slippage_bps": 3},
+        "cost_model": {"per_trade_bps": 12, "half_spread_bps": 3},
         "weighting": {"name": "score_prop_bayes"},
     }
     run = {"monthly_cost": 0.0}
     returns = _parity_returns_frame()
 
     single_cost = _resolve_single_period_monthly_cost(portfolio, run)
-    multi_tc_bps, multi_slippage_bps = _resolve_portfolio_cost_bps(portfolio)
+    multi_tc_bps, multi_half_spread_bps = _resolve_portfolio_cost_bps(portfolio)
     multi_cost = _resolve_pipeline_monthly_cost(
         run,
         portfolio,
-        tc_bps=multi_tc_bps,
-        slippage_bps=multi_slippage_bps,
     )
     _, _, _, _, multi_weighting = _resolve_portfolio_weighting(portfolio)
 
@@ -106,13 +103,14 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
     assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == multi_weighting
 
     gross_return = 0.01
-    zero_cost = _resolve_single_period_monthly_cost({"transaction_cost_bps": 0}, run)
+    zero_cost = _resolve_single_period_monthly_cost(
+        {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}}, run
+    )
     assert gross_return - single_cost < gross_return - zero_cost
     assert gross_return - multi_cost < gross_return - zero_cost
 
     zero_portfolio = dict(portfolio)
-    zero_portfolio["transaction_cost_bps"] = 0.0
-    zero_portfolio["cost_model"] = {}
+    zero_portfolio["cost_model"] = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
 
     single_zero = api.run_simulation(_single_period_cfg(zero_portfolio), returns)
     single_charged = api.run_simulation(_single_period_cfg(portfolio), returns)
@@ -128,7 +126,10 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
     assert charged_costs and zero_costs
     assert sum(charged_costs) > sum(zero_costs)
 
-    weight_portfolio = {"weighting": {"name": "hrp"}, "transaction_cost_bps": 0.0}
+    weight_portfolio = {
+        "weighting": {"name": "hrp"},
+        "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+    }
     captured: dict[str, object] = {}
 
     def fake_single_run(*args: object, **kwargs: object) -> dict[str, object]:
@@ -147,10 +148,9 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
     assert mp_scheme == "hrp"
 
 
-def test_cost_model_dump_preserves_legacy_values_when_optional_aliases_are_null() -> None:
-    """Pydantic's null optional aliases must not mask configured legacy costs."""
+def test_cost_model_dump_preserves_canonical_values() -> None:
 
-    cost_model = CostModelSettings(bps_per_trade=12, slippage_bps=3).model_dump()
+    cost_model = CostModelSettings(per_trade_bps=12, half_spread_bps=3).model_dump()
     portfolio = {"cost_model": cost_model}
 
     assert resolve_portfolio_cost_bps(portfolio) == (12.0, 3.0)
@@ -173,17 +173,14 @@ def test_empty_cost_model_keeps_run_monthly_cost() -> None:
     ("portfolio", "expected"),
     [
         ({"weighting": {"name": "ew"}}, "equal"),
-        ({"weighting": {"name": "score_prop_bayes"}, "weighting_scheme": "robust"}, "robust_mv"),
-        (
-            {"weighting": {"name": "score_prop_bayes"}, "weighting_scheme": "equal"},
-            "score_prop_bayes",
-        ),
+        ({"weighting": {"name": "robust"}}, "robust_mv"),
+        ({"weighting": {"name": "score_prop_bayes"}}, "score_prop_bayes"),
     ],
 )
-def test_weighting_aliases_and_precedence_match_both_entrypoints(
+def test_weighting_names_match_both_entrypoints(
     portfolio: dict[str, object], expected: str
 ) -> None:
-    """Nested aliases and explicit legacy weighting settings share one precedence rule."""
+    """Canonical nested names share one resolution rule."""
 
     _, _, _, _, multi_weighting = _resolve_portfolio_weighting(portfolio)
     assert resolve_portfolio_weighting_name(portfolio) == expected
@@ -195,6 +192,6 @@ def test_weighting_aliases_and_precedence_match_both_entrypoints(
 def test_invalid_costs_are_rejected_by_shared_contract(value: float) -> None:
     """Both entry points reject non-finite and negative cost inputs consistently."""
 
-    portfolio = {"cost_model": {"bps_per_trade": value}}
-    with pytest.raises(Exception, match="cost_model.bps_per_trade"):
+    portfolio = {"cost_model": {"per_trade_bps": value}}
+    with pytest.raises(Exception, match="cost_model.per_trade_bps"):
         _resolve_single_period_monthly_cost(portfolio, {"monthly_cost": 0.0})

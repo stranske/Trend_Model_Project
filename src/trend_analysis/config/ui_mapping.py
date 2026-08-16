@@ -222,19 +222,17 @@ def build_portfolio_config(
     config: Mapping[str, Any], weights: Mapping[str, float]
 ) -> dict[str, Any]:
     selection_count = coerce_positive_int(config.get("selection_count"), default=10, minimum=1)
-    weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
+    weighting_name = str(config.get("weighting_name", "equal") or "equal")
     registry_weights = {
         METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
 
     max_weight = coerce_positive_float(config.get("max_weight"), default=0.20)
     max_turnover = coerce_positive_float(config.get("max_turnover"), default=1.0)
-    transaction_cost_bps = coerce_positive_int(
-        config.get("transaction_cost_bps"), default=0, minimum=0
-    )
+    per_trade_bps = coerce_positive_int(config.get("per_trade_bps"), default=0, minimum=0)
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
-    min_tenure_periods = coerce_positive_int(config.get("min_tenure_periods"), default=0, minimum=0)
+    min_tenure_n = coerce_positive_int(config.get("min_tenure_n"), default=0, minimum=0)
     max_changes_per_period = coerce_positive_int(
         config.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -249,7 +247,7 @@ def build_portfolio_config(
     buy_hold_initial = str(config.get("buy_hold_initial", "top_n"))
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    slippage_bps = coerce_positive_int(config.get("slippage_bps"), default=0, minimum=0)
+    half_spread_bps = coerce_positive_int(config.get("half_spread_bps"), default=0, minimum=0)
     bottom_k = coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     rank_pct = coerce_positive_float(config.get("rank_pct"), default=0.10)
@@ -285,27 +283,24 @@ def build_portfolio_config(
             "blended_weights": registry_weights,
         },
         "random_n": selection_count,
-        "weighting_scheme": weighting_scheme,
+        "weighting": {"name": weighting_name, "params": {}},
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
-        "transaction_cost_bps": transaction_cost_bps,
+        "cost_model": {
+            "per_trade_bps": per_trade_bps,
+            "half_spread_bps": half_spread_bps,
+        },
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,
         },
     }
 
-    if slippage_bps > 0:
-        portfolio_cfg["cost_model"] = {
-            "bps_per_trade": transaction_cost_bps,
-            "slippage_bps": slippage_bps,
-        }
-
     if bottom_k > 0:
         portfolio_cfg["rank"]["bottom_k"] = bottom_k
 
-    if min_tenure_periods > 0:
-        portfolio_cfg["min_tenure_n"] = min_tenure_periods
+    if min_tenure_n > 0:
+        portfolio_cfg["min_tenure_n"] = min_tenure_n
     if max_changes_per_period > 0:
         portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
     if max_active_positions > 0:
@@ -349,12 +344,12 @@ def build_config_from_ui_state(
     rf_rate_annual = coerce_positive_float(model_state.get("rf_rate_annual"), default=0.0)
 
     trend_spec = {
-        "window": model_state.get("trend_window"),
-        "lag": model_state.get("trend_lag"),
-        "min_periods": model_state.get("trend_min_periods"),
-        "zscore": model_state.get("trend_zscore"),
-        "vol_adjust": model_state.get("trend_vol_adjust"),
-        "vol_target": model_state.get("trend_vol_target"),
+        "window": model_state.get("signal_window"),
+        "lag": model_state.get("signal_lag"),
+        "min_periods": model_state.get("signal_min_periods"),
+        "zscore": model_state.get("signal_zscore"),
+        "vol_adjust": model_state.get("signal_vol_adjust"),
+        "vol_target": model_state.get("signal_vol_target"),
     }
     signals_cfg = build_signals_config(trend_spec)
 
@@ -430,8 +425,8 @@ def build_config_from_ui_state(
     z_exit_soft = float(model_state.get("z_exit_soft", -1.0) or -1.0)
     soft_strikes = int(model_state.get("soft_strikes", 2) or 2)
     entry_soft_strikes = int(model_state.get("entry_soft_strikes", 1) or 1)
-    sticky_add_periods = int(model_state.get("sticky_add_periods", 1) or 1)
-    sticky_drop_periods = int(model_state.get("sticky_drop_periods", 1) or 1)
+    sticky_add_x = int(model_state.get("sticky_add_x", 1) or 1)
+    sticky_drop_y = int(model_state.get("sticky_drop_y", 1) or 1)
     ci_level = float(model_state.get("ci_level", 0.0) or 0.0)
 
     z_entry_hard_val = model_state.get("z_entry_hard")
@@ -456,14 +451,14 @@ def build_config_from_ui_state(
         threshold_hold_cfg["z_entry_hard"] = z_entry_hard
     if z_exit_hard is not None:
         threshold_hold_cfg["z_exit_hard"] = z_exit_hard
-    min_tenure_periods = coerce_positive_int(model_state.get("min_tenure_periods"), default=0)
-    if min_tenure_periods > 0:
-        threshold_hold_cfg["min_tenure_n"] = min_tenure_periods
+    min_tenure_n = coerce_positive_int(model_state.get("min_tenure_n"), default=0)
+    if min_tenure_n > 0:
+        threshold_hold_cfg["min_tenure_n"] = min_tenure_n
 
     portfolio_cfg["policy"] = "threshold_hold"
     portfolio_cfg["threshold_hold"] = threshold_hold_cfg
-    portfolio_cfg["sticky_add_x"] = sticky_add_periods
-    portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
+    portfolio_cfg["sticky_add_x"] = sticky_add_x
+    portfolio_cfg["sticky_drop_y"] = sticky_drop_y
     portfolio_cfg["ci_level"] = ci_level
 
     multi_period_enabled = bool(model_state.get("multi_period_enabled", False))

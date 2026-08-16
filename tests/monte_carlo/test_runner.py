@@ -61,7 +61,7 @@ def _base_config() -> dict[str, Any]:
         "preprocessing": {},
         "vol_adjust": {"enabled": False, "target_vol": 0.1, "window": {"length": 3}},
         "sample_split": {"method": "ratio", "ratio": 0.6},
-        "portfolio": {"selection_mode": "all", "weighting_scheme": "equal"},
+        "portfolio": {"selection_mode": "all", "weighting": {"name": "equal"}},
         "benchmarks": {},
         "metrics": {"registry": ["annual_return", "volatility", "sharpe_ratio"]},
         "regime": {},

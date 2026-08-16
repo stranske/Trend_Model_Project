@@ -32,24 +32,9 @@ def test_weighting_name_score_prop_is_reachable() -> None:
     assert fallback is None
 
 
-def test_weighting_scheme_risk_parity_uses_risk_engine() -> None:
+def test_nested_bayesian_weighting_name_is_preserved() -> None:
     weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
-        {"weighting_scheme": "risk_parity"}
-    )
-
-    assert scheme == "risk_parity"
-    assert use_risk is True
-    assert isinstance(risk_engine, RiskParity)
-    assert fallback is None
-    assert isinstance(weighting, EqualWeight)
-
-
-def test_placeholder_weighting_scheme_preserves_nested_weighting_name() -> None:
-    weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
-        {
-            "weighting_scheme": "equal",
-            "weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}},
-        }
+        {"weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}}}
     )
 
     assert scheme == "score_prop_bayes"
@@ -59,12 +44,9 @@ def test_placeholder_weighting_scheme_preserves_nested_weighting_name() -> None:
     assert fallback is None
 
 
-def test_custom_placeholder_preserves_nested_weighting_name() -> None:
+def test_nested_score_weighting_name_is_preserved() -> None:
     weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
-        {
-            "weighting_scheme": "custom",
-            "weighting": {"name": "score_prop", "params": {"column": "Sortino"}},
-        }
+        {"weighting": {"name": "score_prop", "params": {"column": "Sortino"}}}
     )
 
     assert scheme == "score_prop"

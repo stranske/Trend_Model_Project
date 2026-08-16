@@ -109,7 +109,7 @@ SETTINGS_TO_TEST: list[SettingTest] = [
     ),
     # === Weighting ===
     SettingTest(
-        name="weighting_scheme",
+        name="weighting_name",
         baseline_value="equal",
         test_value="risk_parity",
         category="Weighting",
@@ -118,7 +118,7 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         description="Risk parity should produce different weights than equal",
     ),
     SettingTest(
-        name="weighting_scheme",
+        name="weighting_name",
         baseline_value="equal",
         test_value="hrp",
         category="Weighting",
@@ -294,7 +294,7 @@ SETTINGS_TO_TEST: list[SettingTest] = [
     ),
     # === Costs ===
     SettingTest(
-        name="transaction_cost_bps",
+        name="per_trade_bps",
         baseline_value=0,
         test_value=50,
         category="Costs",
@@ -303,7 +303,7 @@ SETTINGS_TO_TEST: list[SettingTest] = [
         description="Higher transaction costs should increase total costs",
     ),
     SettingTest(
-        name="slippage_bps",
+        name="half_spread_bps",
         baseline_value=0,
         test_value=25,
         category="Costs",
@@ -432,7 +432,7 @@ def get_baseline_state() -> dict[str, Any]:
         "min_history_periods": 3,
         "evaluation_periods": 1,
         "selection_count": 10,
-        "weighting_scheme": "equal",
+        "weighting_name": "equal",
         "metric_weights": {"sharpe": 1.0, "return_ann": 1.0, "drawdown": 0.5},
         "risk_target": 0.10,
         "vol_adjust_enabled": True,
@@ -449,16 +449,16 @@ def get_baseline_state() -> dict[str, Any]:
         "cooldown_periods": 1,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
-        "transaction_cost_bps": 0,
-        "min_tenure_periods": 3,
+        "per_trade_bps": 0,
+        "min_tenure_n": 3,
         "max_changes_per_period": 0,
         "max_active_positions": 0,
-        "trend_window": 63,
-        "trend_lag": 1,
-        "trend_min_periods": None,
-        "trend_zscore": False,
-        "trend_vol_adjust": False,
-        "trend_vol_target": None,
+        "signal_window": 63,
+        "signal_lag": 1,
+        "signal_min_periods": None,
+        "signal_zscore": False,
+        "signal_vol_adjust": False,
+        "signal_vol_target": None,
         "regime_enabled": False,
         "regime_proxy": "SPX",
         "shrinkage_enabled": True,
@@ -472,14 +472,14 @@ def get_baseline_state() -> dict[str, Any]:
         "soft_strikes": 2,
         "entry_soft_strikes": 1,
         "min_weight_strikes": 2,
-        "sticky_add_periods": 1,
-        "sticky_drop_periods": 1,
+        "sticky_add_x": 1,
+        "sticky_drop_y": 1,
         "ci_level": 0.0,
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "inclusion_approach": "threshold",
         "buy_hold_initial": "top_n",
-        "slippage_bps": 0,
+        "half_spread_bps": 0,
         "bottom_k": 0,
         "rank_pct": 0.10,
         "mp_min_funds": 5,
@@ -624,14 +624,12 @@ def _build_config_from_state(
 
     # Build portfolio config
     selection_count = _coerce_positive_int(state.get("selection_count"), default=10, minimum=1)
-    weighting_scheme = str(state.get("weighting_scheme", "equal") or "equal")
+    weighting_name = str(state.get("weighting_name", "equal") or "equal")
     max_weight = _coerce_positive_float(state.get("max_weight"), default=0.20)
     max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
-    transaction_cost_bps = _coerce_positive_int(
-        state.get("transaction_cost_bps"), default=0, minimum=0
-    )
+    per_trade_bps = _coerce_positive_int(state.get("per_trade_bps"), default=0, minimum=0)
     rebalance_freq = str(state.get("rebalance_freq", "M") or "M")
-    min_tenure_periods = _coerce_positive_int(state.get("min_tenure_periods"), default=0, minimum=0)
+    min_tenure_n = _coerce_positive_int(state.get("min_tenure_n"), default=0, minimum=0)
     max_changes_per_period = _coerce_positive_int(
         state.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -646,7 +644,7 @@ def _build_config_from_state(
     buy_hold_initial = str(state.get("buy_hold_initial", "top_n"))
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    slippage_bps = _coerce_positive_int(state.get("slippage_bps"), default=0, minimum=0)
+    half_spread_bps = _coerce_positive_int(state.get("half_spread_bps"), default=0, minimum=0)
     bottom_k = _coerce_positive_int(state.get("bottom_k"), default=0, minimum=0)
     rank_pct = _coerce_positive_float(state.get("rank_pct"), default=0.10)
     rank_threshold = _coerce_positive_float(
@@ -680,26 +678,23 @@ def _build_config_from_state(
             "blended_weights": registry_weights,
         },
         "random_n": selection_count,
-        "weighting_scheme": weighting_scheme,
+        "weighting": {"name": weighting_name, "params": {}},
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
-        "transaction_cost_bps": transaction_cost_bps,
-        "slippage_bps": slippage_bps,
+        "cost_model": {
+            "per_trade_bps": per_trade_bps,
+            "half_spread_bps": half_spread_bps,
+        },
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,
         },
     }
 
-    if slippage_bps > 0:
-        portfolio_cfg["cost_model"] = {
-            "bps_per_trade": transaction_cost_bps,
-            "slippage_bps": slippage_bps,
-        }
     if bottom_k > 0:
         portfolio_cfg["rank"]["bottom_k"] = bottom_k
-    if min_tenure_periods > 0:
-        portfolio_cfg["min_tenure_n"] = min_tenure_periods
+    if min_tenure_n > 0:
+        portfolio_cfg["min_tenure_n"] = min_tenure_n
     if max_changes_per_period > 0:
         portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
     if max_active_positions > 0:
@@ -760,18 +755,18 @@ def _build_config_from_state(
     portfolio_cfg["policy"] = "threshold_hold"
     portfolio_cfg["threshold_hold"] = threshold_hold_cfg
 
-    sticky_add_periods = int(state.get("sticky_add_periods", 1) or 1)
-    sticky_drop_periods = int(state.get("sticky_drop_periods", 1) or 1)
+    sticky_add_x = int(state.get("sticky_add_x", 1) or 1)
+    sticky_drop_y = int(state.get("sticky_drop_y", 1) or 1)
     ci_level = float(state.get("ci_level", 0.0) or 0.0)
-    portfolio_cfg["sticky_add_x"] = sticky_add_periods
-    portfolio_cfg["sticky_drop_y"] = sticky_drop_periods
+    portfolio_cfg["sticky_add_x"] = sticky_add_x
+    portfolio_cfg["sticky_drop_y"] = sticky_drop_y
     portfolio_cfg["ci_level"] = ci_level
 
     # Signals config
     base = TrendSpecModel()
-    window = _coerce_positive_int(state.get("trend_window"), default=base.window)
-    lag = _coerce_positive_int(state.get("trend_lag"), default=base.lag)
-    min_periods_raw = state.get("trend_min_periods")
+    window = _coerce_positive_int(state.get("signal_window"), default=base.window)
+    lag = _coerce_positive_int(state.get("signal_lag"), default=base.lag)
+    min_periods_raw = state.get("signal_min_periods")
     try:
         min_periods: int | None = (
             int(min_periods_raw)  # type: ignore[arg-type]
@@ -785,8 +780,8 @@ def _build_config_from_state(
     if min_periods is not None and min_periods > window:
         min_periods = window
 
-    vol_adjust = bool(state.get("trend_vol_adjust", base.vol_adjust))
-    vol_target_raw = state.get("trend_vol_target")
+    vol_adjust = bool(state.get("signal_vol_adjust", base.vol_adjust))
+    vol_target_raw = state.get("signal_vol_target")
     try:
         vol_target = float(vol_target_raw) if vol_target_raw is not None else None
     except (TypeError, ValueError):
@@ -796,7 +791,7 @@ def _build_config_from_state(
     if not vol_adjust:
         vol_target = None
 
-    zscore = bool(state.get("trend_zscore", base.zscore))
+    zscore = bool(state.get("signal_zscore", base.zscore))
 
     signals_cfg: dict[str, Any] = {
         "kind": base.kind,
@@ -1203,14 +1198,14 @@ def run_single_test(
 
     # min_weight constraint needs non-equal weighting to have observable effect
     if setting.name == "min_weight":
-        baseline_state["weighting_scheme"] = "risk_parity"
-        test_state["weighting_scheme"] = "risk_parity"
+        baseline_state["weighting_name"] = "risk_parity"
+        test_state["weighting_name"] = "risk_parity"
 
     if setting.name == "max_weight":
         baseline_state["vol_adjust_enabled"] = True
         test_state["vol_adjust_enabled"] = True
-        baseline_state["weighting_scheme"] = "risk_parity"
-        test_state["weighting_scheme"] = "risk_parity"
+        baseline_state["weighting_name"] = "risk_parity"
+        test_state["weighting_name"] = "risk_parity"
         baseline_state["inclusion_approach"] = "top_n"
         test_state["inclusion_approach"] = "top_n"
         try:
@@ -1240,13 +1235,13 @@ def run_single_test(
 
     # shrinkage tests need robust_mv weighting where shrinkage is applied
     if setting.name in ["shrinkage_enabled", "shrinkage_method"]:
-        baseline_state["weighting_scheme"] = "robust_mv"
-        test_state["weighting_scheme"] = "robust_mv"
+        baseline_state["weighting_name"] = "robust_mv"
+        test_state["weighting_name"] = "robust_mv"
 
     # max_turnover needs a churny setup so the cap becomes binding.
     if setting.name == "max_turnover":
         for state in (baseline_state, test_state):
-            state["min_tenure_periods"] = 0
+            state["min_tenure_n"] = 0
             state["cooldown_periods"] = 0
             state["z_entry_soft"] = 0.0
             state["z_exit_soft"] = 0.0

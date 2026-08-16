@@ -47,7 +47,6 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
                 "name": "rank",
                 "params": {"top_n": 3, "rank_column": "Sharpe"},
             },
-            "weighting_scheme": "equal",
             "weighting": {"name": "equal", "params": {}},
             "indices_list": ["SPX"],
             "constraints": {
@@ -56,7 +55,7 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
             },
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "benchmarks": {"spx": "SPX"},
         "metrics": {
@@ -78,7 +77,12 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
             "format": "csv",
             "path": str(exports_dir / "alias_demo.csv"),
         },
-        "run": {"seed": 7, "monthly_cost": 0.001},
+        "run": {
+            "seed": 7,
+            "monthly_cost": 0.001,
+            "jobs": 1,
+            "checkpoint_dir": str(tmp_path / "checkpoints"),
+        },
         "multi_period": {
             "frequency": "ME",
             "in_sample_len": 24,
@@ -86,8 +90,6 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
             "start": "2016-01",
             "end": "2021-12",
         },
-        "jobs": 1,
-        "checkpoint_dir": str(tmp_path / "checkpoints"),
     }
 
 

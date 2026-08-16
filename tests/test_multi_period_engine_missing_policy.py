@@ -100,7 +100,14 @@ def test_missing_policy_diagnostic_applied_when_configured(
 
     calls: list[tuple[Any, Any]] = []
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: Any, limit: Any):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: Any,
+        limit: Any,
+        enforce_completeness: bool,
+    ):
+        assert enforce_completeness is True
         calls.append((policy, limit))
         return frame.fillna(0.0), {"policy": policy, "limit": limit}
 

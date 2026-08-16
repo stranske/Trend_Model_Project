@@ -121,7 +121,7 @@ def test_portfolio_and_risk_settings_validation() -> None:
             {
                 "rebalance_calendar": " ",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
 
@@ -130,7 +130,7 @@ def test_portfolio_and_risk_settings_validation() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.5,
-                "transaction_cost_bps": 0,
+                "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
             }
         )
 
@@ -139,7 +139,7 @@ def test_portfolio_and_risk_settings_validation() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.25,
-                "transaction_cost_bps": -1,
+                "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
             }
         )
 
@@ -175,7 +175,7 @@ def _minimal_config(base_dir: Path) -> dict[str, Any]:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
         },
         "vol_adjust": {
             "target_vol": 0.1,
@@ -293,7 +293,7 @@ def test_portfolio_settings_negative_turnover_rejected() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": -0.1,
-                "transaction_cost_bps": 0,
+                "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
             }
         )
 

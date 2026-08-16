@@ -94,8 +94,8 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
         ({"data": None}, "data section is required"),
         ({"portfolio": []}, "portfolio must be a dictionary"),
         (
-            {"portfolio": {"transaction_cost_bps": -0.1}},
-            "transaction_cost_bps must be >= 0",
+            {"portfolio": {"cost_model": {"per_trade_bps": -0.1, "half_spread_bps": 0}}},
+            "cost_model.per_trade_bps must be >= 0",
         ),
         ({"portfolio": {"max_turnover": 3.5}}, "max_turnover must be <= 2.0"),
     ],

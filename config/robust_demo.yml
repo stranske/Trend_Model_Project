@@ -44,10 +44,14 @@ sample_split:
 
 portfolio:
   selection_mode: "all"
-  weighting_scheme: "robust_mv"  # Use robust mean-variance optimization
+  weighting:
+    name: "robust_mv"  # Use robust mean-variance optimization
+    params: {}
   rebalance_freq: "M"
   leverage_cap: 1.0
-  transaction_cost_bps: 0
+  cost_model:
+    per_trade_bps: 0
+    half_spread_bps: 0
   max_turnover: 1.0
   rebalance_calendar: NYSE
   

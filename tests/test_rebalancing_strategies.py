@@ -72,7 +72,7 @@ def test_periodic_rebalance_retains_target_assets_between_intervals():
 
 
 def _assert_cash_policy_effects(
-    strategy: strat_mod.RebalancingStrategy,
+    strategy: strat_mod.Rebalancer,
     current: pd.Series,
     target: pd.Series,
     *,

@@ -397,7 +397,6 @@ def test_validate_strategy_pack_reports_base_config_mutation(
             {
                 "portfolio": {
                     "max_turnover": 0.5,
-                    "weighting_scheme": "equal",
                     "weighting": {"name": "equal", "params": {}},
                 }
             }
@@ -430,7 +429,6 @@ def test_validate_strategy_pack_does_not_mutate_base_config(
     base_config = {
         "portfolio": {
             "max_turnover": 0.5,
-            "weighting_scheme": "equal",
             "weighting": {"name": "equal", "params": {}},
         }
     }
@@ -532,7 +530,7 @@ def test_validate_strategy_pack_rejects_mapping_tags(tmp_path: Path) -> None:
     ]
 
 
-def test_validate_strategy_pack_rejects_invalid_weighting_scheme(
+def test_validate_strategy_pack_rejects_invalid_weighting_name(
     tmp_path: Path,
 ) -> None:
     pack_path = tmp_path / "invalid_weighting.yml"
@@ -542,7 +540,7 @@ def test_validate_strategy_pack_rejects_invalid_weighting_scheme(
                 "curated": [
                     {
                         "name": "BadWeighting",
-                        "overrides": {"portfolio": {"weighting_scheme": "not_a_scheme"}},
+                        "overrides": {"portfolio": {"weighting": {"name": "not_a_scheme"}}},
                     }
                 ]
             }
@@ -552,4 +550,4 @@ def test_validate_strategy_pack_rejects_invalid_weighting_scheme(
 
     errors = validate_strategy_pack(pack_path)
 
-    assert any("portfolio.weighting_scheme" in error for error in errors)
+    assert any("portfolio.weighting.name" in error for error in errors)

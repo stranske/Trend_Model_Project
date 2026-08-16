@@ -272,7 +272,7 @@ def get_economic_interpretation(evidence: dict[str, Any]) -> str:
             "Economic intuition: Longer lookbacks capture more trend persistence "
             "but may miss regime changes."
         ),
-        "trend_window": (
+        "signal_window": (
             f"Trend signal calculation window. Baseline={baseline}, Test={test}. "
             f"{window_text} window for momentum. "
             "Economic intuition: Shorter windows capture faster trends, "

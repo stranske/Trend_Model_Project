@@ -16,12 +16,12 @@ def test_build_config_payload_minimal():
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=5.0,
+        per_trade_bps=5.0,
         target_vol=0.1,
     )
     assert payload["data"]["date_column"] == "Date"
     assert payload["portfolio"]["rebalance_calendar"] == "NYSE"
-    assert payload["portfolio"]["cost_model"]["bps_per_trade"] == pytest.approx(5.0)
+    assert payload["portfolio"]["cost_model"]["per_trade_bps"] == pytest.approx(5.0)
 
 
 def test_build_config_payload_optional_entries() -> None:
@@ -33,12 +33,12 @@ def test_build_config_payload_optional_entries() -> None:
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=5.0,
+        per_trade_bps=5.0,
         target_vol=0.1,
     )
     assert "csv_path" not in payload["data"]
     assert payload["data"]["managers_glob"] == "data/*.csv"
-    assert payload["portfolio"]["cost_model"]["slippage_bps"] == pytest.approx(0.0)
+    assert payload["portfolio"]["cost_model"]["half_spread_bps"] == pytest.approx(0.0)
 
 
 def test_validate_payload_success(tmp_path: Path):
@@ -52,7 +52,7 @@ def test_validate_payload_success(tmp_path: Path):
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=10.0,
+        per_trade_bps=10.0,
         target_vol=0.1,
     )
     validated, error = validate_payload(payload, base_path=tmp_path)
@@ -72,7 +72,7 @@ def test_validate_payload_normalises_path_objects(tmp_path: Path) -> None:
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=10.0,
+        per_trade_bps=10.0,
         target_vol=0.1,
     )
     payload["data"]["csv_path"] = csv  # emulate caller providing Path object
@@ -90,7 +90,7 @@ def test_validate_payload_reports_error(tmp_path: Path):
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=10.0,
+        per_trade_bps=10.0,
         target_vol=0.1,
     )
     validated, error = validate_payload(payload, base_path=tmp_path)
@@ -110,7 +110,7 @@ def test_validate_payload_invalid_frequency(tmp_path: Path):
         frequency="Quarterly",  # invalid
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=10.0,
+        per_trade_bps=10.0,
         target_vol=0.1,
     )
     validated, error = validate_payload(payload, base_path=tmp_path)
@@ -130,7 +130,7 @@ def test_build_config_payload_includes_membership_path(tmp_path: Path) -> None:
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=5.0,
+        per_trade_bps=5.0,
         target_vol=0.1,
     )
     assert payload["data"]["universe_membership_path"] == str(membership)
@@ -145,10 +145,10 @@ def test_build_config_payload_allows_slippage_override() -> None:
         frequency="M",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=5.0,
-        slippage_bps=1.25,
+        per_trade_bps=5.0,
+        half_spread_bps=1.25,
         target_vol=0.1,
     )
     model = payload["portfolio"]["cost_model"]
-    assert model["slippage_bps"] == pytest.approx(1.25)
-    assert model["bps_per_trade"] == pytest.approx(5.0)
+    assert model["half_spread_bps"] == pytest.approx(1.25)
+    assert model["per_trade_bps"] == pytest.approx(5.0)

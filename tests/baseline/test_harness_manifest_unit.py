@@ -121,7 +121,7 @@ def test_catalog_touched_keys_collects_scenarios_and_toggles() -> None:
         ],
         "toggles": [
             {
-                "base": {"portfolio.weighting_scheme": "robust_mv"},
+                "base": {"portfolio.weighting.name": "robust_mv"},
                 "flag": "vol_adjust.enabled",
             }
         ],
@@ -130,13 +130,13 @@ def test_catalog_touched_keys_collects_scenarios_and_toggles() -> None:
     touched = manifest.catalog_touched_keys(catalog)
     assert "portfolio.constraints.max_weight" in touched
     assert "selection.selection_count" in touched
-    assert "portfolio.weighting_scheme" in touched
+    assert "portfolio.weighting.name" in touched
     assert "vol_adjust.enabled" in touched
 
 
 def test_catalog_touched_keys_expands_object_parent_to_leaves() -> None:
     # A scenario that clears an object-valued config key (e.g. null-ing
-    # portfolio.custom_weights so weighting_scheme can take effect; #5537)
+    # portfolio.custom_weights so weighting.name can take effect; #5537)
     # references only the parent path, but the schema enumerates that object
     # at its leaves. With schema_leaves provided, the parent expands to its
     # leaf children so the schema typo-guard does not flag it as unknown.
@@ -144,23 +144,23 @@ def test_catalog_touched_keys_expands_object_parent_to_leaves() -> None:
         "scenarios": [
             {
                 "base": {"portfolio.custom_weights": None},
-                "control": {"portfolio.weighting_scheme": "equal"},
-                "vary": {"portfolio.weighting_scheme": "risk_parity"},
-                "param": "portfolio.weighting_scheme",
+                "control": {"portfolio.weighting.name": "equal"},
+                "vary": {"portfolio.weighting.name": "risk_parity"},
+                "param": "portfolio.weighting.name",
             }
         ]
     }
     leaves = {
         "portfolio.custom_weights.Mgr_01",
         "portfolio.custom_weights.Mgr_02",
-        "portfolio.weighting_scheme",
+        "portfolio.weighting.name",
     }
 
     touched = manifest.catalog_touched_keys(catalog, leaves)
 
     assert "portfolio.custom_weights" not in touched
     assert {"portfolio.custom_weights.Mgr_01", "portfolio.custom_weights.Mgr_02"} <= touched
-    assert "portfolio.weighting_scheme" in touched
+    assert "portfolio.weighting.name" in touched
     # touched keys are all real schema leaves -> no false "unknown" flag.
     assert touched <= leaves
 

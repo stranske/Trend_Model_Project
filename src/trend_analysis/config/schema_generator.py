@@ -34,12 +34,12 @@ _TYPE_OVERRIDES: dict[str, list[str] | str] = {
     "portfolio.rank.pct": ["number", "null"],
     "portfolio.rank.threshold": ["number", "null"],
     "portfolio.max_turnover": ["number", "object", "null"],
-    "portfolio.cost_model.bps_per_trade": "number",
-    "portfolio.cost_model.slippage_bps": "number",
+    "portfolio.cost_model.per_trade_bps": "number",
+    "portfolio.cost_model.half_spread_bps": "number",
     "output": ["object", "null"],
     "multi_period": ["object", "null"],
-    "jobs": ["integer", "null"],
-    "checkpoint_dir": ["string", "null"],
+    "run.jobs": ["integer", "null"],
+    "run.checkpoint_dir": ["string", "null"],
 }
 
 # Known constraints for validation and prompting.
@@ -52,7 +52,7 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "vol_adjust.window.decay": {"enum": ["ewma", "simple"]},
     "sample_split.method": {"enum": ["date", "ratio"]},
     "portfolio.selection_mode": {"enum": ["all", "random", "manual", "rank"]},
-    "portfolio.weighting_scheme": {
+    "portfolio.weighting.name": {
         "enum": [
             "equal",
             "risk_parity",
@@ -60,16 +60,18 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
             "erc",
             "robust_mv",
             "robust_risk_parity",
-            "custom",
+            "score_prop",
+            "score_prop_simple",
+            "score_prop_bayes",
+            "adaptive_bayes",
         ]
     },
     "portfolio.rebalance_freq": {"enum": ["M", "Q", "A", None]},
     "portfolio.rank.inclusion_approach": {"enum": ["top_n", "top_pct", "threshold"]},
     "portfolio.constraints.max_weight": {"minimum": 0, "maximum": 1},
     "portfolio.leverage_cap": {"minimum": 0},
-    "portfolio.transaction_cost_bps": {"minimum": 0},
-    "portfolio.cost_model.bps_per_trade": {"minimum": 0},
-    "portfolio.cost_model.slippage_bps": {"minimum": 0},
+    "portfolio.cost_model.per_trade_bps": {"minimum": 0},
+    "portfolio.cost_model.half_spread_bps": {"minimum": 0},
     "portfolio.max_turnover": {"minimum": 0, "maximum": 2},
     "metrics.rf_rate_annual": {"minimum": 0},
     "vol_adjust.target_vol": {"minimum": 0},
@@ -188,8 +190,6 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "run.seed": "Random seed used for deterministic runs.",
     "run.jobs": "Canonical parallel worker count for a run.",
     "run.checkpoint_dir": "Directory for saving checkpoints.",
-    "jobs": "Deprecated top-level alias for run.jobs; ignored when run.jobs is set.",
-    "checkpoint_dir": "Legacy top-level checkpoint directory override.",
     "multi_period.frequency": "Frequency for multi-period windows.",
     "multi_period.in_sample_len": "Length of the in-sample window.",
     "multi_period.out_sample_len": "Length of the out-of-sample window.",
@@ -215,6 +215,45 @@ _MODEL_SCHEMA_KEYS = {
     "maximum",
     "minItems",
     "maxItems",
+}
+
+_IDENTITY_SCHEMA: dict[str, Any] = {
+    "type": ["object", "null"],
+    "description": "Deterministic entity identity aliases for run manifest selected_entities.",
+    "default": None,
+    "nl_editable": True,
+    "constraints": {},
+    "additionalProperties": False,
+    "properties": {
+        "entities": {
+            "type": "array",
+            "description": "Explicit canonical entities and aliases.",
+            "default": [],
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["canonical_id"],
+                "properties": {
+                    "canonical_id": {"type": "string"},
+                    "display_name": {"type": "string"},
+                    "name": {"type": "string"},
+                    "aliases": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "default": [],
+                    },
+                },
+            },
+        },
+        "universe": {
+            "type": ["string", "array", "null"],
+            "description": "Universe file path or paths, resolved relative to the config file.",
+        },
+        "universes": {
+            "type": ["string", "array", "null"],
+            "description": "Universe file path or paths, resolved relative to the config file.",
+        },
+    },
 }
 
 
@@ -589,17 +628,7 @@ def generate_schema(
             samples=samples,
             model_overrides=model_overrides,
         )
-    for key in ("jobs",):
-        properties_dict.setdefault(
-            key,
-            build_schema(
-                None,
-                path=[key],
-                comment_map=comment_map,
-                samples=samples,
-                model_overrides=model_overrides,
-            ),
-        )
+    properties_dict.setdefault("identity", _IDENTITY_SCHEMA)
     return schema
 
 

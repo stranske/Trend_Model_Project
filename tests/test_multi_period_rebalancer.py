@@ -168,7 +168,7 @@ def test_rebalancer_reads_hard_thresholds_from_loaded_config(
             "portfolio": {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
                 "threshold_hold": {
                     "z_exit_soft": -0.2,
                     "soft_strikes": 1,

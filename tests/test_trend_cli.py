@@ -66,7 +66,7 @@ def _sample_config() -> SimpleNamespace:
             "out_end": "2021-12",
         },
         vol_adjust={"target_vol": 0.15},
-        portfolio={"selection_mode": "all", "weighting_scheme": "equal"},
+        portfolio={"selection_mode": "all", "weighting": {"name": "equal"}},
         run={},
         benchmarks={},
     )
@@ -1467,7 +1467,10 @@ def test_handle_exports_only_excel_format(monkeypatch, tmp_path: Path) -> None:
 
 def test_run_pipeline_sets_attributes(monkeypatch, tmp_path: Path) -> None:
     cfg = SimpleNamespace(
-        export={}, sample_split={}, run_id=None, portfolio={"transaction_cost_bps": 5.0}
+        export={},
+        sample_split={},
+        run_id=None,
+        portfolio={"cost_model": {"per_trade_bps": 5.0, "half_spread_bps": 0}},
     )
     returns = pd.DataFrame({"Date": ["2020-01-31"], "A": [0.1]})
     monkeypatch.chdir(tmp_path)
@@ -1539,7 +1542,11 @@ def test_run_pipeline_handles_non_dict_details(monkeypatch, tmp_path: Path) -> N
         def __init__(self) -> None:
             object.__setattr__(self, "export", {})
             object.__setattr__(self, "sample_split", {})
-            object.__setattr__(self, "portfolio", {"transaction_cost_bps": 1.0})
+            object.__setattr__(
+                self,
+                "portfolio",
+                {"cost_model": {"per_trade_bps": 1.0, "half_spread_bps": 0}},
+            )
 
         def __setattr__(self, name: str, value: object) -> None:
             if name == "run_id":

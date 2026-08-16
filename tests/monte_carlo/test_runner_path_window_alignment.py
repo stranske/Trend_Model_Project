@@ -42,7 +42,7 @@ def _demo_like_config() -> dict[str, Any]:
             "window": {"length": 63, "decay": "ewma", "lambda": 0.94},
         },
         "sample_split": {"method": "date", "date": "2017-12-31"},
-        "portfolio": {"selection_mode": "all", "weighting_scheme": "equal"},
+        "portfolio": {"selection_mode": "all", "weighting": {"name": "equal"}},
         "benchmarks": {},
         "metrics": {"registry": ["annual_return", "volatility", "sharpe_ratio"]},
         "regime": {},

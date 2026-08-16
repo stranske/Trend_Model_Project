@@ -93,12 +93,12 @@ def test_fallback_config_coerces_portfolio_controls(
     cfg = Config(
         **_base_config_payload(
             portfolio={
-                "transaction_cost_bps": "2.5",
+                "cost_model": {"per_trade_bps": "2.5", "half_spread_bps": 0},
                 "max_turnover": "1.25",
             }
         )
     )
-    assert cfg.portfolio["transaction_cost_bps"] == pytest.approx(2.5)
+    assert cfg.portfolio["cost_model"]["per_trade_bps"] == pytest.approx(2.5)
     assert cfg.portfolio["max_turnover"] == pytest.approx(1.25)
     assert cfg.output is None
 
@@ -111,8 +111,12 @@ def test_fallback_config_rejects_invalid_portfolio_values(
     with pytest.raises(ValueError, match="portfolio must be a dictionary"):
         Config(**_base_config_payload(portfolio=[]))
 
-    with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        Config(**_base_config_payload(portfolio={"transaction_cost_bps": -0.1}))
+    with pytest.raises(ValueError, match="cost_model.per_trade_bps must be >= 0"):
+        Config(
+            **_base_config_payload(
+                portfolio={"cost_model": {"per_trade_bps": -0.1, "half_spread_bps": 0}}
+            )
+        )
 
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
         Config(**_base_config_payload(portfolio={"max_turnover": 3.0}))

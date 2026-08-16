@@ -85,7 +85,7 @@ def _make_robust_cfg() -> Config:
             "out_end": "2020-08",
         },
         portfolio={
-            "weighting_scheme": "robust_mv",
+            "weighting": {"name": "robust_mv"},
             "robustness": {
                 "shrinkage": {"enabled": False},
                 "condition_check": {

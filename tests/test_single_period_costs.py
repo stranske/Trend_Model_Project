@@ -17,7 +17,10 @@ def _make_df() -> pd.DataFrame:
 def _make_single_period_cfg(transaction_cost_bps: float | None) -> Config:
     portfolio: dict[str, object] = {}
     if transaction_cost_bps is not None:
-        portfolio["transaction_cost_bps"] = transaction_cost_bps
+        portfolio["cost_model"] = {
+            "per_trade_bps": transaction_cost_bps,
+            "half_spread_bps": 0,
+        }
     return Config(
         version="1",
         data={

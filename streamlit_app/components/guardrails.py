@@ -180,7 +180,7 @@ def validate_startup_payload(
         frequency=frequency,
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=10.0,
+        per_trade_bps=10.0,
         target_vol=risk_value,
     )
     base_dir = csv_real.parent if csv_real is not None else proj_path()

@@ -103,6 +103,14 @@ def _seed_or_default(seed: Any, default: int = 42) -> int:
     return default if seed is None else int(seed)
 
 
+def _canonical_benchmark_columns(benchmarks: Any) -> tuple[str, ...]:
+    """Return columns from the canonical ``label -> column`` benchmark map."""
+
+    if not isinstance(benchmarks, Mapping):
+        return ()
+    return tuple(str(value) for value in benchmarks.values())
+
+
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
 _DEFAULT_LOAD_CSV = load_csv
 
@@ -115,11 +123,7 @@ def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
 
 
 def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
-    """Execute ``_run_analysis`` and normalise into a ``DiagnosticResult``.
-
-    Tests and legacy callers monkeypatch ``_run_analysis`` to return raw dict
-    payloads; keep accepting those for backwards compatibility.
-    """
+    """Execute ``_run_analysis`` and normalise its result."""
 
     payload, diag = coerce_pipeline_result(_run_analysis(*args, **kwargs))
     if payload is None:
@@ -178,7 +182,6 @@ _SUPPORTED_WEIGHTING_NAMES = (
 _SUPPORTED_NORMALISED_WEIGHTING_NAMES = {
     _WEIGHTING_NAME_ALIASES.get(name, name) for name in _SUPPORTED_WEIGHTING_NAMES
 }
-_WEIGHTING_SCHEME_PLACEHOLDERS = {"equal", "custom"}
 
 
 def _normalise_weighting_name(value: Any) -> str:
@@ -189,7 +192,7 @@ def _normalise_weighting_name(value: Any) -> str:
 def _resolve_portfolio_weighting(
     portfolio_cfg: Mapping[str, Any],
 ) -> tuple[BaseWeighting, bool, Any, dict[str, Any] | None, str]:
-    """Resolve portfolio weighting from either public weighting config key."""
+    """Resolve portfolio weighting from the canonical nested config."""
 
     raw_weighting = portfolio_cfg.get("weighting")
     if raw_weighting is None:
@@ -291,18 +294,6 @@ def _mapping_or_attr_get(source: Any, key: str, default: Any = None) -> Any:
     return getattr(source, key, default)
 
 
-def _optional_cost_bps(value: Any, *, field: str) -> float | None:
-    if value in (None, "", "null"):
-        return None
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError) as exc:
-        raise CoreConfigError(f"portfolio.{field} must be numeric") from exc
-    if parsed < 0:
-        raise CoreConfigError(f"portfolio.{field} cannot be negative")
-    return parsed
-
-
 def _resolve_portfolio_cost_bps(
     portfolio_cfg: Mapping[str, Any],
 ) -> tuple[float, float]:
@@ -313,13 +304,9 @@ def _resolve_portfolio_cost_bps(
 def _resolve_pipeline_monthly_cost(
     run_cfg: Mapping[str, Any],
     portfolio_cfg: Mapping[str, Any],
-    *,
-    tc_bps: float,
-    slippage_bps: float,
 ) -> float:
     """Return decimal per-period cost for delegated non-threshold analysis."""
 
-    del tc_bps, slippage_bps
     return _shared_resolve_pipeline_monthly_cost(run_cfg, portfolio_cfg)
 
 
@@ -1442,7 +1429,8 @@ def _run_phase1_multi_periods(
                 None
             ) + pd.offsets.MonthEnd(0)
             in_df_full = sub[(sub["Date"] >= sdate) & (sub["Date"] <= edate)].set_index("Date")
-            fund_cols = [c for c in in_df_full.columns if c not in (cfg.benchmarks or {}).values()]
+            benchmark_columns = set(_canonical_benchmark_columns(cfg.benchmarks))
+            fund_cols = [c for c in in_df_full.columns if c not in benchmark_columns]
             in_df_full = in_df_full[fund_cols]
             in_df_prepared = _prepare_returns_frame(in_df_full)
 
@@ -1549,9 +1537,7 @@ def _build_rebalance_frame(
         try:
             from ..plugins import create_weight_engine
 
-            weighting_scheme = str(
-                cfg.portfolio.get("weighting_scheme", "equal") or "equal"
-            ).lower()
+            weighting_scheme = resolve_portfolio_weighting_name(cfg.portfolio)
             risk_engine = create_weight_engine(weighting_scheme)
             use_risk_engine = weighting_scheme not in {"equal", "ew"}
         except Exception:  # pragma: no cover - best-effort only
@@ -1794,17 +1780,6 @@ def run(
     else:
         policy_spec = missing_policy_cfg or "ffill"
         missing_policy_reason = "applied"
-        # Legacy behavior: call apply_missing_policy in this module so tests can
-        # monkeypatch it for observability. The canonical cleaning is performed
-        # by the monthly normalisation helper later in this function.
-        try:
-            apply_missing_policy(
-                df.set_index("Date"),
-                policy=policy_spec,
-                limit=missing_limit_cfg,
-            )
-        except Exception:  # pragma: no cover - best-effort only
-            pass
         missing_policy_diagnostic = {
             "applied": True,
             "policy": policy_spec,
@@ -1856,21 +1831,12 @@ def run(
             resampled = resampled.dropna(how="all")
         resampled.index.name = "Date"
 
-        try:
-            filled, _missing_result = apply_missing_policy(
-                resampled,
-                policy=policy_spec,
-                limit=missing_limit_cfg,
-                enforce_completeness=True,
-            )
-        except TypeError:
-            # Some unit tests monkeypatch apply_missing_policy with a simplified
-            # signature; fall back to the legacy call shape.
-            filled, _missing_result = apply_missing_policy(
-                resampled,
-                policy=policy_spec,
-                limit=missing_limit_cfg,
-            )
+        filled, _missing_result = apply_missing_policy(
+            resampled,
+            policy=policy_spec,
+            limit=missing_limit_cfg,
+            enforce_completeness=True,
+        )
         cleaned = filled.dropna(how="all")
 
     if cleaned.empty:
@@ -1967,8 +1933,6 @@ def run(
     resolved_monthly_cost = _resolve_pipeline_monthly_cost(
         getattr(cfg, "run", {}) or {},
         cfg.portfolio,
-        tc_bps=tc_bps,
-        slippage_bps=slippage_bps,
     )
 
     if str(cfg.portfolio.get("policy", "").lower()) != "threshold_hold":
@@ -2059,18 +2023,10 @@ def _run_threshold_hold_multi_periods(
         benchmarks_cfg if isinstance(benchmarks_cfg, Mapping) else None
     )
     benchmark_cols: list[str] = []
-    if benchmarks_cfg:
+    if benchmarks_cfg_mapping:
         # Config models define `benchmarks` as `dict[str, str]` (label -> column).
-        # Some legacy configs use the inverse (column -> label). The engine
-        # must exclude the *actual selected index/benchmark series* (i.e. the
-        # column present in the returns frame), not the mapping label.
         col_lut = {str(c).strip().lower(): str(c) for c in df.columns}
-        candidates: list[str] = []
-        if isinstance(benchmarks_cfg, dict):
-            candidates.extend([str(v) for v in benchmarks_cfg.values()])
-            candidates.extend([str(k) for k in benchmarks_cfg.keys()])
-        elif isinstance(benchmarks_cfg, (list, tuple, set)):
-            candidates.extend([str(x) for x in benchmarks_cfg])
+        candidates = [str(value) for value in benchmarks_cfg_mapping.values()]
 
         seen: set[str] = set()
         for raw in candidates:
@@ -2279,24 +2235,8 @@ def _run_threshold_hold_multi_periods(
     # Build selector and weighting
     from ..selector import create_selector_by_name
 
-    # Threshold-hold config can live either under portfolio.threshold_hold
-    # (current) or at the portfolio root (legacy/UI snapshots).
     portfolio_cfg = cast(dict[str, Any], cfg.portfolio)
     th_cfg = dict(portfolio_cfg.get("threshold_hold", {}) or {})
-    for key in (
-        "metric",
-        "z_exit_soft",
-        "z_exit_hard",
-        "z_entry_soft",
-        "z_entry_hard",
-        "soft_strikes",
-        "entry_soft_strikes",
-        "entry_eligible_strikes",
-        "target_n",
-        "blended_weights",
-    ):
-        if key not in th_cfg and key in portfolio_cfg:
-            th_cfg[key] = portfolio_cfg[key]
 
     def _parse_optional_float(value: Any) -> float | None:
         if value is None:
@@ -2349,27 +2289,13 @@ def _run_threshold_hold_multi_periods(
         min_funds = min(min_funds, max_funds)
 
     cooldown_periods_raw = portfolio_cfg.get("cooldown_periods")
-    if cooldown_periods_raw is None:
-        cooldown_periods_raw = portfolio_cfg.get("cooldown_months")
-    if cooldown_periods_raw is None:
-        cooldown_periods_raw = mp_cfg.get("cooldown_periods")
-    if cooldown_periods_raw is None:
-        cooldown_periods_raw = mp_cfg.get("cooldown_months")
     try:
         cooldown_periods = int(cooldown_periods_raw) if cooldown_periods_raw is not None else 0
     except (TypeError, ValueError):
         cooldown_periods = 0
     cooldown_periods = max(0, cooldown_periods)
     sticky_add_raw = portfolio_cfg.get("sticky_add_x")
-    if sticky_add_raw is None:
-        sticky_add_raw = portfolio_cfg.get("sticky_add_periods")
-    if sticky_add_raw is None:
-        sticky_add_raw = th_cfg.get("sticky_add_x")
     sticky_drop_raw = portfolio_cfg.get("sticky_drop_y")
-    if sticky_drop_raw is None:
-        sticky_drop_raw = portfolio_cfg.get("sticky_drop_periods")
-    if sticky_drop_raw is None:
-        sticky_drop_raw = th_cfg.get("sticky_drop_y")
     try:
         sticky_add_periods = max(1, int(sticky_add_raw or 1))
     except (TypeError, ValueError):
@@ -2381,23 +2307,16 @@ def _run_threshold_hold_multi_periods(
     min_w_bound = float(constraints.get("min_weight", 0.05))  # decimal
     max_w_bound = float(constraints.get("max_weight", 0.18))  # decimal
     raw_max_active = constraints.get("max_active_positions")
-    if raw_max_active is None:
-        raw_max_active = constraints.get("max_active")
     try:
         max_active_positions = int(raw_max_active) if raw_max_active is not None else None
     except (TypeError, ValueError):
         max_active_positions = None
     if max_active_positions is not None and max_active_positions <= 0:
         max_active_positions = None
-    # consecutive below-min to replace
-    # Prefer constraints for this rule (it’s a weight constraint),
-    # but keep backward‑compat by falling back to threshold_hold if present.
     min_weight_strikes_raw = constraints.get("min_weight_strikes")
-    if min_weight_strikes_raw is None:
-        min_weight_strikes_raw = th_cfg.get("min_weight_strikes")
     # Low-weight replacement triggers after N consecutive periods where the
     # natural (pre-bounds) weight falls below min_weight. Default to 2 for
-    # backward-compatible conservatism, but respect explicit configuration.
+    # conservative default, but respect explicit configuration.
     low_min_strikes_req = 2
     if min_weight_strikes_raw is not None:
         try:
@@ -2406,10 +2325,6 @@ def _run_threshold_hold_multi_periods(
             low_min_strikes_req = 2
 
     portfolio_for_weighting = dict(cast(Mapping[str, Any], cfg.portfolio))
-    if not isinstance(portfolio_for_weighting.get("robustness"), Mapping):
-        root_robustness = getattr(cfg, "robustness", None)
-        if isinstance(root_robustness, Mapping):
-            portfolio_for_weighting["robustness"] = root_robustness
 
     (
         weighting,
@@ -2454,12 +2369,6 @@ def _run_threshold_hold_multi_periods(
     add_streaks: dict[str, int] = {}
     drop_streaks: dict[str, int] = {}
     min_tenure_raw = cfg.portfolio.get("min_tenure_n")
-    if min_tenure_raw is None:
-        min_tenure_raw = cfg.portfolio.get("min_tenure_periods")
-    if min_tenure_raw is None:
-        min_tenure_raw = th_cfg.get("min_tenure_n")
-    if min_tenure_raw is None:
-        min_tenure_raw = th_cfg.get("min_tenure_periods")
     try:
         min_tenure_n = int(min_tenure_raw) if min_tenure_raw is not None else 0
     except (TypeError, ValueError):
@@ -2857,11 +2766,11 @@ def _run_threshold_hold_multi_periods(
         date: pd.Timestamp,
         returns_window: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
-        """Compute portfolio weights using risk engine or legacy weighting.
+        """Compute portfolio weights using risk or score weighting.
 
         When ``use_risk_weighting`` is True and ``risk_weight_engine`` is set,
         compute weights using the risk-based engine (risk_parity, hrp, etc.).
-        Otherwise fall back to the legacy ``weighting`` object.
+        Otherwise use the configured score-weighting object.
         """
         if use_risk_weighting and risk_weight_engine is not None:
             # Risk-based weighting requires returns data
@@ -3114,11 +3023,10 @@ def _run_threshold_hold_multi_periods(
                             pass
             else:
                 # Seed via ranking - supports top_n, top_pct, threshold
-                # For top_n mode, use the selector to maintain backward compatibility
-                # For top_pct and threshold modes, compute directly from score frame
+                # The canonical top_n path uses the selector; percentile and
+                # threshold modes compute directly from the score frame.
                 if inclusion_approach == "top_n":
                     sf_for_selection = _filter_entry_frame(sf)
-                    # Use selector for backward compatibility with tests
                     selected, _ = selector.select(sf_for_selection)
                     # Historical behavior: weight() is invoked during seeding even though
                     # holdings may be refined by constraints afterwards. Some weighting

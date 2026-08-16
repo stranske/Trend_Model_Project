@@ -646,7 +646,7 @@ def _config_summary_sections(
             "Overview",
             [
                 ("Preset", _format_value(model_state.get("preset"))),
-                ("Weighting", _format_value(model_state.get("weighting_scheme"))),
+                ("Weighting", _format_value(model_state.get("weighting_name"))),
                 ("Selection count", _format_value(model_state.get("selection_count"))),
             ],
         ),
@@ -677,8 +677,8 @@ def _config_summary_sections(
         (
             "Signals",
             [
-                ("Trend window", _format_value(model_state.get("trend_window"))),
-                ("Trend lag", _format_value(model_state.get("trend_lag"))),
+                ("Trend window", _format_value(model_state.get("signal_window"))),
+                ("Trend lag", _format_value(model_state.get("signal_lag"))),
                 ("Vol adjust", _format_value(model_state.get("vol_adjust_enabled"))),
             ],
         ),
@@ -738,7 +738,7 @@ _MODEL_WIDGET_KEYS = {
     "sim_start_date",
     "sim_end_date",
     "preset_selector",
-    "weighting_scheme_selector",
+    "weighting_name_selector",
     "inclusion_approach_select",
     "buy_hold_initial_select",
     "rank_pct_primary",
@@ -749,8 +749,8 @@ _MODEL_WIDGET_KEYS = {
     "adv_cooldown_periods_input",
     "adv_max_turnover_input",
     "adv_rebalance_freq_select",
-    "adv_transaction_cost_bps_input",
-    "adv_min_tenure_periods_input",
+    "adv_per_trade_bps_input",
+    "adv_min_tenure_n_input",
     "adv_max_changes_per_period_input",
 }
 
@@ -795,9 +795,9 @@ def _sync_model_widgets_from_state(model_state: Mapping[str, Any]) -> None:
     if isinstance(preset, str) and preset:
         st.session_state["preset_selector"] = preset
 
-    weighting = model_state.get("weighting_scheme")
+    weighting = model_state.get("weighting_name")
     if isinstance(weighting, str) and weighting:
-        st.session_state["weighting_scheme_selector"] = weighting
+        st.session_state["weighting_name_selector"] = weighting
 
     inclusion = model_state.get("inclusion_approach")
     if isinstance(inclusion, str) and inclusion:
@@ -2285,7 +2285,7 @@ PRESET_CONFIGS = {
         "min_history_periods": 3,
         "evaluation_periods": 1,
         "selection_count": 10,
-        "weighting_scheme": "equal",
+        "weighting_name": "equal",
         "metric_weights": {
             "sharpe": 1.0,
             "return_ann": 1.0,
@@ -2315,18 +2315,18 @@ PRESET_CONFIGS = {
         "cooldown_periods": 1,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
-        "transaction_cost_bps": 0,
+        "per_trade_bps": 0,
         # Fund holding rules
-        "min_tenure_periods": 3,
+        "min_tenure_n": 3,
         "max_changes_per_period": 0,  # 0 = unlimited
         "max_active_positions": 0,  # 0 = unlimited (uses selection_count)
         # Portfolio signal parameters
-        "trend_window": 63,
-        "trend_lag": 1,
-        "trend_min_periods": None,
-        "trend_zscore": False,
-        "trend_vol_adjust": False,
-        "trend_vol_target": None,
+        "signal_window": 63,
+        "signal_lag": 1,
+        "signal_min_periods": None,
+        "signal_zscore": False,
+        "signal_vol_adjust": False,
+        "signal_vol_target": None,
         # Regime analysis
         "regime_enabled": False,
         "regime_proxy": "SPX",
@@ -2345,14 +2345,14 @@ PRESET_CONFIGS = {
         "soft_strikes": 2,
         "entry_soft_strikes": 1,
         "min_weight_strikes": 2,
-        "sticky_add_periods": 1,
-        "sticky_drop_periods": 1,
+        "sticky_add_x": 1,
+        "sticky_drop_y": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "inclusion_approach": "threshold",
-        "slippage_bps": 0,
+        "half_spread_bps": 0,
         "bottom_k": 0,
         # Selection approach details
         "rank_pct": 0.10,
@@ -2368,7 +2368,7 @@ PRESET_CONFIGS = {
         "min_history_periods": 5,
         "evaluation_periods": 1,
         "selection_count": 8,
-        "weighting_scheme": "risk_parity",
+        "weighting_name": "risk_parity",
         "metric_weights": {
             "sharpe": 1.0,
             "return_ann": 0.5,
@@ -2392,18 +2392,18 @@ PRESET_CONFIGS = {
         "cooldown_periods": 2,
         "rebalance_freq": "Q",
         "max_turnover": 0.50,
-        "transaction_cost_bps": 10,
+        "per_trade_bps": 10,
         # Fund holding rules - conservative: higher tenure, limited changes
-        "min_tenure_periods": 6,
+        "min_tenure_n": 6,
         "max_changes_per_period": 2,
         "max_active_positions": 10,
         # Portfolio signal parameters - longer window for stability
-        "trend_window": 126,
-        "trend_lag": 1,
-        "trend_min_periods": None,
-        "trend_zscore": True,
-        "trend_vol_adjust": False,
-        "trend_vol_target": None,
+        "signal_window": 126,
+        "signal_lag": 1,
+        "signal_min_periods": None,
+        "signal_zscore": True,
+        "signal_vol_adjust": False,
+        "signal_vol_target": None,
         # Regime analysis - enabled for defensive positioning
         "regime_enabled": True,
         "regime_proxy": "SPX",
@@ -2422,14 +2422,14 @@ PRESET_CONFIGS = {
         "soft_strikes": 3,
         "entry_soft_strikes": 2,
         "min_weight_strikes": 2,
-        "sticky_add_periods": 2,
-        "sticky_drop_periods": 1,
+        "sticky_add_x": 2,
+        "sticky_drop_y": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings - conservative: longer periods
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "inclusion_approach": "threshold",
-        "slippage_bps": 5,
+        "half_spread_bps": 5,
         "bottom_k": 0,
         # Selection approach details
         "rank_pct": 0.10,
@@ -2445,7 +2445,7 @@ PRESET_CONFIGS = {
         "min_history_periods": 2,
         "evaluation_periods": 1,
         "selection_count": 15,
-        "weighting_scheme": "hrp",
+        "weighting_name": "hrp",
         "metric_weights": {
             "sharpe": 0.5,
             "return_ann": 2.0,
@@ -2469,18 +2469,18 @@ PRESET_CONFIGS = {
         "cooldown_periods": 0,
         "rebalance_freq": "M",
         "max_turnover": 1.0,
-        "transaction_cost_bps": 0,
+        "per_trade_bps": 0,
         # Fund holding rules - aggressive: minimal constraints
-        "min_tenure_periods": 1,
+        "min_tenure_n": 1,
         "max_changes_per_period": 0,  # unlimited
         "max_active_positions": 0,  # unlimited
         # Portfolio signal parameters - shorter window for responsiveness
-        "trend_window": 42,
-        "trend_lag": 1,
-        "trend_min_periods": None,
-        "trend_zscore": False,
-        "trend_vol_adjust": True,
-        "trend_vol_target": 0.10,
+        "signal_window": 42,
+        "signal_lag": 1,
+        "signal_min_periods": None,
+        "signal_zscore": False,
+        "signal_vol_adjust": True,
+        "signal_vol_target": 0.10,
         # Regime analysis - disabled for pure momentum
         "regime_enabled": False,
         "regime_proxy": "SPX",
@@ -2499,14 +2499,14 @@ PRESET_CONFIGS = {
         "soft_strikes": 1,
         "entry_soft_strikes": 1,
         "min_weight_strikes": 2,
-        "sticky_add_periods": 1,
-        "sticky_drop_periods": 1,
+        "sticky_add_x": 1,
+        "sticky_drop_y": 1,
         "ci_level": 0.0,
         # Multi-period & Selection settings - aggressive: shorter periods
         "multi_period_enabled": True,
         "multi_period_frequency": "Q",
         "inclusion_approach": "threshold",
-        "slippage_bps": 0,
+        "half_spread_bps": 0,
         "bottom_k": 0,
         # Selection approach details
         "rank_pct": 0.15,  # more aggressive percentage
@@ -2571,18 +2571,18 @@ HELP_TEXT = {
     "cooldown_periods": "After a fund is removed, it cannot be re-added for this many periods.",
     "rebalance_freq": "How often to rebalance the portfolio weights.",
     "max_turnover": "Maximum portfolio turnover allowed per rebalance (1.0 = 100%).",
-    "transaction_cost_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
+    "per_trade_bps": "Transaction cost in basis points (0.01% = 1 bp) applied per trade.",
     # Fund holding rules
     "min_tenure": "Minimum periods a fund must be held before it can be removed.",
     "max_changes": "Maximum number of fund additions/removals per rebalance. 0 = unlimited.",
     "max_active": "Maximum active positions in portfolio. 0 = use selection count.",
     # Trend signal parameters
-    "trend_window": "Rolling window size for computing trend signals (in periods).",
-    "trend_lag": "Number of periods to lag the signal (minimum 1 for causality).",
-    "trend_min_periods": "Minimum observations required in rolling window. Blank = use window.",
-    "trend_zscore": "Cross-sectionally standardize signals at each time step.",
-    "trend_vol_adjust": "Scale signals by volatility to normalize across assets.",
-    "trend_vol_target": "Target volatility for vol-adjusted signals.",
+    "signal_window": "Rolling window size for computing trend signals (in periods).",
+    "signal_lag": "Number of periods to lag the signal (minimum 1 for causality).",
+    "signal_min_periods": "Minimum observations required in rolling window. Blank = use window.",
+    "signal_zscore": "Cross-sectionally standardize signals at each time step.",
+    "signal_vol_adjust": "Scale signals by volatility to normalize across assets.",
+    "signal_vol_target": "Target volatility for vol-adjusted signals.",
     # Regime analysis
     "regime_enabled": "Enable regime detection to adjust behavior in risk-on/risk-off environments.",
     "regime_proxy": "Market index used to detect risk-on/risk-off regimes.",
@@ -2599,8 +2599,8 @@ HELP_TEXT = {
         "Underweight exit: consecutive periods a fund's natural weight stays below the "
         "minimum weight before it is replaced. 0 = disable."
     ),
-    "sticky_add_periods": "Periods a fund must rank highly before being added to portfolio.",
-    "sticky_drop_periods": "Periods a fund must rank poorly before being removed from portfolio.",
+    "sticky_add_x": "Periods a fund must rank highly before being added to portfolio.",
+    "sticky_drop_y": "Periods a fund must rank poorly before being removed from portfolio.",
     "ci_level": "Confidence interval level for reporting only (0 = disabled, 0.9 = 90% CI).",
     # Multi-period & Selection settings
     "multi_period_enabled": "Enable rolling multi-period walk-forward analysis.",
@@ -2611,7 +2611,7 @@ HELP_TEXT = {
         "How to select funds: Top N, Top Percentage, Z-score Threshold, Random, or Buy & Hold."
     ),
     "buy_hold_initial": "Initial selection method for Buy & Hold mode.",
-    "slippage_bps": "Additional slippage cost in basis points (market impact).",
+    "half_spread_bps": "Additional slippage cost in basis points (market impact).",
     "bottom_k": "Number of bottom-ranked funds to always exclude (0 = none).",
     # Selection approach details
     "rank_pct": "Percentage of funds to include (0.10 = top 10%). Used with Top Percentage approach.",
@@ -2688,7 +2688,7 @@ def _initial_model_state() -> dict[str, Any]:
         "min_history_periods": baseline["min_history_periods"],
         "evaluation_periods": baseline["evaluation_periods"],
         "selection_count": baseline["selection_count"],
-        "weighting_scheme": baseline["weighting_scheme"],
+        "weighting_name": baseline["weighting_name"],
         "metric_weights": baseline["metric_weights"].copy(),
         "risk_target": baseline["risk_target"],
         "info_ratio_benchmark": "",  # Empty until user selects
@@ -2706,18 +2706,18 @@ def _initial_model_state() -> dict[str, Any]:
         "cooldown_periods": baseline["cooldown_periods"],
         "rebalance_freq": baseline["rebalance_freq"],
         "max_turnover": baseline["max_turnover"],
-        "transaction_cost_bps": baseline["transaction_cost_bps"],
+        "per_trade_bps": baseline["per_trade_bps"],
         # Fund holding rules
-        "min_tenure_periods": baseline["min_tenure_periods"],
+        "min_tenure_n": baseline["min_tenure_n"],
         "max_changes_per_period": baseline["max_changes_per_period"],
         "max_active_positions": baseline["max_active_positions"],
         # Portfolio signal parameters
-        "trend_window": baseline["trend_window"],
-        "trend_lag": baseline["trend_lag"],
-        "trend_min_periods": baseline["trend_min_periods"],
-        "trend_zscore": baseline["trend_zscore"],
-        "trend_vol_adjust": baseline["trend_vol_adjust"],
-        "trend_vol_target": baseline["trend_vol_target"],
+        "signal_window": baseline["signal_window"],
+        "signal_lag": baseline["signal_lag"],
+        "signal_min_periods": baseline["signal_min_periods"],
+        "signal_zscore": baseline["signal_zscore"],
+        "signal_vol_adjust": baseline["signal_vol_adjust"],
+        "signal_vol_target": baseline["signal_vol_target"],
         # Regime analysis
         "regime_enabled": baseline["regime_enabled"],
         "regime_proxy": baseline["regime_proxy"],
@@ -2736,14 +2736,14 @@ def _initial_model_state() -> dict[str, Any]:
         "soft_strikes": baseline["soft_strikes"],
         "entry_soft_strikes": baseline["entry_soft_strikes"],
         "min_weight_strikes": baseline.get("min_weight_strikes", 2),
-        "sticky_add_periods": baseline["sticky_add_periods"],
-        "sticky_drop_periods": baseline["sticky_drop_periods"],
+        "sticky_add_x": baseline["sticky_add_x"],
+        "sticky_drop_y": baseline["sticky_drop_y"],
         "ci_level": baseline["ci_level"],
         # Multi-period & Selection settings
         "multi_period_enabled": baseline["multi_period_enabled"],
         "multi_period_frequency": baseline["multi_period_frequency"],
         "inclusion_approach": baseline["inclusion_approach"],
-        "slippage_bps": baseline["slippage_bps"],
+        "half_spread_bps": baseline["half_spread_bps"],
         "bottom_k": baseline["bottom_k"],
         # Selection approach details
         "rank_pct": baseline["rank_pct"],
@@ -3396,7 +3396,7 @@ def render_model_page() -> None:
                 "min_history_periods": preset_config["min_history_periods"],
                 "evaluation_periods": preset_config["evaluation_periods"],
                 "selection_count": preset_config["selection_count"],
-                "weighting_scheme": preset_config["weighting_scheme"],
+                "weighting_name": preset_config["weighting_name"],
                 "metric_weights": preset_config["metric_weights"].copy(),
                 "risk_target": preset_config["risk_target"],
                 "info_ratio_benchmark": model_state.get("info_ratio_benchmark", ""),
@@ -3414,18 +3414,18 @@ def render_model_page() -> None:
                 "cooldown_periods": preset_config["cooldown_periods"],
                 "rebalance_freq": preset_config["rebalance_freq"],
                 "max_turnover": preset_config["max_turnover"],
-                "transaction_cost_bps": preset_config["transaction_cost_bps"],
+                "per_trade_bps": preset_config["per_trade_bps"],
                 # Fund holding rules
-                "min_tenure_periods": preset_config["min_tenure_periods"],
+                "min_tenure_n": preset_config["min_tenure_n"],
                 "max_changes_per_period": preset_config["max_changes_per_period"],
                 "max_active_positions": preset_config["max_active_positions"],
                 # Portfolio signal parameters
-                "trend_window": preset_config["trend_window"],
-                "trend_lag": preset_config["trend_lag"],
-                "trend_min_periods": preset_config["trend_min_periods"],
-                "trend_zscore": preset_config["trend_zscore"],
-                "trend_vol_adjust": preset_config["trend_vol_adjust"],
-                "trend_vol_target": preset_config["trend_vol_target"],
+                "signal_window": preset_config["signal_window"],
+                "signal_lag": preset_config["signal_lag"],
+                "signal_min_periods": preset_config["signal_min_periods"],
+                "signal_zscore": preset_config["signal_zscore"],
+                "signal_vol_adjust": preset_config["signal_vol_adjust"],
+                "signal_vol_target": preset_config["signal_vol_target"],
                 # Regime analysis
                 "regime_enabled": preset_config["regime_enabled"],
                 "regime_proxy": preset_config["regime_proxy"],
@@ -3439,8 +3439,8 @@ def render_model_page() -> None:
                 "soft_strikes": preset_config["soft_strikes"],
                 "entry_soft_strikes": preset_config["entry_soft_strikes"],
                 "min_weight_strikes": preset_config.get("min_weight_strikes", 2),
-                "sticky_add_periods": preset_config["sticky_add_periods"],
-                "sticky_drop_periods": preset_config["sticky_drop_periods"],
+                "sticky_add_x": preset_config["sticky_add_x"],
+                "sticky_drop_y": preset_config["sticky_drop_y"],
                 "ci_level": preset_config["ci_level"],
             }
             _reset_model_widget_state()
@@ -3451,7 +3451,7 @@ def render_model_page() -> None:
     st.subheader("📊 Weighting Scheme")
     weighting_labels = [label for label, _ in WEIGHTING_SCHEMES]
     weighting_values = [value for _, value in WEIGHTING_SCHEMES]
-    current_weighting = model_state.get("weighting_scheme", "equal")
+    current_weighting = model_state.get("weighting_name", "equal")
     try:
         weighting_index = weighting_values.index(current_weighting)
     except ValueError:
@@ -3463,7 +3463,7 @@ def render_model_page() -> None:
         format_func=lambda x: weighting_labels[weighting_values.index(x)],
         index=weighting_index,
         help=HELP_TEXT["weighting"],
-        key="weighting_scheme_selector",
+        key="weighting_name_selector",
     )
 
     # Show description for selected weighting scheme (updates dynamically)
@@ -3472,7 +3472,7 @@ def render_model_page() -> None:
 
     # Update model_state if weighting changed
     if weighting_value != current_weighting:
-        st.session_state["model_state"]["weighting_scheme"] = weighting_value
+        st.session_state["model_state"]["weighting_name"] = weighting_value
 
     with st.form("model_settings", clear_on_submit=False):
         # =====================================================================
@@ -4046,16 +4046,16 @@ def render_model_page() -> None:
                     help=HELP_TEXT["rebalance_freq"],
                     key="adv_rebalance_freq_select",
                 )
-                transaction_cost_bps = st.number_input(
+                per_trade_bps = st.number_input(
                     "Transaction Cost (bps)",
                     min_value=0,
                     max_value=100,
-                    value=int(model_state.get("transaction_cost_bps", 0)),
-                    help=HELP_TEXT["transaction_cost_bps"],
-                    key="adv_transaction_cost_bps_input",
+                    value=int(model_state.get("per_trade_bps", 0)),
+                    help=HELP_TEXT["per_trade_bps"],
+                    key="adv_per_trade_bps_input",
                 )
-                if transaction_cost_bps > 0:
-                    st.caption(f"Each trade incurs a {transaction_cost_bps} bp cost.")
+                if per_trade_bps > 0:
+                    st.caption(f"Each trade incurs a {per_trade_bps} bp cost.")
 
             # Fund holding rules: tenure and portfolio-churn limits.
             st.divider()
@@ -4064,16 +4064,16 @@ def render_model_page() -> None:
 
             hold_c1, hold_c2 = st.columns(2)
             with hold_c1:
-                min_tenure_periods = st.number_input(
+                min_tenure_n = st.number_input(
                     "Min Tenure (periods)",
                     min_value=0,
                     max_value=24,
-                    value=int(model_state.get("min_tenure_periods", 3)),
+                    value=int(model_state.get("min_tenure_n", 3)),
                     help=HELP_TEXT["min_tenure"],
-                    key="adv_min_tenure_periods_input",
+                    key="adv_min_tenure_n_input",
                 )
-                if min_tenure_periods > 0:
-                    st.caption(f"Funds held for at least {min_tenure_periods} periods")
+                if min_tenure_n > 0:
+                    st.caption(f"Funds held for at least {min_tenure_n} periods")
 
             with hold_c2:
                 max_changes_per_period = st.number_input(
@@ -4100,12 +4100,12 @@ def render_model_page() -> None:
         # These settings require daily returns to be meaningful.
         # With monthly returns, they would be inappropriate.
         # Using default values; see docs/TrendSignalSettings.md for documentation.
-        trend_window = int(model_state.get("trend_window", 63))
-        trend_lag = int(model_state.get("trend_lag", 1))
-        trend_min_periods_out = model_state.get("trend_min_periods")
-        trend_zscore = bool(model_state.get("trend_zscore", False))
-        trend_vol_adjust = bool(model_state.get("trend_vol_adjust", False))
-        trend_vol_target_out = model_state.get("trend_vol_target")
+        signal_window = int(model_state.get("signal_window", 63))
+        signal_lag = int(model_state.get("signal_lag", 1))
+        signal_min_periods_out = model_state.get("signal_min_periods")
+        signal_zscore = bool(model_state.get("signal_zscore", False))
+        signal_vol_adjust = bool(model_state.get("signal_vol_adjust", False))
+        signal_vol_target_out = model_state.get("signal_vol_target")
 
         # Section 8: Regime Analysis - collapsible
         st.divider()
@@ -4281,38 +4281,38 @@ def render_model_page() -> None:
 
                 rank_c1, rank_c2 = st.columns(2)
                 with rank_c1:
-                    sticky_add_periods = st.number_input(
+                    sticky_add_x = st.number_input(
                         "Periods in Top-K Before Entry",
                         min_value=1,
                         max_value=12,
-                        value=int(model_state.get("sticky_add_periods", 1)),
-                        help=HELP_TEXT["sticky_add_periods"],
+                        value=int(model_state.get("sticky_add_x", 1)),
+                        help=HELP_TEXT["sticky_add_x"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(f"Fund must rank in top-K for {sticky_add_periods} period(s).")
+                    st.caption(f"Fund must rank in top-K for {sticky_add_x} period(s).")
 
                 with rank_c2:
-                    sticky_drop_periods = st.number_input(
+                    sticky_drop_y = st.number_input(
                         "Periods Outside Top-K Before Exit",
                         min_value=1,
                         max_value=12,
-                        value=int(model_state.get("sticky_drop_periods", 1)),
-                        help=HELP_TEXT["sticky_drop_periods"],
+                        value=int(model_state.get("sticky_drop_y", 1)),
+                        help=HELP_TEXT["sticky_drop_y"],
                         disabled=not mp_enabled_state,
                     )
-                    st.caption(f"Fund must fall out of top-K for {sticky_drop_periods} period(s).")
+                    st.caption(f"Fund must fall out of top-K for {sticky_drop_y} period(s).")
             elif is_random_mode:
                 # Random mode: no ranking stability needed
                 st.info(
                     "🎲 **Random Mode**: Funds are randomly selected each period. "
                     "Ranking stability settings do not apply."
                 )
-                sticky_add_periods = 1
-                sticky_drop_periods = 1
+                sticky_add_x = 1
+                sticky_drop_y = 1
             else:
                 # Defaults for threshold mode
-                sticky_add_periods = 1
-                sticky_drop_periods = 1
+                sticky_add_x = 1
+                sticky_drop_y = 1
 
             # Z-SCORE THRESHOLDS - apply to ALL modes (important for scoring)
             st.markdown("**Z-Score Thresholds**")
@@ -4485,16 +4485,16 @@ def render_model_page() -> None:
             st.markdown("**Additional Cost & Exclusion Settings**")
             cost_c1, cost_c2 = st.columns(2)
             with cost_c1:
-                slippage_bps = st.number_input(
+                half_spread_bps = st.number_input(
                     "Slippage (bps)",
                     min_value=0,
                     max_value=50,
-                    value=int(model_state.get("slippage_bps", 0)),
-                    help=HELP_TEXT["slippage_bps"],
+                    value=int(model_state.get("half_spread_bps", 0)),
+                    help=HELP_TEXT["half_spread_bps"],
                 )
-                if slippage_bps > 0:
+                if half_spread_bps > 0:
                     st.caption(
-                        f"Additional {slippage_bps} bps ({slippage_bps / 100:.2f}%) "
+                        f"Additional {half_spread_bps} bps ({half_spread_bps / 100:.2f}%) "
                         "market impact cost per trade."
                     )
 
@@ -4564,7 +4564,7 @@ def render_model_page() -> None:
                 "evaluation_periods": evaluation,
                 "multi_period_frequency": multi_period_frequency,
                 "selection_count": selection,
-                "weighting_scheme": weighting_value,
+                "weighting_name": weighting_value,
                 "metric_weights": metric_weights,
                 "risk_target": risk_target,
                 "info_ratio_benchmark": info_ratio_benchmark,
@@ -4587,18 +4587,18 @@ def render_model_page() -> None:
                 "cooldown_periods": cooldown_periods,
                 "rebalance_freq": rebalance_freq,
                 "max_turnover": max_turnover,
-                "transaction_cost_bps": transaction_cost_bps,
+                "per_trade_bps": per_trade_bps,
                 # Fund holding rules
-                "min_tenure_periods": min_tenure_periods,
+                "min_tenure_n": min_tenure_n,
                 "max_changes_per_period": max_changes_per_period,
                 "max_active_positions": max_active_positions,
                 # Portfolio signal parameters
-                "trend_window": trend_window,
-                "trend_lag": trend_lag,
-                "trend_min_periods": trend_min_periods_out,
-                "trend_zscore": trend_zscore,
-                "trend_vol_adjust": trend_vol_adjust,
-                "trend_vol_target": trend_vol_target_out,
+                "signal_window": signal_window,
+                "signal_lag": signal_lag,
+                "signal_min_periods": signal_min_periods_out,
+                "signal_zscore": signal_zscore,
+                "signal_vol_adjust": signal_vol_adjust,
+                "signal_vol_target": signal_vol_target_out,
                 # Regime analysis
                 "regime_enabled": regime_enabled,
                 "regime_proxy": regime_proxy,
@@ -4617,14 +4617,14 @@ def render_model_page() -> None:
                 "soft_strikes": soft_strikes,
                 "entry_soft_strikes": entry_soft_strikes,
                 "min_weight_strikes": min_weight_strikes,
-                "sticky_add_periods": sticky_add_periods,
-                "sticky_drop_periods": sticky_drop_periods,
+                "sticky_add_x": sticky_add_x,
+                "sticky_drop_y": sticky_drop_y,
                 "ci_level": ci_level,
                 # Multi-period & Selection settings
                 "multi_period_enabled": multi_period_enabled,
                 "inclusion_approach": inclusion_approach,
                 "buy_hold_initial": buy_hold_initial,
-                "slippage_bps": slippage_bps,
+                "half_spread_bps": half_spread_bps,
                 "bottom_k": bottom_k,
                 # Selection approach details
                 "rank_pct": rank_pct,

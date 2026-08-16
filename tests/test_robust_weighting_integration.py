@@ -44,7 +44,7 @@ def _make_config(*, safe_mode: str) -> object:
         },
         portfolio={
             "selection_mode": "all",
-            "weighting_scheme": "robust_mv",
+            "weighting": {"name": "robust_mv"},
             "constraints": {"long_only": True},
             "robustness": {
                 "shrinkage": {"enabled": False},
@@ -80,7 +80,7 @@ def _make_top_level_config(*, safe_mode: str) -> object:
         },
         portfolio={
             "selection_mode": "all",
-            "weighting_scheme": "robust_mv",
+            "weighting": {"name": "robust_mv"},
             "constraints": {"long_only": True},
             "robustness": {
                 "shrinkage": {"enabled": False},

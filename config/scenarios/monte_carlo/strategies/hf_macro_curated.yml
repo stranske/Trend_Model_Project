@@ -14,7 +14,7 @@ strategies:
           n: 8
           score_by: sharpe_ratio
           transform: raw
-        weighting_scheme: equal
+        weighting: {name: equal, params: {}}
         max_turnover: 0.08
         constraints:
           max_weight: 0.22
@@ -31,7 +31,7 @@ strategies:
           pct: 0.25
           score_by: information_ratio
           transform: raw
-        weighting_scheme: risk_parity
+        weighting: {name: risk_parity, params: {}}
         max_turnover: 0.16
         constraints:
           max_weight: 0.15
@@ -47,7 +47,6 @@ strategies:
           threshold: 0.70
           score_by: sharpe_ratio
           transform: zscore
-        weighting_scheme: custom
         weighting:
           name: score_prop_bayes
           params:
@@ -68,7 +67,7 @@ strategies:
           n: 16
           score_by: annual_return
           transform: raw
-        weighting_scheme: hrp
+        weighting: {name: hrp, params: {}}
         max_turnover: 0.24
         constraints:
           max_weight: 0.14
@@ -85,7 +84,7 @@ strategies:
           n: 20
           score_by: annual_return
           transform: raw
-        weighting_scheme: erc
+        weighting: {name: erc, params: {}}
         max_turnover: 0.30
         constraints:
           max_weight: 0.10
@@ -102,7 +101,7 @@ strategies:
           n: 14
           score_by: information_ratio
           transform: raw
-        weighting_scheme: robust_mv
+        weighting: {name: robust_mv, params: {}}
         max_turnover: 0.10
         leverage_cap: 1.6
         constraints:
@@ -120,7 +119,7 @@ strategies:
           n: 12
           score_by: sharpe_ratio
           transform: raw
-        weighting_scheme: robust_risk_parity
+        weighting: {name: robust_risk_parity, params: {}}
         max_turnover: 0.20
         constraints:
           max_weight: 0.15
@@ -132,7 +131,7 @@ strategies:
       portfolio:
         selection_mode: random
         random_n: 12
-        weighting_scheme: equal
+        weighting: {name: equal, params: {}}
         max_turnover: 0.30
         constraints:
           max_weight: 0.12
@@ -155,7 +154,7 @@ strategies:
           - HF_MAC_Core_6
           - HF_MAC_Core_7
           - HF_MAC_Core_8
-        weighting_scheme: equal
+        weighting: {name: equal, params: {}}
         max_turnover: 0.10
         constraints:
           max_weight: 0.22
@@ -167,7 +166,7 @@ strategies:
     overrides:
       portfolio:
         selection_mode: all
-        weighting_scheme: equal
+        weighting: {name: equal, params: {}}
         max_turnover: 0.05
         constraints:
           max_weight: 0.10

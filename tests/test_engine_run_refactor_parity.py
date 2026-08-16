@@ -32,7 +32,7 @@ class RefactorParityConfig:
             },
             "constraints": {"max_funds": 2, "min_weight": 0.0, "max_weight": 1.0},
             "weighting": {"name": "equal"},
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "indices_list": None,
         }

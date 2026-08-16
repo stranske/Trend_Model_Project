@@ -384,7 +384,7 @@ class TestBuyAndHoldIntegration:
             "selection_approach": "buy_and_hold",
             "buy_hold_initial": "top_n",
             "selection_count": 5,
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
             "metric_weights": {"sharpe": 100.0},
             "risk_target": 0.1,
         }

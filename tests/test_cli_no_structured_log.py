@@ -41,10 +41,9 @@ def test_cli_no_structured_log(tmp_path: Path):
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.25,
-            "transaction_cost_bps": 10,
             "cost_model": {
-                "bps_per_trade": 0,
-                "slippage_bps": 0,
+                "per_trade_bps": 0,
+                "half_spread_bps": 0,
             },
         },
         "metrics": {},

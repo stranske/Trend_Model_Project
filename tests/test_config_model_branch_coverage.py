@@ -22,7 +22,7 @@ def _portfolio_settings() -> dict[str, object]:
     return {
         "rebalance_calendar": "NYSE",
         "max_turnover": 0.5,
-        "transaction_cost_bps": 10,
+        "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
     }
 
 
@@ -109,7 +109,7 @@ def test_portfolio_lambda_tc_bounds() -> None:
 
 def test_portfolio_cost_non_negative() -> None:
     base = _portfolio_settings()
-    base["transaction_cost_bps"] = -5
+    base["cost_model"] = {"per_trade_bps": -5, "half_spread_bps": 0}
     with pytest.raises(ValueError):
         model.PortfolioSettings.model_validate(base)
 

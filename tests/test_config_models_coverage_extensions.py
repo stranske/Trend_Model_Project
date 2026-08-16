@@ -135,8 +135,11 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
 
     assert validator(models._PydanticConfigImpl, "skip") == "skip"  # type: ignore[attr-defined]
 
-    with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        validator(models._PydanticConfigImpl, {"transaction_cost_bps": "-1"})  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="cost_model.per_trade_bps must be >= 0"):
+        validator(
+            models._PydanticConfigImpl,
+            {"cost_model": {"per_trade_bps": "-1", "half_spread_bps": 0}},
+        )  # type: ignore[attr-defined]
 
     with pytest.raises(ValueError, match="max_turnover must be >= 0"):
         validator(models._PydanticConfigImpl, {"max_turnover": "-0.5"})  # type: ignore[attr-defined]
@@ -152,9 +155,13 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
 
     validated = validator(
         models._PydanticConfigImpl,
-        {"transaction_cost_bps": "15", "max_turnover": "1.5", "lambda_tc": "0.3"},
+        {
+            "cost_model": {"per_trade_bps": "15", "half_spread_bps": 0},
+            "max_turnover": "1.5",
+            "lambda_tc": "0.3",
+        },
     )  # type: ignore[attr-defined]
-    assert validated["transaction_cost_bps"] == pytest.approx(15.0)
+    assert validated["cost_model"]["per_trade_bps"] == pytest.approx(15.0)
     assert validated["max_turnover"] == pytest.approx(1.5)
     assert validated["lambda_tc"] == pytest.approx(0.3)
 
@@ -276,8 +283,13 @@ def test_fallback_config_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = fallback.Config(**kwargs)
     assert cfg.model_dump()["seed"] == 42
 
-    with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        fallback.Config(**{**kwargs, "portfolio": {"transaction_cost_bps": -1}})
+    with pytest.raises(ValueError, match="cost_model.per_trade_bps must be >= 0"):
+        fallback.Config(
+            **{
+                **kwargs,
+                "portfolio": {"cost_model": {"per_trade_bps": -1, "half_spread_bps": 0}},
+            }
+        )
 
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
         fallback.Config(**{**kwargs, "portfolio": {"max_turnover": 3}})

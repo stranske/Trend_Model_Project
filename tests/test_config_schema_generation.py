@@ -71,13 +71,13 @@ def test_schema_validation_accepts_regime_model() -> None:
 def test_schema_validation_accepts_cost_model_float_bps() -> None:
     schema = generate_schema()
     cost_schema = schema["properties"]["portfolio"]["properties"]["cost_model"]["properties"]
-    assert cost_schema["bps_per_trade"]["type"] == "number"
-    assert cost_schema["bps_per_trade"]["minimum"] == 0
-    assert cost_schema["slippage_bps"]["type"] == "number"
-    assert cost_schema["slippage_bps"]["minimum"] == 0
+    assert cost_schema["per_trade_bps"]["type"] == "number"
+    assert cost_schema["per_trade_bps"]["minimum"] == 0
+    assert cost_schema["half_spread_bps"]["type"] == "number"
+    assert cost_schema["half_spread_bps"]["minimum"] == 0
 
     errors = validate_config_data(
-        {"portfolio": {"cost_model": {"bps_per_trade": 2.5, "slippage_bps": 0.75}}},
+        {"portfolio": {"cost_model": {"per_trade_bps": 2.5, "half_spread_bps": 0.75}}},
         schema,
     )
     assert errors == []

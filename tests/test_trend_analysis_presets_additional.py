@@ -199,8 +199,8 @@ def test_form_defaults_ignores_non_mapping_portfolio() -> None:
 
     defaults = preset.form_defaults()
 
-    assert defaults["weighting_scheme"] == "equal"
-    assert defaults["cooldown_months"] == 3
+    assert defaults["weighting_name"] == "equal"
+    assert defaults["cooldown_periods"] == 3
     assert defaults["selection_count"] == 2
 
 
@@ -309,7 +309,10 @@ def test_form_defaults_clamps_negative_and_missing_values() -> None:
                 "min_track_months": "0",
                 "selection_count": 0,
                 "risk_target": "invalid",
-                "portfolio": {"weighting_scheme": "value", "cooldown_months": -5},
+                "portfolio": {
+                    "weighting": {"name": "value"},
+                    "cooldown_periods": -5,
+                },
                 "metrics": {"sharpe_ratio": "1.75", "unknown": object()},
             }
         ),
@@ -320,7 +323,7 @@ def test_form_defaults_clamps_negative_and_missing_values() -> None:
     assert defaults["lookback_periods"] == 1
     assert defaults["min_track_months"] == 1
     assert defaults["selection_count"] == 1
-    assert defaults["cooldown_months"] == 0
+    assert defaults["cooldown_periods"] == 0
     assert defaults["risk_target"] == pytest.approx(0.1)
     assert defaults["metrics"] == {"sharpe": 1.75}
 

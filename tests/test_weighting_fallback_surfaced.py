@@ -46,8 +46,8 @@ class _Config:
             "policy": "threshold_hold",
             # Requesting a risk-weighting scheme is what drives the engine to
             # call create_weight_engine (and therefore the fallback path).
-            "weighting_scheme": "risk_parity",
-            "transaction_cost_bps": 0.0,
+            "weighting": {"name": "risk_parity", "params": {}},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {
                 "target_n": 3,
@@ -63,7 +63,6 @@ class _Config:
                 "max_weight": 0.55,
                 "min_weight_strikes": 1,
             },
-            "weighting": {"name": "equal", "params": {}},
             "indices_list": None,
         }
     )
@@ -144,7 +143,9 @@ def _wire_engine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import trend_analysis.core.rank_selection as rank_sel
 
-    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        _frame: pd.DataFrame, metric: str, _stats_cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         return pd.Series(_METRIC_MAPS[metric], dtype=float)
 
     monkeypatch.setattr(rank_sel, "_compute_metric_series", fake_metric_series)

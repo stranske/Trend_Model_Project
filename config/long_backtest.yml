@@ -51,7 +51,9 @@ portfolio:
     soft_strikes: 2
     target_n: 8
     weighting: score_prop_bayes
-  transaction_cost_bps: 10     # Transaction cost of 10 basis points per trade
+  cost_model:
+    per_trade_bps: 10          # Transaction cost of 10 basis points per trade
+    half_spread_bps: 0
   max_turnover: 0.50           # Limit monthly turnover to 50%
   rebalance_calendar: NYSE
 

@@ -262,7 +262,7 @@ def test_trend_config_validation_resolves_defaults(
             "portfolio": {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 0.0,
+                "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             },
             "vol_adjust": {"target_vol": 1.0},
         },

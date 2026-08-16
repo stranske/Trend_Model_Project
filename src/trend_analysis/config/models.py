@@ -75,8 +75,6 @@ class ConfigProtocol(Protocol):
     strategy: dict[str, Any]
     walk_forward: dict[str, Any]
     multi_period: dict[str, Any] | None
-    jobs: int | None
-    checkpoint_dir: str | None
     seed: int
 
     def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
@@ -316,8 +314,6 @@ if _HAS_PYDANTIC:
         multi_period: dict[str, Any] | None = None
         strategy: dict[str, Any] = Field(default_factory=dict)
         walk_forward: dict[str, Any] = Field(default_factory=dict)
-        jobs: int | None = None
-        checkpoint_dir: str | None = None
         seed: int = 42
 
         @_fv_typed("version", mode="before")
@@ -350,23 +346,20 @@ if _HAS_PYDANTIC:
         def _validate_portfolio_controls(
             cls, v: dict[str, Any]
         ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
-            """Validate and normalise turnover / transaction cost controls.
-
-            Backwards compatible: silently coerces numeric strings and ignores
-            missing keys. Only raises when values are present but invalid.
-            """
+            """Validate canonical turnover and transaction-cost controls."""
             if not isinstance(v, dict):  # defensive (already checked above)
                 return v
-            # Transaction cost (basis points per 1 unit turnover)
-            if "transaction_cost_bps" in v:
-                raw = v["transaction_cost_bps"]
-                try:
-                    tc = float(raw)
-                except Exception as exc:  # pragma: no cover - defensive
-                    raise ValueError("transaction_cost_bps must be numeric") from exc
-                if tc < 0:
-                    raise ValueError("transaction_cost_bps must be >= 0")
-                v["transaction_cost_bps"] = tc
+            for key in (
+                "weighting_scheme",
+                "transaction_cost_bps",
+                "slippage_bps",
+                "cooldown_months",
+                "sticky_add_periods",
+                "sticky_drop_periods",
+                "min_tenure_periods",
+            ):
+                if key in v:
+                    raise ValueError(f"portfolio.{key} was removed")
             # Max turnover cap (fraction of portfolio; 1.0 = effectively uncapped)
             if "max_turnover" in v:
                 raw = v["max_turnover"]
@@ -413,6 +406,9 @@ if _HAS_PYDANTIC:
             cost_cfg = v.get("cost_model")
             if isinstance(cost_cfg, dict):
                 for key in ("bps_per_trade", "slippage_bps"):
+                    if key in cost_cfg:
+                        raise ValueError(f"portfolio.cost_model.{key} was removed")
+                for key in ("per_trade_bps", "half_spread_bps"):
                     if key not in cost_cfg:
                         continue
                     try:
@@ -481,8 +477,6 @@ else:  # Fallback mode for tests without pydantic
             "multi_period",
             "strategy",
             "walk_forward",
-            "jobs",
-            "checkpoint_dir",
             "seed",
         ]
 
@@ -518,8 +512,6 @@ else:  # Fallback mode for tests without pydantic
         multi_period: Dict[str, Any] | None
         strategy: Dict[str, Any]
         walk_forward: Dict[str, Any]
-        jobs: int | None
-        checkpoint_dir: str | None
         seed: int
 
         def _get_defaults(self) -> Dict[str, Any]:
@@ -543,8 +535,6 @@ else:  # Fallback mode for tests without pydantic
                 "multi_period": None,
                 "strategy": {},
                 "walk_forward": {},
-                "jobs": None,
-                "checkpoint_dir": None,
                 "seed": 42,
             }
 
@@ -584,14 +574,17 @@ else:  # Fallback mode for tests without pydantic
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})
             if isinstance(port, dict):
-                if "transaction_cost_bps" in port:
-                    try:
-                        tc = float(port["transaction_cost_bps"])
-                    except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError("transaction_cost_bps must be numeric") from exc
-                    if tc < 0:
-                        raise ValueError("transaction_cost_bps must be >= 0")
-                    port["transaction_cost_bps"] = tc
+                for key in (
+                    "weighting_scheme",
+                    "transaction_cost_bps",
+                    "slippage_bps",
+                    "cooldown_months",
+                    "sticky_add_periods",
+                    "sticky_drop_periods",
+                    "min_tenure_periods",
+                ):
+                    if key in port:
+                        raise ValueError(f"portfolio.{key} was removed")
                 if "max_turnover" in port:
                     try:
                         mt = float(port["max_turnover"])
@@ -615,6 +608,9 @@ else:  # Fallback mode for tests without pydantic
                 cost_cfg = port.get("cost_model")
                 if isinstance(cost_cfg, dict):
                     for key in ("bps_per_trade", "slippage_bps"):
+                        if key in cost_cfg:
+                            raise ValueError(f"portfolio.cost_model.{key} was removed")
+                    for key in ("per_trade_bps", "half_spread_bps"):
                         if key not in cost_cfg:
                             continue
                         try:

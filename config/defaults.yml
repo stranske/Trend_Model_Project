@@ -65,14 +65,15 @@ portfolio:
   selection_mode: "all" # all | random | manual
   random_n: 10 # num managers if random
   manual_list: [] # filled when selection_mode=manual
-  weighting_scheme: "equal" # equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity | custom
+  weighting:
+    name: "equal" # equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity
+    params: {}
   rebalance_freq: "M" # M | Q | A | None
   rebalance_calendar: "NYSE"
   leverage_cap: 2.0 # max gross exposure
-  transaction_cost_bps: 0       # linear cost per unit turnover
   cost_model:
-    bps_per_trade: 0            # overrides transaction_cost_bps when provided
-    slippage_bps: 0             # additional penalty applied on turnover
+    per_trade_bps: 0            # linear cost per unit turnover
+    half_spread_bps: 0          # additional penalty applied on turnover
   max_turnover: 1.0             # optional turnover cap (1.0 = no cap)
   ci_level: 0.0                 # reporting-only confidence interval (0 disables)
   rank:
@@ -178,6 +179,7 @@ performance:
 run:
   monthly_cost: 0.0 # flat decimal return subtracted from each fund every period
   jobs: -1 # -1 => all CPUs
+  checkpoint_dir: "outputs/checkpoints/"
 
 
 # ---------------------------------------------------------------------------
@@ -199,5 +201,4 @@ multi_period:
       - [0,   1.20]
       - [50,  1.00]
       - [100, 0.80]
-checkpoint_dir: "outputs/checkpoints/"
 seed: 42

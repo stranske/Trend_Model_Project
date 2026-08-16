@@ -16,8 +16,8 @@ def _payload(tmp_path: Path, **overrides: object) -> dict[str, object]:
         frequency="ME",
         rebalance_calendar="NYSE",
         max_turnover=0.5,
-        transaction_cost_bps=0.0,
-        slippage_bps=0.0,
+        per_trade_bps=0.0,
+        half_spread_bps=0.0,
         target_vol=0.1,
     )
     for section, values in overrides.items():

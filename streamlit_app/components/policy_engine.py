@@ -47,7 +47,7 @@ class PolicyConfig:
         return {
             "top_k": self.top_k,
             "bottom_k": self.bottom_k,
-            "cooldown_months": self.cooldown_months,
+            "cooldown_periods": self.cooldown_months,
             "min_track_months": self.min_track_months,
             "max_active": self.max_active,
             "max_weight": self.max_weight,

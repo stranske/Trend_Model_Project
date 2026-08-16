@@ -179,7 +179,7 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
         "portfolio": {
             "selection_mode": "manual",
             "rebalance_calendar": "NYSE",
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             "max_turnover": 0.5,
             "manual_list": ["A", "B"],
             "indices_list": ("IDX",),

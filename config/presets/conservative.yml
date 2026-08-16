@@ -32,7 +32,7 @@ signals:
 # Conservative portfolio construction
 portfolio:
   max_weight: 0.25  # Higher concentration allowed for conservative picks
-  cooldown_months: 6  # Longer cooldown to avoid frequent changes
+  cooldown_periods: 6  # Longer cooldown to avoid frequent changes
   
 # Volatility adjustment settings
 vol_adjust:

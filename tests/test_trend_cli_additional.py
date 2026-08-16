@@ -62,7 +62,11 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
         lambda cfg, res, source_path, bundle_path, structured, run_id: bundles.append(bundle_path),
     )
 
-    cfg = SimpleNamespace(export={}, sample_split={}, portfolio={"transaction_cost_bps": 12.0})
+    cfg = SimpleNamespace(
+        export={},
+        sample_split={},
+        portfolio={"cost_model": {"per_trade_bps": 12.0, "half_spread_bps": 0}},
+    )
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
 

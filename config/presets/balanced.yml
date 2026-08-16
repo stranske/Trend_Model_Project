@@ -32,7 +32,7 @@ signals:
 # Balanced portfolio construction
 portfolio:
   max_weight: 0.15  # Moderate concentration
-  cooldown_months: 3  # Standard cooldown
+  cooldown_periods: 3  # Standard cooldown
   
 # Standard volatility adjustment
 vol_adjust:

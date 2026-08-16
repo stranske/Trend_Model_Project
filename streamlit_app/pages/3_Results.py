@@ -1089,7 +1089,7 @@ def _get_selection_config(result) -> dict[str, Any]:
         "min_funds": min_funds,
         "max_funds": max_funds,
         "selection_metric": model_state.get("selection_metric", "Sharpe"),
-        "weighting_scheme": model_state.get("weighting_scheme", "equal"),
+        "weighting_name": model_state.get("weighting_name", "equal"),
         "lookback_periods": model_state.get("lookback_periods", 3),
         "evaluation_periods": model_state.get("evaluation_periods", 1),
         # In the app, the user-facing "rebalance frequency" is the portfolio
@@ -1118,7 +1118,7 @@ def _render_selection_criteria(result) -> None:
             st.markdown(f"- Min funds allowed: **{config['min_funds']}**")
         st.markdown(f"- Max funds allowed: **{config['max_funds']}**")
         st.markdown(f"- Selection metric: **{config['selection_metric']}**")
-        st.markdown(f"- Weighting: **{config['weighting_scheme']}**")
+        st.markdown(f"- Weighting: **{config['weighting_name']}**")
 
     with col2:
         st.markdown("**Z-Score Thresholds**")

@@ -851,7 +851,7 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
         {
             "policy": "threshold_hold",
             "selection_mode": "all",
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
         }
     )
     base_config["data"]["allow_risk_free_fallback"] = False

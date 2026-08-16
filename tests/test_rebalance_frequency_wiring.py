@@ -37,7 +37,6 @@ class RebalanceConfig:
                 "max_weight": 0.8,
             },
             "rank": {"inclusion_approach": "top_n"},
-            "weighting_scheme": "equal",
             "weighting": {"name": "score_prop_bayes", "params": {"shrink_tau": 0.25}},
         }
     )

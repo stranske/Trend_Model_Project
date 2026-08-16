@@ -112,7 +112,10 @@ def test_sample_strategy_variants_reproducible_seed() -> None:
     sampling = {
         "portfolio.rank.n": {"dist": "categorical", "values": [8, 12]},
         "portfolio.max_turnover": {"dist": "uniform", "low": 0.05, "high": 0.1},
-        "portfolio.weighting_scheme": {"dist": "discrete", "values": ["equal", "inverse"]},
+        "portfolio.weighting.name": {
+            "dist": "discrete",
+            "values": ["equal", "risk_parity"],
+        },
     }
 
     first = sample_strategy_variants(sampling, 3, seed=42)
@@ -226,7 +229,7 @@ def test_sample_strategy_variants_respects_existing_names() -> None:
 def test_sample_strategy_variants_n_exceeds_combinations() -> None:
     sampling = {
         "portfolio.rank.n": {"dist": "categorical", "values": [1, 2]},
-        "portfolio.weighting_scheme": {"dist": "discrete", "values": ["equal"]},
+        "portfolio.weighting.name": {"dist": "discrete", "values": ["equal"]},
     }
 
     with pytest.raises(ValueError, match="exceeds available unique combinations"):
@@ -236,7 +239,7 @@ def test_sample_strategy_variants_n_exceeds_combinations() -> None:
 def test_sample_strategy_variants_n_exceeds_discrete_range_combinations() -> None:
     sampling = {
         "portfolio.rank.n": {"dist": "discrete", "low": 1, "high": 2, "step": 1},
-        "portfolio.weighting_scheme": {"dist": "categorical", "values": ["equal"]},
+        "portfolio.weighting.name": {"dist": "categorical", "values": ["equal"]},
     }
 
     with pytest.raises(ValueError, match="exceeds available unique combinations"):
@@ -246,7 +249,7 @@ def test_sample_strategy_variants_n_exceeds_discrete_range_combinations() -> Non
 def test_sample_strategy_variants_n_exceeds_combinations_with_duplicates() -> None:
     sampling = {
         "portfolio.rank.n": {"dist": "categorical", "values": [1, 1, 2]},
-        "portfolio.weighting_scheme": {"dist": "discrete", "values": ["equal"]},
+        "portfolio.weighting.name": {"dist": "discrete", "values": ["equal"]},
     }
 
     with pytest.raises(ValueError, match="exceeds available unique combinations"):

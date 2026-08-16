@@ -45,7 +45,7 @@ def _make_config(regime_cfg: dict[str, object]) -> object:
             "portfolio": {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.0,
-                "transaction_cost_bps": 0.0,
+                "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
                 "selection_mode": "rank",
                 "rank": {
                     "inclusion_approach": "top_n",

@@ -173,7 +173,7 @@ def test_evaluate_case_accepts_prompt_dataset_format() -> None:
             "expected_operations": [
                 {
                     "op": "set",
-                    "path": "portfolio.weighting_scheme",
+                    "path": "portfolio.weighting.name",
                     "value": "risk_parity",
                 }
             ],

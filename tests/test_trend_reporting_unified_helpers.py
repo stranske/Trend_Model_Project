@@ -107,7 +107,7 @@ def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
         vol_adjust={"target_vol": 0.15, "floor_vol": 0.05, "warmup_periods": 3},
         portfolio={
             "selection_mode": "rank",
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
             "max_turnover": 0.2,
             "rebalance_calendar": "M",
         },

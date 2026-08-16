@@ -29,7 +29,7 @@ class VolatilityConfig:
         default_factory=lambda: {
             "policy": "threshold_hold",
             "selection_mode": "rank",
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "threshold_hold": {
                 "target_n": 2,
                 "metric": "Sharpe",
@@ -44,7 +44,7 @@ class VolatilityConfig:
                 "max_weight": 0.8,
             },
             "rank": {"inclusion_approach": "top_n"},
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
         }
     )
     vol_adjust: dict[str, object] = field(

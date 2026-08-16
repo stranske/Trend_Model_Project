@@ -47,8 +47,8 @@ _GLOB_CHARS = {"*", "?", "[", "]"}
 _DEFAULT_BASE = proj_path()
 _DEFAULT_DATE_COLUMN = "Date"
 _DEFAULT_FREQUENCY = "M"
-_DEFAULT_TRANSACTION_COST = 0.0
-_DEFAULT_SLIPPAGE = 0.0
+_DEFAULT_PER_TRADE_COST = 0.0
+_DEFAULT_HALF_SPREAD = 0.0
 
 
 class CoreConfigError(ValueError):
@@ -70,9 +70,6 @@ class DataSettings:
 class CostSettings:
     """Portfolio cost parameters validated at startup."""
 
-    transaction_cost_bps: float
-    bps_per_trade: float
-    slippage_bps: float
     per_trade_bps: float
     half_spread_bps: float
 
@@ -106,10 +103,7 @@ class CoreConfig:
         return {
             "data": data_section,
             "portfolio": {
-                "transaction_cost_bps": self.costs.transaction_cost_bps,
                 "cost_model": {
-                    "bps_per_trade": self.costs.bps_per_trade,
-                    "slippage_bps": self.costs.slippage_bps,
                     "per_trade_bps": self.costs.per_trade_bps,
                     "half_spread_bps": self.costs.half_spread_bps,
                 },
@@ -279,34 +273,24 @@ def validate_core_config(
         tracker.track_validated("regime.model")
 
     portfolio_section = _as_mapping(payload.get("portfolio"), field="portfolio")
-    transaction_cost = _coerce_float(
-        portfolio_section.get("transaction_cost_bps", _DEFAULT_TRANSACTION_COST),
-        field="portfolio.transaction_cost_bps",
-    )
-    if tracker is not None:
-        tracker.track_validated("portfolio.transaction_cost_bps")
+    for removed in ("transaction_cost_bps", "slippage_bps"):
+        if removed in portfolio_section:
+            raise CoreConfigError(f"portfolio.{removed} was removed; use portfolio.cost_model")
     cost_model_section = portfolio_section.get("cost_model") or {}
     cost_model = _as_mapping(cost_model_section, field="portfolio.cost_model")
-    bps_per_trade = _coerce_float(
-        cost_model.get("bps_per_trade", transaction_cost),
-        field="portfolio.cost_model.bps_per_trade",
-    )
-    if tracker is not None:
-        tracker.track_validated("portfolio.cost_model.bps_per_trade")
-    slippage_bps = _coerce_float(
-        cost_model.get("slippage_bps", _DEFAULT_SLIPPAGE),
-        field="portfolio.cost_model.slippage_bps",
-    )
-    if tracker is not None:
-        tracker.track_validated("portfolio.cost_model.slippage_bps")
+    for removed in ("bps_per_trade", "slippage_bps"):
+        if removed in cost_model:
+            raise CoreConfigError(
+                f"portfolio.cost_model.{removed} was removed; use per_trade_bps and half_spread_bps"
+            )
     per_trade_bps = _coerce_float(
-        cost_model.get("per_trade_bps", bps_per_trade),
+        cost_model.get("per_trade_bps", _DEFAULT_PER_TRADE_COST),
         field="portfolio.cost_model.per_trade_bps",
     )
     if tracker is not None:
         tracker.track_validated("portfolio.cost_model.per_trade_bps")
     half_spread_bps = _coerce_float(
-        cost_model.get("half_spread_bps", slippage_bps),
+        cost_model.get("half_spread_bps", _DEFAULT_HALF_SPREAD),
         field="portfolio.cost_model.half_spread_bps",
     )
     if tracker is not None:
@@ -320,9 +304,6 @@ def validate_core_config(
         universe_membership_path=universe_path,
     )
     cost_settings = CostSettings(
-        transaction_cost_bps=transaction_cost,
-        bps_per_trade=bps_per_trade,
-        slippage_bps=slippage_bps,
         per_trade_bps=per_trade_bps,
         half_spread_bps=half_spread_bps,
     )

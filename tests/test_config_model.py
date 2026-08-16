@@ -430,7 +430,7 @@ class TestPortfolioSettings:
                 {
                     "rebalance_calendar": "",
                     "max_turnover": 0.2,
-                    "transaction_cost_bps": 5,
+                    "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
                 }
             )
 
@@ -440,7 +440,7 @@ class TestPortfolioSettings:
                 {
                     "rebalance_calendar": "NYSE",
                     "max_turnover": 1.1,
-                    "transaction_cost_bps": 5,
+                    "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
                 }
             )
 
@@ -450,7 +450,7 @@ class TestPortfolioSettings:
                 {
                     "rebalance_calendar": "NYSE",
                     "max_turnover": 0.2,
-                    "transaction_cost_bps": -1,
+                    "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
                 }
             )
 
@@ -460,7 +460,7 @@ class TestPortfolioSettings:
                 {
                     "rebalance_calendar": "NYSE",
                     "max_turnover": -0.1,
-                    "transaction_cost_bps": 5,
+                    "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
                 }
             )
 
@@ -528,7 +528,7 @@ class TestConfigLoading:
             "portfolio": {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.4,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             },
             "vol_adjust": {
                 "target_vol": 0.2,
@@ -552,7 +552,7 @@ class TestConfigLoading:
             "portfolio": {
                 "rebalance_calendar": "",
                 "max_turnover": 0.4,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             },
             "vol_adjust": {
                 "target_vol": 0.0,
@@ -576,7 +576,7 @@ class TestConfigLoading:
             "portfolio": {
                 "rebalance_calendar": "",
                 "max_turnover": 0.2,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             },
             "vol_adjust": {
                 "target_vol": 0.2,
@@ -600,7 +600,7 @@ class TestConfigLoading:
             "portfolio": {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             },
             "vol_adjust": {
                 "target_vol": -0.1,
@@ -625,7 +625,9 @@ class TestConfigLoading:
             portfolio:
               rebalance_calendar: NYSE
               max_turnover: 0.5
-              transaction_cost_bps: 12
+              cost_model:
+                per_trade_bps: 12
+                half_spread_bps: 0
             vol_adjust:
               target_vol: 0.15
               floor_vol: 0.01
@@ -638,7 +640,7 @@ class TestConfigLoading:
 
         assert path == config_file.resolve()
         assert cfg.data.csv_path == csv_file
-        assert cfg.portfolio.transaction_cost_bps == 12
+        assert cfg.portfolio.cost_model.per_trade_bps == 12
 
     def test_load_trend_config_rejects_non_mapping_yaml(self, tmp_path: Path) -> None:
         config_file = tmp_path / "invalid.yml"

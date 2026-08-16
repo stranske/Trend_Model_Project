@@ -41,8 +41,11 @@ out_end = "2024-12"
 [portfolio]
 selection_mode = "rank"      # new rank-based selector
 rebalance_calendar = "NYSE"  # trading calendar driving rebalance dates
-transaction_cost_bps = 0.0   # demo assumes frictionless trades
 max_turnover = 1.0           # set <1.0 to enforce turnover caps
+
+[portfolio.cost_model]
+per_trade_bps = 0.0          # demo assumes frictionless trades
+half_spread_bps = 0.0
 
 [portfolio.rank]
 inclusion_approach = "top_n"  # keep the best N funds each rebalance

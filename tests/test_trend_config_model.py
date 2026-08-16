@@ -24,7 +24,7 @@ def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -88,7 +88,7 @@ def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
         "preprocessing": {},
@@ -118,7 +118,7 @@ def test_trend_config_accepts_valid_managers_glob(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -138,7 +138,7 @@ def test_trend_config_requires_matching_managers_glob(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -163,7 +163,7 @@ def test_trend_config_managers_glob_requires_csv_extension(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -189,7 +189,7 @@ def test_validate_trend_config_normalises_month_end_frequency(tmp_path: Path) ->
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -212,7 +212,7 @@ def test_validate_trend_config_normalises_weekly_frequency(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -235,7 +235,7 @@ def test_validate_trend_config_reports_frequency_error_message(tmp_path: Path) -
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -277,7 +277,7 @@ def test_validate_trend_config_rejects_directory_csv_path(tmp_path: Path) -> Non
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -302,7 +302,7 @@ def test_validate_trend_config_accepts_pathlike_managers_glob(tmp_path: Path) ->
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -325,7 +325,7 @@ def test_validate_trend_config_reports_validation_location(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 2,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -357,7 +357,7 @@ def test_load_trend_config_accepts_relative_file_without_suffix(
                 "portfolio": {
                     "rebalance_calendar": "NYSE",
                     "max_turnover": 0.5,
-                    "transaction_cost_bps": 10,
+                    "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
                 },
                 "vol_adjust": {"target_vol": 0.1},
             }

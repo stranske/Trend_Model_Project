@@ -240,7 +240,7 @@ def test_validate_trend_config_formats_error_messages(tmp_path):
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": -1,
+            "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 1.0},
     }
@@ -248,7 +248,7 @@ def test_validate_trend_config_formats_error_messages(tmp_path):
     with pytest.raises(ValueError) as exc:
         config_model.validate_trend_config(raw, base_path=tmp_path)
 
-    assert "portfolio.transaction_cost_bps" in str(exc.value)
+    assert "portfolio.cost_model.per_trade_bps" in str(exc.value)
 
 
 def test_portfolio_settings_enforce_turnover_bounds():
@@ -257,7 +257,7 @@ def test_portfolio_settings_enforce_turnover_bounds():
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.5,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
 
@@ -270,11 +270,11 @@ def test_portfolio_settings_reject_negative_cost():
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": -1,
+                "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
             }
         )
 
-    assert "portfolio.transaction_cost_bps cannot be negative" in str(exc.value)
+    assert "portfolio.cost_model.per_trade_bps cannot be negative" in str(exc.value)
 
 
 def test_risk_settings_require_positive_target():
@@ -298,7 +298,7 @@ def test_validate_trend_config_reports_first_error(tmp_path):
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.2,
-            "transaction_cost_bps": "not-a-number",
+            "cost_model": {"per_trade_bps": "not-a-number", "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -306,7 +306,7 @@ def test_validate_trend_config_reports_first_error(tmp_path):
     with pytest.raises(ValueError) as exc:
         config_model.validate_trend_config(data, base_path=tmp_path)
 
-    assert "portfolio.transaction_cost_bps must be numeric" in str(exc.value)
+    assert "portfolio.cost_model.per_trade_bps must be numeric" in str(exc.value)
 
 
 def test_resolve_config_path_reports_missing_file():

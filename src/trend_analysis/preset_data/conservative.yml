@@ -20,7 +20,7 @@ signals:
   zscore: true
 portfolio:
   max_weight: 0.25
-  cooldown_months: 6
+  cooldown_periods: 6
 vol_adjust:
   enabled: true
   target_vol: 0.08
