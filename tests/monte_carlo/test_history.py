@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.io.market_data import MarketDataMode
+from trend_analysis.monte_carlo.folds import FoldGenerator
 from trend_analysis.monte_carlo import history
 
 
@@ -49,6 +50,25 @@ def test_load_price_history_uses_canonical_parquet_contract(
     result = history.load_price_history(Path("prices.parquet"))
 
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_file_backed_history_is_timezone_compatible_with_folds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = _frame([100.0, 101.0, 102.0], mode=MarketDataMode.PRICE)
+    expected.index = expected.index.tz_localize("UTC")
+    monkeypatch.setattr(history, "load_csv", lambda *_args, **_kwargs: expected)
+
+    result = history.load_price_history(Path("prices.csv"))
+    generator = FoldGenerator(mode="count_spaced", start="2024-03-31", n_folds=1)
+    fold = generator.generate(result.index)[0]
+    calibration = result.loc[fold.calibration_start : fold.calibration_end]
+
+    assert result.index.tz is None
+    assert calibration.index.tolist() == [
+        pd.Timestamp("2024-01-31"),
+        pd.Timestamp("2024-02-29"),
+    ]
 
 
 @pytest.mark.parametrize("values", [[], [0.01, -1.0]])

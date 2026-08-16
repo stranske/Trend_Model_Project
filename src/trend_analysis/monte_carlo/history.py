@@ -23,6 +23,12 @@ def load_price_history(path: Path) -> pd.DataFrame:
         raise RuntimeError(f"Market-data loader returned no data for {path}")
 
     history = frame.copy()
+    if isinstance(history.index, pd.DatetimeIndex) and history.index.tz is not None:
+        # FoldGenerator intentionally emits timezone-naive boundaries.  The
+        # canonical market-data contract normalizes file timestamps to UTC, so
+        # remove that timezone after normalization to keep fold slicing valid
+        # under pandas 3's strict aware/naive comparison rules.
+        history.index = history.index.tz_convert("UTC").tz_localize(None)
     if history.attrs.get("market_data_mode") == MarketDataMode.RETURNS.value:
         if history.empty:
             raise ValueError("returns data must not be empty")
