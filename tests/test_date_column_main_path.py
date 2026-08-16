@@ -59,7 +59,9 @@ def _pipeline_bindings(captured: dict[str, object]) -> pipeline_entrypoints.Conf
         build_trend_spec=lambda *_args, **_kwargs: None,
         resolve_target_vol=lambda _vol_adjust: None,
         invoke_analysis_with_diag=fake_invoke_analysis,
-        weight_engine_params_from_robustness=lambda *_args, **_kwargs: None,
+        # The production binding always returns a mapping; keep this focused
+        # date-column double faithful now that the entrypoint merges it.
+        weight_engine_params_from_robustness=lambda *_args, **_kwargs: {},
         RiskStatsConfig=lambda **kwargs: SimpleNamespace(**kwargs),
     )
 
