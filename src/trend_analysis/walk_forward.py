@@ -254,6 +254,17 @@ def _compute_turnover(prev: pd.Series, new: pd.Series) -> float:
     return float(delta.abs().sum())
 
 
+def _pool_fold_returns(fold_returns: Sequence[pd.Series]) -> pd.Series:
+    """Return one chronological out-of-sample observation per calendar date.
+
+    Later folds were trained on more recent data, so their prediction wins when
+    overlapping test windows contain the same date.
+    """
+
+    pooled = pd.concat(fold_returns)
+    return pooled[~pooled.index.duplicated(keep="last")].sort_index()
+
+
 def evaluate_parameter_grid(
     returns: pd.DataFrame,
     windows: WindowConfig,
@@ -313,7 +324,7 @@ def evaluate_parameter_grid(
             for key, value in params.items():
                 record[f"param_{key}"] = value
             records.append(record)
-        trial_results.append((params, pd.concat(trial_fold_returns, ignore_index=True)))
+        trial_results.append((params, _pool_fold_returns(trial_fold_returns)))
 
     folds_df = pd.DataFrame.from_records(records)
     param_cols = [col for col in folds_df.columns if col.startswith("param_")]

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
+import trend_analysis.walk_forward as walk_forward
 from trend_analysis.walk_forward import (
     StrategyConfig,
     WindowConfig,
@@ -72,3 +74,34 @@ def test_seed_changes_tie_breaking_between_identical_scores() -> None:
     selected_a = folds_a.loc[0, "selected"]
     selected_b = folds_b.loc[0, "selected"]
     assert selected_a != selected_b
+
+
+@pytest.mark.parametrize(
+    ("windows", "expected_observations"),
+    [
+        (WindowConfig(train=3, test=4, step=2), 6),
+        (WindowConfig(train=3, test=4, step=4), 4),
+    ],
+)
+def test_parameter_grid_uses_one_oos_return_per_calendar_date(
+    monkeypatch: pytest.MonkeyPatch,
+    windows: WindowConfig,
+    expected_observations: int,
+) -> None:
+    returns = _demo_returns().iloc[:10]
+    strategy = StrategyConfig(top_n=1, grid={"lookback": [2], "band": [-1.0]})
+    captured_returns: list[pd.Series] = []
+
+    def capture_dsr(trial_returns: pd.Series, **_: object) -> float:
+        captured_returns.append(trial_returns)
+        return 0.0
+
+    monkeypatch.setattr(walk_forward, "_sweep_deflated_sharpe", capture_dsr)
+
+    _, summary = walk_forward.evaluate_parameter_grid(returns, windows, strategy)
+
+    assert summary["deflated_sharpe_ratio"].eq(0.0).all()
+    assert len(captured_returns) == 1
+    assert len(captured_returns[0]) == expected_observations
+    assert captured_returns[0].index.is_unique
+    assert captured_returns[0].index.is_monotonic_increasing
