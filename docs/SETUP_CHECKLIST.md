@@ -496,7 +496,7 @@ entry points used by this repository:
 | Workflow | Purpose | Critical for Keepalive |
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | Required CI and exact-head enforcement | **YES** |
-| `agents-issue-intake.yml` | Registered-label and manual agent intake | No |
+| `agents-issue-intake.yml` | Assignment-label and manual agent intake | No |
 | `agents-auto-pilot.yml` | End-to-end issue automation | No |
 | `agents-71-codex-belt-dispatcher.yml` | Selects queued Codex work | No |
 | `agents-72-codex-belt-worker-dispatch.yml` | Dispatches the callable worker | No |

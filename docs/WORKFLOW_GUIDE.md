@@ -119,7 +119,9 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ### Troubleshooting signals
 
 - **Immediate readiness failure** — missing PAT or scope. Inspect the intake run and shared Workflows call, then repair the shared source rather than adding a local shim.
-- **Bootstrap skipped** — the issue lacks a registered `agent:*` assignment label. Add the correct label and rerun intake.
+- **Bootstrap skipped** — the issue lacks an assignment-shaped `agent:*` or
+  `agents:*` label, or only carries an excluded metadata label. Add the correct
+  assignment label and rerun intake.
 - **Branch push blocked** — repository protections blocking automation. Grant the PAT required scopes or adjust branch rules.
 
 ## Maintenance Playbook

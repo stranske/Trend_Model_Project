@@ -30,7 +30,7 @@ Agents 81—not the conveyor—is the active guarded post-Gate delivery route.
 
 ## Agent dispatch
 
-Apply a registered agent label or dispatch the local intake workflow:
+Apply an assignment-shaped agent label or dispatch the local intake workflow:
 
 ```bash
 gh workflow run agents-issue-intake.yml \

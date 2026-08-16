@@ -105,6 +105,18 @@ def test_active_intake_has_no_draft_control() -> None:
     assert "agent_pr_draft" not in intake
 
 
+def test_issue_intake_docs_match_permissive_label_filter() -> None:
+    intake = (ROOT / ".github/workflows/agents-issue-intake.yml").read_text(encoding="utf-8")
+    system_docs = (ROOT / "docs/ci/WORKFLOW_SYSTEM.md").read_text(encoding="utf-8")
+    normalized_docs = " ".join(system_docs.split())
+
+    assert "l.match(/^agents?:([a-z-]+)$/i)" in intake
+    assert "!metadataLabels.has(suffix)" in intake
+    assert "does not validate the suffix against the local agent registry" in normalized_docs
+    assert "registered `agent:*`" not in system_docs
+    assert "registered agent labels" not in system_docs
+
+
 def test_documented_agent_entrypoints_match_workflow_topology() -> None:
     workflows = ROOT / ".github" / "workflows"
     dispatchable = (

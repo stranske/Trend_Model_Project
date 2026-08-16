@@ -17,7 +17,8 @@ agents:auto-pilot/manual Auto-Pilot -> Agents 71 -> Agents 72 dispatch wrapper
 ```
 
 - `agents-issue-intake.yml` is the canonical local front door. It reacts to
-  registered agent labels and supports manual `agent_bridge` dispatch.
+  assignment-shaped agent labels, excludes metadata-only labels, and supports
+  manual `agent_bridge` dispatch.
 - `agents-auto-pilot.yml` is the end-to-end label/manual route. It invokes the
   dispatchable Agents 71 queue selector and the Agents 72 dispatch wrapper.
 - `agents-72-codex-belt-worker.yml` is callable-only and is invoked by
@@ -37,7 +38,7 @@ holds belong in labels, checks, and exact-head metadata.
 ## Manual intake
 
 1. Open **Actions -> Agents Issue Intake -> Run workflow**.
-2. Choose `agent_bridge`, provide the issue number, and keep the registered
+2. Choose `agent_bridge`, provide the issue number, and keep the configured
    agent selection unless the issue has an explicit route.
 3. Review the intake summary for the created ready-for-review PR. For an
    `agents:auto-pilot` issue, also inspect Auto-Pilot, Agents 71, and the Agents

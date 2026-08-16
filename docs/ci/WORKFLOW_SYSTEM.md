@@ -248,10 +248,13 @@ explain why a particular status appears in the Checks tab.
 
 #### Agents Issue Intake (`agents-issue-intake.yml`)
 
-- **When it runs.** On registered `agent:*` issue-label events and manual dispatch.
-- **What it does.** Routes the issue to the shared Workflows bridge and starts
-  the shared ready-for-review bootstrap lifecycle. End-to-end Auto-Pilot is a
-  separate label/manual route.
+- **When it runs.** On syntactically valid `agent:*` or `agents:*` assignment
+  labels that are not metadata-only labels, and on manual dispatch.
+- **What it does.** Forwards the selected label suffix to the shared Workflows
+  bridge and starts the shared ready-for-review bootstrap lifecycle. This thin
+  caller filters label shape and metadata; it does not validate the suffix
+  against the local agent registry. End-to-end Auto-Pilot is a separate
+  label/manual route.
 - **Merge impact.** Not a PR status. Failures belong in the shared Workflows
   source or this thin consumer caller; do not restore the retired wrapper.
 
@@ -408,7 +411,7 @@ enforces the guardrail so you know where to confirm compliance:
 | --- | --- | --- |
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Gate summary job. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
-| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Health 45 Agents Guard are mandatory before protected YAML merges; intake only accepts registered agent labels. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
+| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Health 45 Agents Guard are mandatory before protected YAML merges; intake accepts assignment-shaped labels and filters metadata labels before forwarding the suffix. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
 
 ### Observability surfaces by bucket
@@ -524,8 +527,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Issue / agents automation
 - **Agents Issue Intake** – `.github/workflows/agents-issue-intake.yml` is the
-  consumer entry point for registered agent labels and manual `agent_bridge`
-  dispatch. Shared implementation remains in `stranske/Workflows`.
+  consumer entry point for assignment-shaped agent labels and manual
+  `agent_bridge` dispatch. The thin caller excludes metadata labels and
+  forwards the selected suffix; shared implementation remains in
+  `stranske/Workflows`.
 - **Agents Auto-Pilot** – `.github/workflows/agents-auto-pilot.yml` is the
   label/manual end-to-end controller. It dispatches Agents 71 to claim the
   issue and the Agents 72 dispatch wrapper to run the worker.
