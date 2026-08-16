@@ -150,7 +150,8 @@ A qualifying criterion names one of:
 
 - a specific test path / test id (e.g.
   `tests/test_verdict_policy.py::test_select_verdict_worst_policy`), **or**
-- a specific runnable command and its expected observable result (e.g.
+- a specific runnable command written in normal Acceptance Criteria prose (not
+  inside a Markdown fenced code block) and its expected observable result (e.g.
   `gh workflow run selftest-ci.yml` → the run log shows a non-zero collected
   count for the named test files), **or**
 - a documented live-verification step tied to behavior a human or agent can
@@ -166,7 +167,9 @@ intuitive / polished) are rejected — replace with a measurable check.
 > Acceptance Criteria block references **no** test, smoke test, or verification
 > gate at all (a conservative string check for a test path/id, a runner command
 > like `pytest` / `gh workflow run` / `npm test` / `curl`, or a `smoke` /
-> `verif` token). An acceptance section of pure adjectives will not pass.
+> `verif` token). The qualifying gate must appear in normal Acceptance Criteria
+> prose, not inside a Markdown fenced code block. An acceptance section of pure
+> adjectives will not pass.
 
 #### The deliberate-break pattern (recommended worked form)
 
@@ -229,7 +232,19 @@ DEFINITION OF READY — run before filing / accepting an issue
 Tasks
 [ ] Every task names a real file / function / path / command.
 [ ] Every cited path:line was verified against the CURRENT checkout
-    (or is an explicit create-path with its wire-in point named).
+    (or is an explicit create-path with its wire-in point named). Three or more
+    non-create paths that resolve nowhere in this repository are rejected;
+    a path is create-only only when it is the direct object of an explicit
+    file-creation phrase. "Add validation to path" is a modification and the
+    cited path must already resolve. One creation phrase may govern a
+    comma/conjunction-separated list of new paths until the task switches to a
+    different action.
+    quoted and unquoted task paths both count, while absolute and parent-relative
+    paths never count as repository evidence.
+[ ] Ignore paths preserved inside the formatter's archived
+    `<summary>Original Issue</summary>` provenance block. Only the visible issue
+    body is live work-order evidence; malformed or unclosed archives remain
+    visible and fail closed.
 [ ] No banned vague verb stands alone ("fix bugs", "improve X",
     "update things", "clean up", "refactor", "optimize", "polish").
 [ ] Each task is atomic — one checkbox = one discrete, verifiable change.
