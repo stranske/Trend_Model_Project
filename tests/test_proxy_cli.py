@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import runpy
 import sys
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -106,8 +107,14 @@ def test_proxy_cli_module_entrypoint_invokes_sys_exit(
     monkeypatch.setattr(sys, "exit", fake_exit)
     monkeypatch.setattr(sys, "argv", ["proxy-cli"])
     sys.modules.pop("trend_analysis.proxy.cli", None)
-    monkeypatch.setattr("trend_analysis.proxy.server.run_proxy", fake_run_proxy)
-    monkeypatch.setattr(cli, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
+    proxy_server = import_module("trend_analysis.proxy.server")
+    logging_setup = import_module("trend_analysis.logging_setup")
+    monkeypatch.setattr(proxy_server, "run_proxy", fake_run_proxy)
+    monkeypatch.setattr(
+        logging_setup,
+        "setup_logging",
+        lambda **_: Path("/tmp/proxy.log"),
+    )
 
     with pytest.raises(SystemExit) as excinfo:
         runpy.run_module("trend_analysis.proxy.cli", run_name="__main__")
