@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 from typing import Any
@@ -25,9 +26,13 @@ from streamlit_app.components.data_schema import (
 from streamlit_app.components.universe_membership_input import (
     UNIVERSE_MEMBERSHIP_SESSION_KEY,
     UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY,
+    UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY,
+    clear_active_universe_membership,
     invalidate_analysis_for_membership_change,
     persist_membership_upload,
     resolve_universe_membership_path,
+    set_active_universe_membership,
     summarise_membership,
     validate_membership_file,
 )
@@ -120,37 +125,46 @@ def _render_universe_membership_controls() -> None:
     with col_a:
         if demo_path.exists() and st.button("Use demo membership", key="use_demo_membership"):
             validate_membership_file(demo_path)
-            st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = str(demo_path)
-            st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(demo_path)
-            invalidate_analysis_for_membership_change()
+            changed = st.session_state.get(UNIVERSE_MEMBERSHIP_SESSION_KEY) != str(demo_path)
+            clear_active_universe_membership(st.session_state)
+            set_active_universe_membership(
+                str(demo_path), summarise_membership(demo_path), st.session_state
+            )
+            if changed:
+                invalidate_analysis_for_membership_change()
     with col_b:
         if st.button("Clear membership", key="clear_universe_membership"):
-            st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
-            st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
-            invalidate_analysis_for_membership_change()
+            if clear_active_universe_membership(st.session_state):
+                invalidate_analysis_for_membership_change()
 
     uploaded = st.file_uploader(
         "Upload membership CSV (fund, effective_date, end_date)",
         type=["csv"],
         accept_multiple_files=False,
-        key="universe_membership_upload",
+        key=(
+            "universe_membership_upload::"
+            f"{st.session_state.get(UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY, 0)}"
+        ),
     )
     if uploaded is not None:
         try:
-            saved = persist_membership_upload(
-                uploaded.getvalue(),
-                upload_dir=DEFAULT_UPLOAD_DIR,
-                filename=f"universe-membership-{uploaded.name}",
-            )
-            st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = saved
-            st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(saved)
-            invalidate_analysis_for_membership_change()
+            upload_bytes = uploaded.getvalue()
+            upload_digest = hashlib.sha256(upload_bytes).hexdigest()
+            if st.session_state.get(UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY) != upload_digest:
+                saved = persist_membership_upload(
+                    upload_bytes,
+                    upload_dir=DEFAULT_UPLOAD_DIR,
+                    filename=uploaded.name,
+                )
+                changed = set_active_universe_membership(
+                    saved, summarise_membership(saved), st.session_state
+                )
+                st.session_state[UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY] = upload_digest
+                if changed:
+                    invalidate_analysis_for_membership_change()
             st.success("Membership file validated and ready.")
         except Exception as exc:
             st.error(f"Membership file rejected: {exc}")
-            st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
-            st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
-            invalidate_analysis_for_membership_change()
 
     active_path = resolve_universe_membership_path()
     if active_path:

@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 from typing import Any, Mapping
+from uuid import uuid4
 
 from trend_analysis.universe import load_universe_membership
 
 UNIVERSE_MEMBERSHIP_SESSION_KEY = "universe_membership_path"
 UNIVERSE_MEMBERSHIP_SUMMARY_KEY = "universe_membership_summary"
+UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY = "universe_membership_upload_digest"
+UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY = "universe_membership_upload_widget_version"
 
 
 def resolve_universe_membership_path(session_state: Mapping[str, Any] | None = None) -> str | None:
@@ -75,11 +78,40 @@ def invalidate_analysis_for_membership_change() -> None:
     app_state.clear_analysis_results()
 
 
+def set_active_universe_membership(
+    path: str, summary: Mapping[str, object], session_state: dict[str, Any]
+) -> bool:
+    """Store an active membership file and report whether it changed."""
+
+    changed = session_state.get(UNIVERSE_MEMBERSHIP_SESSION_KEY) != path
+    session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = path
+    session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = dict(summary)
+    return changed
+
+
+def clear_active_universe_membership(session_state: dict[str, Any]) -> bool:
+    """Clear membership state and reset the uploader's retained file value."""
+
+    changed = bool(session_state.get(UNIVERSE_MEMBERSHIP_SESSION_KEY))
+    session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
+    session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
+    session_state.pop(UNIVERSE_MEMBERSHIP_UPLOAD_DIGEST_KEY, None)
+    session_state[UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY] = (
+        int(session_state.get(UNIVERSE_MEMBERSHIP_UPLOAD_WIDGET_VERSION_KEY, 0)) + 1
+    )
+    return changed
+
+
 def persist_membership_upload(upload_bytes: bytes, *, upload_dir: Path, filename: str) -> str:
     """Persist an uploaded membership CSV and validate it before returning the path."""
 
     upload_dir.mkdir(parents=True, exist_ok=True)
-    target = upload_dir / filename
+    suffix = Path(filename).suffix.lower() or ".csv"
+    target = upload_dir / f"universe-membership-{uuid4().hex}{suffix}"
     target.write_bytes(upload_bytes)
-    validate_membership_file(target)
+    try:
+        validate_membership_file(target)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
     return str(target)
