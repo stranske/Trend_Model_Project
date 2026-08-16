@@ -137,6 +137,19 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
 
     assert not stale, f"retired consumer automation remains in: {stale}"
 
+    retired_dispatch_targets = (
+        "agents-keepalive-loop.yml",
+        "agents-pr-meta-v4.yml",
+    )
+    stale_workflows = []
+    for path in sorted((ROOT / ".github/workflows").glob("*.y*ml")):
+        text = path.read_text(encoding="utf-8")
+        matches = [token for token in retired_dispatch_targets if token in text]
+        if matches:
+            stale_workflows.append((path.relative_to(ROOT).as_posix(), matches))
+
+    assert not stale_workflows, f"retired dispatch targets remain in: {stale_workflows}"
+
     checklist = (ROOT / "docs/SETUP_CHECKLIST.md").read_text(encoding="utf-8")
     assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
     assert checklist.count("both `agent:codex` and `agents:keepalive` labels") == 2
