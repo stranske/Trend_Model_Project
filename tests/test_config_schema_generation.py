@@ -37,9 +37,9 @@ def test_schema_includes_metadata() -> None:
 
 def test_weighting_enum_uses_runtime_supported_names() -> None:
     schema = generate_schema()
-    weighting_name = schema["properties"]["portfolio"]["properties"]["weighting"][
-        "properties"
-    ]["name"]
+    weighting_name = schema["properties"]["portfolio"]["properties"]["weighting"]["properties"][
+        "name"
+    ]
 
     assert set(weighting_name["enum"]) == set(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES)
 

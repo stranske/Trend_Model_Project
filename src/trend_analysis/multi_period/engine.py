@@ -2907,7 +2907,7 @@ def _run_threshold_hold_multi_periods(
             # rather than using the z-score based selector
             if is_random_mode:
                 eligible_sf = _filter_entry_frame(sf)
-                available = list(eligible_sf.index)
+                available: list[str] = [str(value) for value in eligible_sf.index]
                 if not available:
                     # No funds available - skip to placeholder logic below
                     holdings = []
@@ -2923,7 +2923,9 @@ def _run_threshold_hold_multi_periods(
                     holdings = _dedupe_one_per_firm_with_events(sf, holdings, metric, events)
                     # If dedupe reduced us, refill with random selection
                     if len(holdings) < n_select:
-                        random_refill = [c for c in available if c not in holdings]
+                        random_refill: list[str] = [
+                            candidate for candidate in available if candidate not in holdings
+                        ]
                         if random_refill:
                             rng = np.random.default_rng(period_seed + 1)
                             rng.shuffle(random_refill)
@@ -2940,7 +2942,7 @@ def _run_threshold_hold_multi_periods(
                 # Buy-and-hold mode: select initial holdings using configured method
                 # Holdings will be held until data disappears (fund ceases to exist)
                 eligible_sf = _filter_entry_frame(sf)
-                available = list(eligible_sf.index)
+                available = [str(value) for value in eligible_sf.index]
                 if not available:
                     holdings = []
                 elif buy_hold_initial == "random":
@@ -3172,7 +3174,7 @@ def _run_threshold_hold_multi_periods(
                 # automatically fill up to target_n, as the intent is to select exactly
                 # that percentage of the universe.
                 if len(holdings) < desired_seed and inclusion_approach != "top_pct":
-                    seed_refill = [str(c) for c in sf.index if c not in holdings]
+                    seed_refill: list[str] = [str(c) for c in sf.index if c not in holdings]
                     seed_refill = _filter_entry_candidates(seed_refill, sf)
                     add_from = sf.loc[seed_refill].sort_values("zscore", ascending=False).index
                     seen_firms = {_firm(h) for h in holdings}
@@ -3193,7 +3195,9 @@ def _run_threshold_hold_multi_periods(
                     and resolved_rf_col
                     and resolved_rf_col in holdings
                 ):
-                    rf_replacement_candidates = [str(c) for c in sf.index if c not in holdings]
+                    rf_replacement_candidates: list[str] = [
+                        str(c) for c in sf.index if c not in holdings
+                    ]
                     rf_replacement_candidates = _filter_entry_candidates(
                         rf_replacement_candidates, sf
                     )
@@ -3589,7 +3593,7 @@ def _run_threshold_hold_multi_periods(
                 desired_size = min(desired_size, max_funds)
             if desired_size > 0 and len(proposed_holdings) < desired_size:
                 seen_firms = {_firm(str(h)) for h in proposed_holdings}
-                rebalancer_refill = [
+                rebalancer_refill: list[str] = [
                     str(c)
                     for c in sf.index
                     if str(c) not in proposed_holdings
@@ -3953,7 +3957,7 @@ def _run_threshold_hold_multi_periods(
                 desired_after_low_weight = min(desired_after_low_weight, max_funds)
             need = max(0, desired_after_low_weight - len(holdings))
             if need > 0:
-                low_weight_refill = [
+                low_weight_refill: list[str] = [
                     str(c)
                     for c in sf.index
                     if str(c) not in {str(h) for h in holdings} and _eligible_sticky_add(str(c))
