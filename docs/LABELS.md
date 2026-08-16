@@ -100,13 +100,13 @@ This document describes all labels that trigger automated workflows or affect CI
 2. Validates that a valid agent assignee is present
 3. If validated, enables automated code generation for the issue
 4. Creates a `codex/issue-<number>` branch for agent work
-5. On PRs, routes keepalive dispatch to `reusable-codex-run.yml` per `.github/agents/registry.yml`
+5. On PRs, routes keepalive evaluation through the local sweep and the registry-backed shared runner
 
 **Prerequisites:**
 - Issue must have a valid agent assignee (configured in repository settings)
 - Issue should have clear requirements in the description
 
-**Workflow:** `agents-63-issue-intake.yml` (Agents 63 Issue Intake); on PRs, `agents-keepalive-loop.yml` routes work via `.github/agents/registry.yml`.
+**Workflow:** `agents-issue-intake.yml` (Agents Issue Intake); on PRs, `agents-keepalive-sweep.yml` routes evaluation to the shared registry-backed implementation.
 
 ---
 
@@ -306,7 +306,7 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 2. Used in conjunction with `agent:codex` to signal readiness
 3. May trigger the next step in the agent automation pipeline
 
-**Workflow:** `agents-70-orchestrator.yml` (Agents 70 Orchestrator)
+**Workflow:** `agents-issue-intake.yml` (Agents Issue Intake), followed by the Agents 71-73 Codex Belt
 
 ---
 

@@ -132,4 +132,4 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ## Additional References
 - `.github/workflows/README.md` — Architecture snapshot for the CI + agent stack.
 - `docs/ci/WORKFLOWS.md` — Acceptance-criteria checklist for the final workflow set.
-- `docs/agent-automation.md` — Detailed description of the agent orchestrator and options.
+- `docs/agent-automation.md` — Current consumer intake, belt, event-routing, and keepalive topology.

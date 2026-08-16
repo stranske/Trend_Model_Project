@@ -47,15 +47,29 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "docs/ci/WORKFLOWS.md",
         "docs/ci/WORKFLOW_SYSTEM.md",
         "docs/ops/codex-bootstrap-facts.md",
+        "docs/agent-automation.md",
+        "docs/LABELS.md",
+        "docs/prompts/library.md",
+        "docs/ci_reuse.md",
+        "docs/SETUP_CHECKLIST.md",
     )
 
+    retired_tokens = (
+        "agents-70-orchestrator.yml",
+        "reusable-16-agents.yml",
+        "agents-63-issue-intake.yml",
+        "bridge_draft_pr",
+        "agent_pr_draft",
+        "draft_pr",
+    )
     stale = []
     for relative in operator_docs:
         text = (ROOT / relative).read_text(encoding="utf-8")
-        if "agents-70-orchestrator.yml" in text:
-            stale.append(relative)
+        matches = [token for token in retired_tokens if token in text]
+        if matches:
+            stale.append((relative, matches))
 
-    assert not stale, f"retired consumer orchestrator remains in: {stale}"
+    assert not stale, f"retired consumer automation remains in: {stale}"
 
     codeowners = (ROOT / ".github/CODEOWNERS").read_text(encoding="utf-8")
     assert "agents-70-orchestrator.yml" not in codeowners

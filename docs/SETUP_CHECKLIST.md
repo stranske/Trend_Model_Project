@@ -489,67 +489,47 @@ Apps to verify:
 
 ### 4.1 Verify Workflow Files
 
-Check that these workflows exist in `.github/workflows/`:
+Compare `.github/workflows/` with the canonical consumer template in
+`stranske/Workflows/templates/consumer-repo/`. At minimum, verify the deployed
+entry points used by this repository:
 
 | Workflow | Purpose | Critical for Keepalive |
 |----------|---------|------------------------|
-| `pr-00-gate.yml` | CI enforcement, posts commit status | **YES** |
-| `agents-pr-meta.yml` | Detects keepalive comments | **YES** |
-| `agents-70-orchestrator.yml` | Runs keepalive sweeps (every 30 min) | **YES** |
-| `agents-63-issue-intake.yml` | Creates PRs from labeled issues (full workflow) | No |
-| `agents-keepalive-loop.yml` | Keepalive iteration execution | **YES** |
+| `pr-00-gate.yml` | Required CI and exact-head enforcement | **YES** |
+| `agents-issue-intake.yml` | Registered-label and manual agent intake | No |
+| `agents-71-codex-belt-dispatcher.yml` | Selects queued Codex work | No |
+| `agents-72-codex-belt-worker.yml` | Creates or refreshes ready-for-review PRs | No |
+| `agents-73-codex-belt-conveyor.yml` | Advances reviewed exact-head deliveries | No |
+| `agents-80-pr-event-hub.yml` | Routes PR events | **YES** |
+| `agents-81-gate-followups.yml` | Routes Gate completion events | **YES** |
+| `agents-keepalive-sweep.yml` | Re-evaluates stalled agent PRs | **YES** |
+| `agents-keepalive-loop-reporter.yml` | Reports keepalive loop completion | **YES** |
 | `agents-verifier.yml` | Post-merge verification | No |
-| `autofix.yml` | Auto-fixes lint/format issues | No |
-| `ci.yml` | Thin caller for Python CI | No |
-| `maint-sync-workflows.yml` | Local sync check (weekly) | Recommended |
+| `autofix.yml` | Applies bounded formatting and lint fixes | No |
+| `ci.yml` | Shared Python CI caller | No |
 
-- [ ] All workflow files present
-- [ ] Workflow files reference `stranske/Workflows@v1` (or a pinned tag/SHA)
+- [ ] The deployed workflow inventory matches the Workflows consumer template and manifest
+- [ ] The intake workflow has no draft-PR input or forwarding path
+- [ ] Automation PRs are created ready for review
+- [ ] Workflows template-sync and completeness validators pass for shared changes
 
 
 ### 4.1b Validate Workflow File Naming
 
-> **Critical**: Consumer repos must use the correct workflow file naming convention.
-> Old naming (without numbers) indicates incomplete migration.
-
-**Expected files** (correct naming):
-- `agents-63-issue-intake.yml` — Full workflow with ChatGPT sync (NOT the old thin caller)
-- `agents-70-orchestrator.yml` — Orchestrator with numbered naming
-
-**Deprecated or legacy files:**
-- ~~`agents-issue-intake.yml`~~ — Old thin caller, replaced by `agents-63-issue-intake.yml`
-- `agents-orchestrator.yml` — Legacy unnumbered naming; still valid and may coexist, but prefer `agents-70-orchestrator.yml`
-
-> **Why both orchestrator files may exist**: The `maint-68-sync-consumer-repos` workflow
-> uses a mapping syntax (`"agents-70-orchestrator.yml:agents-orchestrator.yml"`) that
-> syncs the source file to both names. This ensures repos using either convention
-> receive updates. New repos should use `agents-70-orchestrator.yml`; existing repos
-> with `agents-orchestrator.yml` continue to work.
+> **Critical**: do not infer the consumer roster from historical numbered
+> wrappers or copy snippets from old setup guides. The Workflows consumer
+> template and sync manifest are the sources of truth.
 
 **Validation checklist:**
-- [ ] No deprecated workflow files present
-- [ ] `agents-63-issue-intake.yml` exists (NOT `agents-issue-intake.yml`)
-- [ ] `agents-70-orchestrator.yml` exists (may coexist with `agents-orchestrator.yml`)
-- [ ] `maint-sync-workflows.yml` exists for local sync checks
 
-**To fix if using old naming:**
-```bash
-# Remove old thin caller workflow
-rm .github/workflows/agents-issue-intake.yml
+- [ ] `agents-issue-intake.yml` exists as the local front door
+- [ ] The Agents 71-73 belt and 80-81 event routers match the template
+- [ ] The retired consumer orchestrator wrapper is absent
+- [ ] No local bootstrap simulator or draft-PR control is present
 
-# Copy full workflow from Workflows repo
-curl -o .github/workflows/agents-63-issue-intake.yml \
-  https://raw.githubusercontent.com/stranske/Workflows/v1/.github/workflows/agents-63-issue-intake.yml
-
-# Copy orchestrator with numbered naming  
-curl -o .github/workflows/agents-70-orchestrator.yml \
-  https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-orchestrator.yml
-
-# Optional: add a local sync-check workflow if your org maintains one.
-# If you already have a maintained local sync workflow in another repo, adapt this pattern:
-# curl -o .github/workflows/maint-sync-workflows.yml \
-#   https://raw.githubusercontent.com/<owner>/<repo>/<ref>/.github/workflows/maint-sync-workflows.yml
-```
+When drift is detected, repair the source template in Workflows and use the
+managed sync path. Do not download individual workflow files into a consumer
+repository as an ad-hoc replacement for the manifest-driven delivery.
 
 > **Lesson learned**: When writing workflow sync scripts that use `curl` to download
 > files, always verify both success AND that the file exists with content:
@@ -1155,9 +1135,14 @@ inputs:
 ├── templates/
 │   └── keepalive-instruction.md
 └── workflows/
-    ├── agents-63-issue-intake.yml
-    ├── agents-70-orchestrator.yml
-    ├── agents-pr-meta.yml
+    ├── agents-issue-intake.yml
+    ├── agents-71-codex-belt-dispatcher.yml
+    ├── agents-72-codex-belt-worker.yml
+    ├── agents-73-codex-belt-conveyor.yml
+    ├── agents-80-pr-event-hub.yml
+    ├── agents-81-gate-followups.yml
+    ├── agents-keepalive-sweep.yml
+    ├── agents-keepalive-loop-reporter.yml
     ├── autofix.yml
     ├── ci.yml
     └── pr-00-gate.yml
