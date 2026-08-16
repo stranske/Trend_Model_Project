@@ -2834,7 +2834,9 @@ def _run_threshold_hold_multi_periods(
             in_df,
             fund_cols,
             risk_free_override=rf_override,
-            benchmark=(in_df[benchmark_cols[0]] if benchmark_cols and benchmark_cols[0] in in_df else None),
+            benchmark=(
+                in_df[benchmark_cols[0]] if benchmark_cols and benchmark_cols[0] in in_df else None
+            ),
             periods_per_year=int(periods_per_year),
         )
         metric = cast(str, th_cfg.get("metric", "Sharpe"))
