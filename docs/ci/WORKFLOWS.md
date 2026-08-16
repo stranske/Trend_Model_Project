@@ -9,11 +9,11 @@ This page captures the target layout for the automation that protects pull reque
 
 ```mermaid
 flowchart LR
-    intake["Agents Issue Intake\n.agents-issue-intake.yml"] --> bridge["Shared issue bridge"]
-    autoPilot["Agents Auto-Pilot"] --> dispatcher["Agents 71 dispatcher"] --> workerDispatch["Agents 72 dispatch wrapper"]
-    workerDispatch --> readyPr["Ready-for-review PR"] --> gateFollowups["Gate + Agents 81"]
-    gate --> healthGuard["Health checks\n.health-4x-*.yml"]
-    gate --> autofix["Reusable 18 Autofix\n.reusable-18-autofix.yml"]
+    intake["Agents Issue Intake\n.github/workflows/agents-issue-intake.yml"] --> bridge["Shared issue bridge"]
+    autoPilot["Agents Auto-Pilot\n.github/workflows/agents-auto-pilot.yml"] --> dispatcher["Agents 71 dispatcher"] --> workerDispatch["Agents 72 dispatch wrapper"]
+    workerDispatch --> readyPr["Ready-for-review PR"] --> gate["Gate\n.github/workflows/pr-00-gate.yml"] --> gateFollowups["Agents 81 follow-up"]
+    healthGuard["Health checks\n.github/workflows/health-4x-*.yml"]
+    autofixCaller["Autofix caller\n.github/workflows/autofix.yml"] --> autofix["Reusable 18 Autofix\nstranske/Workflows"]
 ```
 
 - **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before its inline `summary` job publishes the commit status and PR comment. The **Gate summary job** keeps that follow-up comment updated with the latest artifacts.

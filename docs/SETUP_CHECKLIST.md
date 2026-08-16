@@ -597,19 +597,14 @@ grep -E "ruff|mypy|black|isort" requirements*.txt pyproject.toml 2>/dev/null
 
 ### 4.3 Critical Workflow Configuration
 
-**In `agents-pr-meta.yml`:**
+**In `agents-81-gate-followups.yml`:**
 
-The `pr_number` input MUST use `fromJSON()` to convert the string output to a number:
+The active follow-up route must listen for Gate completion and accept an
+explicit manual PR-number retry. PR metadata and Gate follow-up must not be
+routed through a retired local PR-meta wrapper.
 
-```yaml
-# ❌ WRONG - will silently skip the job
-pr_number: ${{ needs.resolve_pr.outputs.pr_number }}
-
-# ✅ CORRECT - properly converts to number
-pr_number: ${{ fromJSON(needs.resolve_pr.outputs.pr_number) }}
-```
-
-- [ ] Verify `fromJSON()` wrapper is present in all `pr_number` inputs
+- [ ] Verify the `workflow_run` trigger names `Gate`
+- [ ] Verify `workflow_dispatch` requires `pr_number`
 
 **In `pr-00-gate.yml`:**
 
@@ -631,22 +626,9 @@ The Gate workflow MUST post a commit status for keepalive to detect when CI pass
 
 - [ ] Verify commit status step exists in Gate summary job
 
-**In `agents-pr-meta.yml` (workflow_run trigger):**
-
-The workflow MUST have a `workflow_run` trigger for Gate completion:
-
-```yaml
-on:
-  # ... other triggers ...
-  workflow_run:
-    workflows: ["Gate"]
-    types: [completed]
-```
-
-This handles the race condition where a human posts `@codex` before Gate finishes.
-
-- [ ] Verify `workflow_run` trigger is present
-- [ ] Verify `allow_replay: true` is passed to reusable workflow for Gate completion
+Agents 80 owns PR event routing; Agents 81 owns Gate completion, retries, and
+guarded delivery. Confirm both files are present and do not recreate a local
+PR-meta workflow.
 
 ---
 
@@ -677,9 +659,9 @@ These scripts MUST exist in `.github/scripts/`:
 
 | Script | Purpose | Required By |
 |--------|---------|-------------|
-| `decode_raw_input.py` | Decodes ChatGPT input | agents-63 chatgpt_sync |
-| `parse_chatgpt_topics.py` | Parses topics from input | agents-63 chatgpt_sync |
-| `fallback_split.py` | Fallback topic splitting | agents-63 chatgpt_sync |
+| `decode_raw_input.py` | Decodes connector topic input | Source-managed topic parser |
+| `parse_chatgpt_topics.py` | Parses conversations into issue topics | Source-managed topic parser |
+| `fallback_split.py` | Fallback topic splitting | Source-managed topic parser |
 
 - [ ] All 3 Python scripts present
 
@@ -825,37 +807,34 @@ tasks are complete or the iteration limit is reached.
 **Workflows involved**:
 | Workflow | Role |
 |----------|------|
-| `agents-pr-meta.yml` | Detects `@codex` comments, triggers keepalive |
-| `agents-orchestrator.yml` | Scheduled sweeps to find stalled PRs |
-| `agents-keepalive-loop.yml` | Executes keepalive iterations |
+| `agents-80-pr-event-hub.yml` | Routes active PR and review events |
+| `agents-81-gate-followups.yml` | Evaluates Gate completion and guarded delivery |
+| `agents-keepalive-sweep.yml` | Re-evaluates stalled ready-for-review agent PRs |
 
 **Key dependencies**:
 - `.github/codex/AGENT_INSTRUCTIONS.md` — Agent security boundaries
 - `.github/codex/prompts/keepalive_next_task.md` — Iteration prompt template
 - `Gate / gate` commit status — Keepalive waits for CI before proceeding
-- `ALLOWED_KEEPALIVE_LOGINS` variable — Who can trigger keepalive
 - `.gitignore` entries for `codex-prompt*.md`, `codex-output*.md`, `verifier-context.md`
 
 **Verification checklist**:
-- [ ] `agents-pr-meta.yml` exists with `issue_comment` and `workflow_run` triggers
-- [ ] `agents-orchestrator.yml` exists with `schedule` trigger
-- [ ] `agents-keepalive-loop.yml` exists
+- [ ] `agents-80-pr-event-hub.yml` exists with PR event triggers
+- [ ] `agents-81-gate-followups.yml` listens for Gate completion
+- [ ] `agents-keepalive-sweep.yml` exists with a schedule trigger
 - [ ] `.github/codex/AGENT_INSTRUCTIONS.md` exists
 - [ ] `.github/codex/prompts/keepalive_next_task.md` exists
-- [ ] `ALLOWED_KEEPALIVE_LOGINS` variable is set in repo settings
 - [ ] `.gitignore` includes codex working files (prevents multi-PR conflicts)
 
 **How to test**:
 1. Create a PR from an issue with `agent:codex` label
-2. Post `@codex` comment on the PR
-3. Verify `agents-pr-meta.yml` workflow triggers
-4. Check workflow logs for keepalive evaluation
-5. If Gate passed, keepalive should dispatch to `agents-keepalive-loop.yml`
+2. Let Gate complete on the unchanged head
+3. Verify `agents-81-gate-followups.yml` evaluates that Gate run
+4. Check the Agents 81 summary for the exact-head follow-up disposition
+5. Use `agents-keepalive-sweep.yml` only for a stalled eligible PR
 
 **Troubleshooting**:
-- `pr_meta_comment` job skipped: Check `pr_number` uses `fromJSON()` wrapper
-- "keepalive disabled": Check `ALLOWED_KEEPALIVE_LOGINS` includes comment author
-- "gate-not-concluded": Gate hasn't finished; wait or check Gate workflow
+- "gate-not-concluded": Gate has not finished; wait or inspect the Gate workflow
+- "head changed": Restart the exact-head review and Gate window
 - Missing codex files: Add from `templates/consumer-repo/.github/codex/`
 
 ---
@@ -899,7 +878,7 @@ when the `autofix` or `autofix:clean` label is added to a PR.
 ### 8.4 Issue Intake System
 
 **Purpose**: Automatically creates PRs from issues labeled with `agent:codex`,
-bootstrapping agent work with a linked branch and draft PR.
+bootstrapping agent work with a linked branch and ready-for-review PR.
 
 **Workflows involved**:
 | Workflow | Role |
@@ -925,7 +904,7 @@ bootstrapping agent work with a linked branch and draft PR.
 2. Add the `agent:codex` label
 3. Verify intake workflow runs
 4. Check that a branch `codex/issue-<number>` is created
-5. Verify a draft PR is opened linking to the issue
+5. Verify a ready-for-review PR is opened linking to the issue
 
 **Troubleshooting**:
 - Intake doesn't trigger: Check label is `agent:codex` (not `codex` or `agent-codex`)
@@ -968,27 +947,27 @@ creates follow-up issues for any unmet criteria.
 
 ---
 
-### 8.6 Orchestrator System
+### 8.6 Keepalive Recovery Sweep
 
-**Purpose**: Runs scheduled sweeps to find PRs that need keepalive attention,
-including watchdog checks for stalled automation.
+**Purpose**: Re-evaluates stalled ready-for-review agent PRs and dispatches the
+active Agents 81 follow-up route when recovery is due.
 
 **Workflows involved**:
 | Workflow | Role |
 |----------|------|
-| `agents-orchestrator.yml` | Scheduled (every 30 min) keepalive sweeps |
+| `agents-keepalive-sweep.yml` | Hourly stalled-PR recovery sweep |
 
 **Key dependencies**:
 - Scheduled cron trigger
 - `SERVICE_BOT_PAT` for cross-repo operations
 
 **Verification checklist**:
-- [ ] `agents-orchestrator.yml` exists in `.github/workflows/`
+- [ ] `agents-keepalive-sweep.yml` exists in `.github/workflows/`
 - [ ] Workflow has `schedule` trigger with cron expression
 - [ ] `SERVICE_BOT_PAT` secret is configured
 
 **How to test**:
-1. Manually dispatch the orchestrator workflow
+1. Manually dispatch the keepalive sweep
 2. Check workflow logs for PR sweep results
 3. Verify it identifies PRs needing keepalive
 
@@ -1000,37 +979,29 @@ including watchdog checks for stalled automation.
 
 ### 8.7 System Dependencies Diagram
 
-```
-┌─────────────────┐
-│   Issue Intake  │  Creates branch + PR from labeled issue
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│      Gate       │  Runs CI, posts commit status
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   PR Meta       │  Detects @codex, checks Gate status
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Keepalive Loop  │  Runs agent iterations
-└────────┬────────┘
-         │
-         ├──────────────────────┐
-         ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐
-│    Autofix      │    │  Orchestrator   │
-│  (on demand)    │    │  (scheduled)    │
-└─────────────────┘    └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Verifier     │  Post-merge validation
-└─────────────────┘
+```text
+┌─────────────────────┐
+│ Issue Intake /       │  Creates or refreshes a ready PR
+│ Agents Auto-Pilot   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Gate                │  Runs CI on the exact PR head
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Agents 81           │  Evaluates Gate and guarded delivery
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Verifier            │  Validates acceptance after merge
+└─────────────────────┘
+
+Keepalive Sweep re-enters the Agents 81 evaluation for stalled eligible PRs.
+Autofix can repair a labeled PR before Gate is evaluated again.
 ```
 
 ---
@@ -1056,12 +1027,12 @@ including watchdog checks for stalled automation.
 ### 9.2 Test Keepalive (After Gate Works)
 
 1. Create an issue with `agent:codex` label
-2. Wait for agents-63 to create a bootstrap PR
-3. Post `@codex` comment on the PR
+2. Wait for Agents Issue Intake to create a ready-for-review PR
+3. Let Gate complete on the current head
 4. Verify:
-   - [ ] agents-pr-meta workflow triggers
-   - [ ] Keepalive detection runs
-   - [ ] agents:keepalive label is added (if conditions met)
+   - [ ] Agents 81 Gate Followups evaluates the completed Gate run
+   - [ ] The exact-head review and check disposition is recorded
+   - [ ] Keepalive Sweep can re-evaluate the PR if it later stalls
 
 **Common Non-Issues to Expect:**
 
@@ -1082,10 +1053,10 @@ including watchdog checks for stalled automation.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `pr_meta_comment` job skipped | `pr_number` type mismatch | Use `fromJSON()` wrapper |
 | "Module not found" errors | Missing JS scripts | Add scripts from template |
-| Gate completes but no keepalive | Missing `workflow_run` trigger | Add trigger for Gate |
-| Keepalive defers with `gate-not-concluded` | Gate still running | Wait for Gate, or check `allow_replay` |
+| Gate completes but no follow-up | Agents 81 did not receive the Gate run | Inspect its `workflow_run` trigger and summary |
+| Follow-up reports `head changed` | The PR moved after Gate ran | Restart review and Gate on the new exact head |
+| Follow-up reports `gate-not-concluded` | Gate is still running | Wait for the exact-head Gate conclusion |
 
 ### Debug Logging
 

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +72,9 @@ def test_documented_agent_entrypoints_match_workflow_topology() -> None:
     assert "`agents-72-codex-belt-worker.yml`" not in primary_table
     assert "`agents-73-codex-belt-conveyor.yml`" not in primary_table
 
+    protected_policy = (ROOT / "docs/AGENTS_POLICY.md").read_text(encoding="utf-8")
+    assert "`.github/workflows/agents-auto-pilot.yml`" in protected_policy
+
 
 def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> None:
     operator_docs = (
@@ -97,15 +101,35 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "bridge_draft_pr",
         "agent_pr_draft",
         "draft_pr",
+        "agents-63",
+        "Agents 63",
+        "agents-pr-meta.yml",
+        "agents-orchestrator.yml",
+        "agents-moderate-connector.yml",
+        "agents-keepalive-branch-sync.yml",
+        "agents-keepalive-dispatch-handler.yml",
+        "agents-debug-issue-event.yml",
+        "PR Meta",
+        "pr_meta_comment",
+        "allow_replay",
+    )
+    affirmative_draft_instruction = re.compile(
+        r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
+        re.IGNORECASE,
     )
     stale = []
     for relative in operator_docs:
         text = (ROOT / relative).read_text(encoding="utf-8")
         matches = [token for token in retired_tokens if token in text]
+        if affirmative_draft_instruction.search(text):
+            matches.append("affirmative draft-PR instruction")
         if matches:
             stale.append((relative, matches))
 
     assert not stale, f"retired consumer automation remains in: {stale}"
+
+    checklist = (ROOT / "docs/SETUP_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
 
     codeowners = (ROOT / ".github/CODEOWNERS").read_text(encoding="utf-8")
     assert "agents-70-orchestrator.yml" not in codeowners

@@ -54,6 +54,10 @@ gh workflow run agents-issue-intake.yml \
 
 ## Ownership and changes
 
+Use this source-of-truth order: `stranske/Workflows` root documentation,
+Workflows integration guides, consumer sync sources and templates, then local
+repository-specific files.
+
 For shared behavior, repair the canonical workflow or consumer template in
 `stranske/Workflows`, validate it there, and deliver it through the managed
 sync path. A local forward fix is appropriate only when it matches the prepared

@@ -42,11 +42,13 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 ## Automation Entry Points
 
 ### Agents Issue Intake
+
 - **File**: `.github/workflows/agents-issue-intake.yml`
 - **Role**: Bootstrap Codex PRs on `agent:codex` labeled issues
 - **Triggers**: Issue events (`opened`, `labeled`, `reopened`) plus manual dispatch
 
 ### Agents Auto-Pilot and Belt Dispatch
+
 - **Entry points**: `.github/workflows/agents-auto-pilot.yml`,
   `.github/workflows/agents-71-codex-belt-dispatcher.yml`, and
   `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`

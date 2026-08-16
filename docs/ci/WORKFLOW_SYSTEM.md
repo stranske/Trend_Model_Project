@@ -443,8 +443,6 @@ status updates:
   - *Health 45 Agents Guard status.* Inspect
     [agents-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
     whenever a protected YAML edit lands; it should be green before merge.
-  - *Agents 63 bridge logs.* These runs attach trace logs showing which issues
-    were synced or bootstrapped, invaluable when debugging missed escalations.
 - **Error checking, linting, and testing topology**
   - *Reusable job logs.* Because the reusable workflows emit job-level logs for
     each caller, you can open the workflow run from Gate or Gate summary job and expand
@@ -610,7 +608,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
 | **Agents Issue Intake** (`agents-issue-intake.yml`, agents bucket) | `issues`, `workflow_dispatch` | Canonical consumer front door for agent issue intake and shared bridge dispatch. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-issue-intake.yml) |
 | **Agents Auto-Pilot** (`agents-auto-pilot.yml`, agents bucket) | `issues`, `pull_request`, `workflow_dispatch` | End-to-end issue controller that invokes Agents 71 and the Agents 72 dispatch wrapper. | ⚪ Critical surface (end-to-end automation) | [Auto-Pilot runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-auto-pilot.yml) |
-| **Agents Moderate Connector Comments** (`agents-moderate-connector.yml`, agents bucket) | `issue_comment` (`created`) | Guard connector-authored comments on PR threads using allow/deny lists and optional debug labelling. | ⚪ Event-driven | [Moderation workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-moderate-connector.yml) |
 | **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/autofix.yml) |
 | **Reusable Python CI** (`reusable-10-ci-python.yml`, error-checking bucket) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml) |
 | **Reusable Docker CI** (`reusable-12-ci-docker.yml`, error-checking bucket) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-12-ci-docker.yml) |
@@ -668,7 +665,8 @@ snapshots for audit trails.
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   `maint-51-dependency-refresh.yml`, the Gate summary job (inline),
   `maint-coverage-guard.yml`, health 40/41/42/43/44,
-  agents 70/63, `agents-moderate-connector.yml`, `agents-debug-issue-event.yml`, `agents-guard.yml`, reusable 10/12/16/18, and
+  the current intake, Auto-Pilot, Agents 71/72, Agents 80/81, keepalive, and
+  Agents Guard surfaces, reusable 10/12/18, and
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
