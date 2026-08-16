@@ -350,7 +350,7 @@ def evaluate_parameter_grid(
     )
     dsr_records: list[dict[str, Any]] = []
     for params, trial_returns in trial_results:
-        dsr_record = {f"param_{key}": value for key, value in params.items()}
+        dsr_record: dict[str, Any] = {f"param_{key}": value for key, value in params.items()}
         dsr_record.update(
             {
                 "deflated_sharpe_ratio": _sweep_deflated_sharpe(
