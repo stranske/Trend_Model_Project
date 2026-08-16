@@ -1234,26 +1234,6 @@
             "object"
           ]
         },
-        "entry_eligible_strikes": {
-          "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.entry_eligible_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "entry_soft_strikes": {
-          "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.entry_soft_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "indices_list": {
           "constraints": {},
           "default": null,
@@ -1719,16 +1699,6 @@
           },
           "type": "object"
         },
-        "target_n": {
-          "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.target_n.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "threshold_hold": {
           "additionalProperties": false,
           "constraints": {},
@@ -1736,6 +1706,20 @@
           "description": "Config option for portfolio.threshold_hold.",
           "nl_editable": true,
           "properties": {
+            "entry_eligible_strikes": {
+              "constraints": {},
+              "default": 2,
+              "description": "Config option for portfolio.threshold_hold.entry_eligible_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "entry_soft_strikes": {
+              "constraints": {},
+              "default": 3,
+              "description": "Config option for portfolio.threshold_hold.entry_soft_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
             "metric": {
               "constraints": {},
               "default": "Sharpe",
@@ -1813,31 +1797,45 @@
             "name": {
               "constraints": {
                 "enum": [
+                  "adaptive",
+                  "adaptive_bayes",
+                  "bayes",
                   "equal",
-                  "risk_parity",
-                  "hrp",
                   "erc",
+                  "ew",
+                  "hrp",
+                  "risk_parity",
+                  "robust",
+                  "robust_mean_variance",
                   "robust_mv",
                   "robust_risk_parity",
+                  "score",
+                  "score_bayes",
                   "score_prop",
-                  "score_prop_simple",
                   "score_prop_bayes",
-                  "adaptive_bayes"
+                  "score_prop_simple"
                 ]
               },
               "default": "score_prop_bayes",
               "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity",
               "enum": [
+                "adaptive",
+                "adaptive_bayes",
+                "bayes",
                 "equal",
-                "risk_parity",
-                "hrp",
                 "erc",
+                "ew",
+                "hrp",
+                "risk_parity",
+                "robust",
+                "robust_mean_variance",
                 "robust_mv",
                 "robust_risk_parity",
+                "score",
+                "score_bayes",
                 "score_prop",
-                "score_prop_simple",
                 "score_prop_bayes",
-                "adaptive_bayes"
+                "score_prop_simple"
               ],
               "nl_editable": true,
               "type": "string"

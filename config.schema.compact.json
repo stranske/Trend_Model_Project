@@ -1084,24 +1084,6 @@
             "object"
           ]
         },
-        "entry_eligible_strikes": {
-          "default": null,
-          "description": "Config option for portfolio.entry_eligible_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "entry_soft_strikes": {
-          "default": null,
-          "description": "Config option for portfolio.entry_soft_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "indices_list": {
           "default": null,
           "description": "Config option for portfolio.indices_list.",
@@ -1456,20 +1438,23 @@
           },
           "type": "object"
         },
-        "target_n": {
-          "default": null,
-          "description": "Config option for portfolio.target_n.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "threshold_hold": {
           "default": null,
           "description": "Config option for portfolio.threshold_hold.",
           "nl_editable": true,
           "properties": {
+            "entry_eligible_strikes": {
+              "default": 2,
+              "description": "Config option for portfolio.threshold_hold.entry_eligible_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "entry_soft_strikes": {
+              "default": 3,
+              "description": "Config option for portfolio.threshold_hold.entry_soft_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
             "metric": {
               "default": "Sharpe",
               "description": "Config option for portfolio.threshold_hold.metric.",

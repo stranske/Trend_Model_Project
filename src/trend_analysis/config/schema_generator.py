@@ -9,6 +9,7 @@ from typing import Any, Iterable
 
 import yaml
 
+from trend_analysis.config_contract import SUPPORTED_PORTFOLIO_WEIGHTING_NAMES
 from utils.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
@@ -52,27 +53,7 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "vol_adjust.window.decay": {"enum": ["ewma", "simple"]},
     "sample_split.method": {"enum": ["date", "ratio"]},
     "portfolio.selection_mode": {"enum": ["all", "random", "manual", "rank"]},
-    "portfolio.weighting.name": {
-        "enum": [
-            "equal",
-            "risk_parity",
-            "hrp",
-            "erc",
-            "robust_mv",
-            "robust_risk_parity",
-            "score_prop",
-            "score_prop_simple",
-            "score_prop_bayes",
-            "adaptive_bayes",
-            "adaptive",
-            "bayes",
-            "ew",
-            "robust",
-            "robust_mean_variance",
-            "score",
-            "score_bayes",
-        ]
-    },
+    "portfolio.weighting.name": {"enum": sorted(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES)},
     "portfolio.rebalance_freq": {"enum": ["M", "Q", "A", None]},
     "portfolio.rank.inclusion_approach": {"enum": ["top_n", "top_pct", "threshold"]},
     "portfolio.constraints.max_weight": {"minimum": 0, "maximum": 1},

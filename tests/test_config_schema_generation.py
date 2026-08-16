@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from trend_analysis.config_contract import SUPPORTED_PORTFOLIO_WEIGHTING_NAMES
 from trend_analysis.config.schema_generator import generate_schema
 from trend_analysis.config.schema_validation import validate_config_data
 
@@ -32,6 +33,15 @@ def test_schema_includes_metadata() -> None:
         assert "default" in node
         assert "constraints" in node
         assert "nl_editable" in node
+
+
+def test_weighting_enum_uses_runtime_supported_names() -> None:
+    schema = generate_schema()
+    weighting_name = schema["properties"]["portfolio"]["properties"]["weighting"][
+        "properties"
+    ]["name"]
+
+    assert set(weighting_name["enum"]) == set(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES)
 
 
 def test_schema_validation_flags_unknown_keys() -> None:

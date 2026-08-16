@@ -9,7 +9,28 @@ from trend.config_schema import CoreConfigError
 
 SectionGet = Callable[[Any, str, Any], Any]
 
-_WEIGHTING_NAME_ALIASES = {"ew": "equal", "robust": "robust_mv"}
+PORTFOLIO_WEIGHTING_NAME_ALIASES = {"ew": "equal", "robust": "robust_mv"}
+SUPPORTED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
+    {
+        "adaptive",
+        "adaptive_bayes",
+        "bayes",
+        "equal",
+        "erc",
+        "ew",
+        "hrp",
+        "risk_parity",
+        "robust",
+        "robust_mean_variance",
+        "robust_mv",
+        "robust_risk_parity",
+        "score",
+        "score_bayes",
+        "score_prop",
+        "score_prop_bayes",
+        "score_prop_simple",
+    }
+)
 
 
 def mapping_get(section: Any, key: str, default: Any = None) -> Any:
@@ -33,7 +54,7 @@ def mapping_get(section: Any, key: str, default: Any = None) -> Any:
 
 def normalise_weighting_name(value: Any) -> str:
     name = str(value or "equal").strip().lower()
-    return _WEIGHTING_NAME_ALIASES.get(name, name)
+    return PORTFOLIO_WEIGHTING_NAME_ALIASES.get(name, name)
 
 
 def resolve_portfolio_weighting_name(

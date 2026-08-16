@@ -10,6 +10,21 @@ import pytest
 import trend_analysis.multi_period.engine as engine
 
 
+def test_canonical_benchmark_columns_reject_inverse_orientation() -> None:
+    with pytest.raises(ValueError, match="retired column-to-label"):
+        engine._canonical_benchmark_columns(
+            {"SPX": "S&P 500"},
+            available_columns=["Fund A", "SPX"],
+        )
+
+
+def test_canonical_benchmark_columns_resolve_label_to_column() -> None:
+    assert engine._canonical_benchmark_columns(
+        {"S&P 500": "spx"},
+        available_columns=["Fund A", "SPX"],
+    ) == ("SPX",)
+
+
 def test_compute_turnover_state_with_previous_allocation() -> None:
     prev_idx = np.array(["A", "B"], dtype=object)
     prev_vals = np.array([0.4, 0.6], dtype=float)

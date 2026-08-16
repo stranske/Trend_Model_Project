@@ -422,6 +422,12 @@ class PortfolioSettings(BaseModel):
                         f"portfolio.cost_model.{key} was removed; use "
                         f"portfolio.cost_model.{replacement}"
                     )
+        constraints = data.get("constraints")
+        if isinstance(constraints, Mapping) and "max_active" in constraints:
+            raise ValueError(
+                "portfolio.constraints.max_active was removed; use "
+                "portfolio.constraints.max_active_positions"
+            )
         threshold_hold = data.get("threshold_hold")
         if isinstance(threshold_hold, Mapping):
             for key, replacement in {

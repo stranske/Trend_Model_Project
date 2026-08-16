@@ -428,6 +428,12 @@ if _HAS_PYDANTIC:
                     if parsed < 0:
                         raise ValueError(f"cost_model.{key} must be >= 0")
                     cost_cfg[key] = parsed
+            constraints = v.get("constraints")
+            if isinstance(constraints, Mapping) and "max_active" in constraints:
+                raise ValueError(
+                    "portfolio.constraints.max_active was removed; use "
+                    "portfolio.constraints.max_active_positions"
+                )
             threshold_hold = v.get("threshold_hold")
             if isinstance(threshold_hold, Mapping):
                 for key, replacement in {
@@ -656,6 +662,12 @@ else:  # Fallback mode for tests without pydantic
                         if parsed < 0:
                             raise ValueError(f"cost_model.{key} must be >= 0")
                         cost_cfg[key] = parsed
+                constraints = port.get("constraints")
+                if isinstance(constraints, Mapping) and "max_active" in constraints:
+                    raise ValueError(
+                        "portfolio.constraints.max_active was removed; use "
+                        "portfolio.constraints.max_active_positions"
+                    )
                 threshold_hold = port.get("threshold_hold")
                 if isinstance(threshold_hold, Mapping):
                     for key, replacement in {

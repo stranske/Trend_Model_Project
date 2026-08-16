@@ -38,6 +38,7 @@ from ..config_contract import (
     resolve_portfolio_cost_bps as _shared_resolve_portfolio_cost_bps,
 )
 from ..config_contract import (
+    SUPPORTED_PORTFOLIO_WEIGHTING_NAMES,
     resolve_portfolio_weighting_name,
 )
 from ..constants import NUMERICAL_TOLERANCE_HIGH
@@ -103,12 +104,35 @@ def _seed_or_default(seed: Any, default: int = 42) -> int:
     return default if seed is None else int(seed)
 
 
-def _canonical_benchmark_columns(benchmarks: Any) -> tuple[str, ...]:
-    """Return columns from the canonical ``label -> column`` benchmark map."""
+def _canonical_benchmark_columns(
+    benchmarks: Any,
+    *,
+    available_columns: Iterable[Any] | None = None,
+) -> tuple[str, ...]:
+    """Return columns from the canonical ``label -> column`` benchmark map.
+
+    When frame columns are available, fail closed if the key resolves to a
+    column but its value does not. That is the retired ``column -> label``
+    orientation; accepting it would leave the benchmark investable.
+    """
 
     if not isinstance(benchmarks, Mapping):
         return ()
-    return tuple(str(value) for value in benchmarks.values())
+    if available_columns is None:
+        return tuple(str(value) for value in benchmarks.values())
+    column_lookup = {str(column).strip().lower(): str(column) for column in available_columns}
+    resolved: list[str] = []
+    for label, column in benchmarks.items():
+        label_key = str(label).strip().lower()
+        column_key = str(column).strip().lower()
+        resolved_column = column_lookup.get(column_key)
+        if resolved_column is None and label_key in column_lookup:
+            raise ValueError(
+                "benchmarks uses the retired column-to-label mapping orientation; "
+                "use benchmark label -> data column"
+            )
+        resolved.append(resolved_column or str(column))
+    return tuple(resolved)
 
 
 SHIFT_DETECTION_MAX_STEPS_DEFAULT = 10
@@ -168,25 +192,11 @@ _RISK_WEIGHTING_NAMES = {
     "robust_mean_variance",
     "robust_risk_parity",
 }
-_WEIGHTING_NAME_ALIASES = {
-    "ew": "equal",
-    "robust": "robust_mv",
-}
-_SUPPORTED_WEIGHTING_NAMES = (
-    {"equal", "ew", "robust"}
-    | _SCORE_WEIGHTING_NAMES
-    | _BAYES_WEIGHTING_NAMES
-    | _ADAPTIVE_BAYES_WEIGHTING_NAMES
-    | _RISK_WEIGHTING_NAMES
-)
+_SUPPORTED_WEIGHTING_NAMES = SUPPORTED_PORTFOLIO_WEIGHTING_NAMES
 _SUPPORTED_NORMALISED_WEIGHTING_NAMES = {
-    _WEIGHTING_NAME_ALIASES.get(name, name) for name in _SUPPORTED_WEIGHTING_NAMES
+    resolve_portfolio_weighting_name({"weighting": {"name": name}})
+    for name in _SUPPORTED_WEIGHTING_NAMES
 }
-
-
-def _normalise_weighting_name(value: Any) -> str:
-    name = str(value or "equal").strip().lower()
-    return _WEIGHTING_NAME_ALIASES.get(name, name)
 
 
 def _resolve_portfolio_weighting(
@@ -1443,7 +1453,12 @@ def _run_phase1_multi_periods(
                 None
             ) + pd.offsets.MonthEnd(0)
             in_df_full = sub[(sub["Date"] >= sdate) & (sub["Date"] <= edate)].set_index("Date")
-            benchmark_columns = set(_canonical_benchmark_columns(cfg.benchmarks))
+            benchmark_columns = set(
+                _canonical_benchmark_columns(
+                    cfg.benchmarks,
+                    available_columns=in_df_full.columns,
+                )
+            )
             fund_cols = [c for c in in_df_full.columns if c not in benchmark_columns]
             in_df_full = in_df_full[fund_cols]
             in_df_prepared = _prepare_returns_frame(in_df_full)
@@ -2038,15 +2053,15 @@ def _run_threshold_hold_multi_periods(
     )
     benchmark_cols: list[str] = []
     if benchmarks_cfg_mapping:
-        # Config models define `benchmarks` as `dict[str, str]` (label -> column).
-        col_lut = {str(c).strip().lower(): str(c) for c in df.columns}
-        candidates = [str(value) for value in benchmarks_cfg_mapping.values()]
-
+        candidates = _canonical_benchmark_columns(
+            benchmarks_cfg_mapping,
+            available_columns=df.columns,
+        )
+        column_lookup = {str(column).strip().lower(): str(column) for column in df.columns}
         seen: set[str] = set()
         for raw in candidates:
-            key = str(raw).strip().lower()
-            resolved = col_lut.get(key)
-            if not resolved or resolved in seen:
+            resolved = column_lookup.get(str(raw).strip().lower())
+            if resolved is None or resolved in seen:
                 continue
             seen.add(resolved)
             benchmark_cols.append(resolved)
