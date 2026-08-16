@@ -115,6 +115,8 @@ def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> 
         "PR Meta",
         "pr_meta_comment",
         "allow_replay",
+        "raw.githubusercontent.com/stranske/Workflows/v1",
+        "@v1",
     )
     affirmative_draft_instruction = re.compile(
         r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
