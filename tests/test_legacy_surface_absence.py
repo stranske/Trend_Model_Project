@@ -47,9 +47,7 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
     "load_market_data_" + "parquet",
 )
-FORBIDDEN_FROM_IMPORT_PATTERNS = (
-    re.compile(r"from\s+trend_analysis\s+import\s+[^#\n]*\bcli\b"),
-)
+FORBIDDEN_FROM_IMPORT_PATTERNS = (re.compile(r"from\s+trend_analysis\s+import\s+[^#\n]*\bcli\b"),)
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
