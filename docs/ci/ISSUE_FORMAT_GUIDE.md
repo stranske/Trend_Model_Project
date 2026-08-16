@@ -13,7 +13,9 @@ This guide describes the required format for GitHub issues and ChatGPT topic fil
 
 ## Issue Bridge Format (Codex Bootstrap)
 
-The **Agents 63 Issue Bridge** workflow reads GitHub issues and creates bootstrap pull requests for Codex to work on. Issues should follow this structure:
+The **Agents Issue Intake** workflow reads GitHub issues and creates
+ready-for-review bootstrap pull requests for Codex to work on. Issues should
+follow this structure:
 
 ### Required Labels
 
@@ -59,10 +61,10 @@ Checklist of work items. Can be with or without checkboxes.
 
 ```markdown
 ## Tasks
-- Create agents-pr-meta.yml with jobs
-- Add listen_commands on issue_comment events
-- Use a common concurrency group keyed by PR number
-- Remove/retire the old two workflows
+- Add exact-head validation to the active follow-up route
+- Cover review-thread and Gate state in tests
+- Update the operator documentation
+- Remove the superseded local instructions
 ```
 
 #### 5. **Acceptance criteria**
@@ -99,7 +101,8 @@ This ensures backward compatibility with both old and new issue formats.
 
 ## ChatGPT Topic File Format
 
-The **Agents 63 Issue Intake** workflow processes topic files and creates/updates GitHub issues when dispatched in ChatGPT sync mode.
+The **Agents Issue Intake** workflow processes topic files and creates or
+updates GitHub issues when dispatched in ChatGPT sync mode.
 
 ### File Format
 
@@ -227,32 +230,31 @@ One workflow handling both commands and body updates.
 
 ```markdown
 ## Why
-The current setup runs two separate workflows that can race when updating PR bodies.
+The current follow-up guide does not explain how Gate is tied to the exact PR head.
 
 ## Scope
-Create a unified `agents-pr-meta.yml` workflow with:
-- Command listener job
-- Body update job
-- Shared concurrency group
+Update the active `agents-81-gate-followups.yml` route with:
+- Exact-head validation
+- Review-thread validation
+- A clear run summary
 
 Non-Goals
-We are NOT changing the command syntax or marker format.
+We are NOT changing the intake or worker workflows.
 
 ## Tasks
-- [ ] Create agents-pr-meta.yml with two jobs
-- [ ] Add concurrency group keyed by PR number
-- [ ] Retire agents-64-pr-comment-commands.yml
-- [ ] Retire agents-74-pr-body-writer.yml
+- [ ] Validate that the completed Gate run matches the current PR head
+- [ ] Refuse delivery while active review threads remain
+- [ ] Add regression tests for both blockers
 - [ ] Update documentation
 
 ## Acceptance criteria
-- Commands and body updates never run concurrently for the same PR
-- Marker updates do not overwrite unrelated PR text
-- All existing commands continue to work
+- A stale Gate run cannot authorize delivery
+- Active review threads prevent delivery
+- The run summary identifies the blocking condition
 
 ## Implementation notes
-Branch: codex/issue-3056
-Files: .github/workflows/agents-pr-meta.yml
+Branch: codex/issue-1234
+Files: .github/workflows/agents-81-gate-followups.yml
 ```
 
 **Labels**: `agent:codex`, `priority: medium`, `workflows`, `refactor`
