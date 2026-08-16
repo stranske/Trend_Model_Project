@@ -64,7 +64,8 @@ echo "🐍 Test 5: Testing Python imports..."
 if docker run --rm "$IMAGE" python -c "
 import sys
 sys.path.insert(0, 'src')
-from trend_analysis import cli, pipeline
+from trend import cli
+from trend_analysis import pipeline
 print('All imports successful')
 "; then
     echo "✅ Python imports work"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -45,6 +46,9 @@ FORBIDDEN_RUNTIME_REFERENCES = FORBIDDEN_RUNTIME_IMPORTS + (
 FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
     "load_market_data_" + "parquet",
+)
+FORBIDDEN_FROM_IMPORT_PATTERNS = (
+    re.compile(r"from\s+trend_analysis\s+import\s+[^#\n]*\bcli\b"),
 )
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
@@ -94,6 +98,9 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
             for reference in FORBIDDEN_RUNTIME_REFERENCES:
                 if reference in text:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
+            for pattern in FORBIDDEN_FROM_IMPORT_PATTERNS:
+                if pattern.search(text):
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {pattern.pattern}")
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 
