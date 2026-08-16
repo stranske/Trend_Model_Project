@@ -22,11 +22,6 @@ from streamlit_app.components.data_schema import (
     infer_benchmarks,
     infer_risk_free_candidates,
 )
-from streamlit_app.components.upload_guard import (
-    UploadViolation,
-    guard_and_buffer_upload,
-    hash_path,
-)
 from streamlit_app.components.universe_membership_input import (
     UNIVERSE_MEMBERSHIP_SESSION_KEY,
     UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
@@ -36,14 +31,19 @@ from streamlit_app.components.universe_membership_input import (
     summarise_membership,
     validate_membership_file,
 )
+from streamlit_app.components.upload_guard import (
+    UploadViolation,
+    guard_and_buffer_upload,
+    hash_path,
+)
 from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend.input_validation import InputValidationError
-from utils.paths import proj_path
 from trend_analysis.io.date_correction import (
     apply_date_corrections,
     format_corrections_for_display,
 )
 from trend_analysis.io.market_data import MarketDataValidationError
+from utils.paths import proj_path
 
 apply_ds_theme()
 apply_density_compact()

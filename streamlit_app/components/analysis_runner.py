@@ -554,7 +554,10 @@ def _assert_config_feasible(config: Any) -> None:
 
 
 def _mask_returns_for_membership(returns: pd.DataFrame, membership_path: str) -> pd.DataFrame:
-    from trend_analysis.universe import apply_membership_windows, load_universe_membership
+    from trend_analysis.universe import (
+        apply_membership_windows,
+        load_universe_membership,
+    )
 
     membership = load_universe_membership(membership_path)
     if "Date" in returns.columns:
