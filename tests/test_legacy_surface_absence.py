@@ -18,6 +18,16 @@ ARCHIVE_ROOTS = (
     REPO_ROOT / "notebooks" / "old",
 )
 TEXT_SUFFIXES = {".cfg", ".ini", ".md", ".py", ".rst", ".sh", ".toml", ".txt", ".yaml", ".yml"}
+ROOT_EXTENSIONLESS_RUNTIME_FILES = {"Dockerfile", "Makefile"}
+# This is preserved review evidence, not an operator, build, or runtime surface.
+ROOT_HISTORY_TEXT_FILES = {REPO_ROOT / "review-suggested-issues.md"}
+ROOT_RUNTIME_TEXT_FILES = tuple(
+    path
+    for path in REPO_ROOT.iterdir()
+    if path.is_file()
+    and path not in ROOT_HISTORY_TEXT_FILES
+    and (path.suffix.lower() in TEXT_SUFFIXES or path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES)
+)
 RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "src",
     REPO_ROOT / "streamlit_app",
@@ -27,11 +37,7 @@ RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "docs",
     REPO_ROOT / ".github" / "workflows",
     REPO_ROOT / "tools",
-    REPO_ROOT / "Agents.md",
-    REPO_ROOT / "AUDIT_REPORT.md",
-    REPO_ROOT / "coverage-summary.md",
-    REPO_ROOT / "README.md",
-    REPO_ROOT / "pyproject.toml",
+    *ROOT_RUNTIME_TEXT_FILES,
 )
 FORBIDDEN_RUNTIME_IMPORTS = (
     "trend." + "compat_entrypoints",
@@ -71,7 +77,9 @@ def _include_text_file(path: Path) -> bool:
         return False
     if path.suffix.lower() in TEXT_SUFFIXES:
         return True
-    return path.parent.name == "scripts" and path.suffix == ""
+    return (path.parent.name == "scripts" and path.suffix == "") or (
+        path.parent == REPO_ROOT and path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES
+    )
 
 
 def _text_files(root: Path) -> list[Path]:
@@ -186,6 +194,21 @@ def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -
 
     assert workflow in _text_files(tmp_path / ".github" / "workflows")
     assert tool in _text_files(tmp_path / "tools")
+
+
+def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:
+    """Root launch surfaces and active Markdown must not fall outside the gate."""
+
+    root_runtime_files = set(ROOT_RUNTIME_TEXT_FILES)
+    expected_launchers = {
+        REPO_ROOT / "Dockerfile",
+        REPO_ROOT / "docker-compose.yml",
+        REPO_ROOT / "Makefile",
+    }
+    expected_active_docs = set(REPO_ROOT.glob("*.md")) - ROOT_HISTORY_TEXT_FILES
+
+    assert expected_launchers <= root_runtime_files
+    assert expected_active_docs <= root_runtime_files
 
 
 @pytest.mark.parametrize(
