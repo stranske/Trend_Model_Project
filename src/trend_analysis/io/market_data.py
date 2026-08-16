@@ -8,17 +8,12 @@ deterministic feedback to users regardless of how data is supplied.
 
 from __future__ import annotations
 
-import calendar
 import enum
 import logging
-import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import (
-    Any,
-    cast,
-)
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,6 +23,10 @@ from pydantic import BaseModel, Field, model_validator
 from trend_analysis.io.date_correction import (
     analyze_date_column,
     apply_date_corrections,
+)
+from trend_analysis.util.missing import (
+    MissingPolicyResult,
+    apply_missing_policy as _apply_missing_policy,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,120 +53,6 @@ def _normalise_delta_days(delta_days: pd.Series) -> pd.Series:
 
 
 _DEFAULT_MISSING_POLICY = "drop"
-_VALID_MISSING_POLICIES = {"drop", "ffill", "zero"}
-
-
-# ---------------------------------------------------------------------------
-# Date auto-correction helpers
-# ---------------------------------------------------------------------------
-
-
-def _fix_invalid_day(date_str: str) -> str | None:
-    """Attempt to correct an invalid day-of-month in a date string.
-
-    Common data entry errors include dates like 11/31/2017 (November only has
-    30 days) or 9/31/2017 (September has 30 days). This function detects these
-    patterns and corrects the day to the last valid day of the month.
-
-    Returns the corrected date string, or None if the date cannot be fixed.
-    """
-    date_str = str(date_str).strip()
-
-    # Try M/D/YYYY or MM/DD/YYYY format
-    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
-    if match:
-        try:
-            month, day, year = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{month}/{max_day}/{year}"
-        except (ValueError, IndexError):
-            # If parsing fails, return None to indicate the date cannot be fixed.
-            pass
-
-    # Try YYYY-MM-DD format
-    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
-    if match:
-        try:
-            year, month, day = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{year}-{month:02d}-{max_day}"
-        except (ValueError, IndexError):
-            # Invalid date format or out-of-range values; return None to indicate failure.
-            pass
-
-    return None
-
-
-def _auto_fix_invalid_dates(
-    df: pd.DataFrame, date_col: str
-) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
-    """Auto-correct or drop rows with invalid dates.
-
-    Parameters
-    ----------
-    df:
-        DataFrame with a date column.
-    date_col:
-        Name of the date column.
-
-    Returns
-    -------
-    tuple[pd.DataFrame, list[dict]]
-        Corrected DataFrame and list of corrections applied.
-    """
-    working = df.copy()
-    raw_dates = working[date_col].astype(str)
-    parsed = pd.to_datetime(raw_dates, errors="coerce")
-    invalid_mask = parsed.isna()
-
-    if not invalid_mask.any():
-        return working, []
-
-    corrections: list[dict[str, Any]] = []
-    rows_to_drop: list[int] = []
-
-    for idx in working.index[invalid_mask]:
-        pos = working.index.get_loc(idx) if not isinstance(idx, int) else idx
-        original_value = raw_dates.loc[idx]
-        fixed = _fix_invalid_day(original_value)
-
-        if fixed is not None:
-            working.at[idx, date_col] = fixed
-            corrections.append(
-                {
-                    "row": pos + 1,
-                    "original": original_value,
-                    "corrected": fixed,
-                    "action": "fixed",
-                }
-            )
-        else:
-            rows_to_drop.append(idx)
-            corrections.append(
-                {
-                    "row": pos + 1,
-                    "original": original_value,
-                    "corrected": None,
-                    "action": "dropped",
-                }
-            )
-
-    if rows_to_drop:
-        working = working.drop(index=rows_to_drop)
-
-    return working, corrections
 
 
 # ---------------------------------------------------------------------------
@@ -276,227 +161,32 @@ def _format_issues(issues: Iterable[str]) -> str:
     return "\n".join(lines)
 
 
-def _normalise_policy_value(value: str | None) -> str:
-    policy = (value or _DEFAULT_MISSING_POLICY).strip().lower()
-    if policy not in _VALID_MISSING_POLICIES:
-        allowed = ", ".join(sorted(_VALID_MISSING_POLICIES))
-        raise ValueError(f"Unknown missing-data policy '{value}'. Choose one of {allowed}.")
-    return policy
+def _missing_policy_fill_details(
+    result: MissingPolicyResult,
+) -> dict[str, MissingPolicyFillDetails]:
+    """Adapt canonical diagnostics to the persisted market-data metadata model."""
 
-
-def _coerce_limit_value(value: Any) -> int | None:
-    if value is None or value == "":
-        return None
-    try:
-        limit_int = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("Missing-data limit must be an integer or null.") from exc
-    if limit_int < 0:
-        raise ValueError("Missing-data limit cannot be negative.")
-    return limit_int
-
-
-def _build_policy_maps(
-    columns: Iterable[Any],
-    policy: str | Mapping[str, str] | None,
-    limit: int | Mapping[str, int | None] | None,
-) -> tuple[dict[str, str], str, dict[str, int | None], int | None]:
-    """Normalize per-column missing-data policy and limit inputs.
-
-    Assumptions and limitations:
-    - Column names are treated as strings for policy/limit lookups, so callers
-      should provide overrides keyed by the string form of each column.
-    - The special "*" key represents the default policy/limit for all columns.
-    - Override mappings may include extra keys that do not match any column;
-      those entries are ignored during normalization.
-    """
-
-    # Normalize column identifiers up front so override conversion is consistent.
-    # This ensures integer column labels (e.g., 1) match overrides keyed by "1".
-    cols = [str(col) for col in columns]
-    if isinstance(policy, Mapping):
-        # Convert override keys to strings and pull the "*" default. Any override
-        # entry that doesn't match a column name is ignored when we build the
-        # per-column policy map.
-        #
-        # Why string coercion? Configuration often uses JSON/YAML where numeric
-        # column labels can be loaded as ints. Converting everything to strings
-        # ensures "1" in the data matches an override specified as 1.
-        raw_policy = {str(k): v for k, v in policy.items()}
-        default_policy = _normalise_policy_value(raw_policy.get("*"))
-        policy_map = {
-            col: _normalise_policy_value(raw_policy.get(col, default_policy)) for col in cols
-        }
-    else:
-        # Scalar input applies to every column, so the policy map is uniform.
-        default_policy = _normalise_policy_value(policy)
-        policy_map = {col: default_policy for col in cols}
-
-    if isinstance(limit, Mapping):
-        # Apply the same conversion rules as policy overrides, but coerce limits
-        # to integers (or None) while honoring the "*" default. This keeps the
-        # per-column map fully expanded (no "*" entries) for downstream metadata.
-        raw_limit = {str(k): v for k, v in limit.items()}
-        default_limit = _coerce_limit_value(raw_limit.get("*"))
-        limit_map = {col: _coerce_limit_value(raw_limit.get(col, default_limit)) for col in cols}
-    else:
-        # Scalar limit applies to every column when no mapping is provided.
-        default_limit = _coerce_limit_value(limit)
-        limit_map = {col: default_limit for col in cols}
-
-    return policy_map, default_policy, limit_map, default_limit
-
-
-def _max_consecutive_nans(series: pd.Series) -> int:
-    if series.isna().sum() == 0:
-        return 0
-    is_na = series.isna()
-    groups = is_na.ne(is_na.shift()).cumsum()
-    runs = (is_na.groupby(groups).cumcount() + 1) * is_na
-    return int(runs.max() or 0)
-
-
-def _legacy_apply_missing_policy(
-    frame: pd.DataFrame,
-    policy: str | Mapping[str, str] | None,
-    *,
-    limit: int | Mapping[str, int | None] | None = None,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
-    if frame.empty:
-        return frame.copy(), {
-            "policy": _DEFAULT_MISSING_POLICY,
-            "policy_map": {},
-            "limit": None,
-            "limit_map": {},
-            "filled": {},
-            "dropped": [],
-            "missing_counts": {},
-            "max_consecutive_gaps": {},
-        }
-
-    policy_map, default_policy, limit_map, default_limit = _build_policy_maps(
-        frame.columns, policy, limit
-    )
-
-    result = frame.copy()
-    dropped: list[str] = []
-    filled: dict[str, MissingPolicyFillDetails] = {}
-    missing_counts: dict[str, int] = {}
-    max_gaps: dict[str, int] = {}
-
-    for column in frame.columns:
-        column_key = str(column)
-        col_policy = policy_map[column_key]
-        col_limit = limit_map[column_key]
-        series = result[column]
-        na_mask = series.isna()
-        missing_total = int(na_mask.sum())
-        missing_counts[column] = missing_total
-        max_gap = _max_consecutive_nans(series)
-        max_gaps[column] = max_gap
-
-        if missing_total == 0:
-            continue
-
-        if col_policy == "drop":
-            dropped.append(column)
-            continue
-
-        limit_for_fill = col_limit if col_limit is not None else None
-
-        if limit_for_fill is not None and max_gap > limit_for_fill:
-            dropped.append(column)
-            continue
-
-        if col_policy == "ffill":
-            filled_series = series.ffill(limit=limit_for_fill)
-            # Handle leading NaNs that ffill cannot reach
-            filled_series = filled_series.bfill(limit=limit_for_fill)
-            if filled_series.isna().any():
-                dropped.append(column)
-                continue
-            result[column] = filled_series
-            filled[column] = MissingPolicyFillDetails(method="ffill", count=missing_total)
-            continue
-
-        if col_policy == "zero":
-            result[column] = series.fillna(0.0)
-            filled[column] = MissingPolicyFillDetails(method="zero", count=missing_total)
-            continue
-
-        raise ValueError(f"Unhandled missing-data policy '{col_policy}'.")
-
-    if dropped:
-        result = result.drop(columns=dropped, errors="ignore")
-
-    summary = {
-        "policy": default_policy,
-        "policy_map": policy_map,
-        "limit": default_limit,
-        "limit_map": limit_map,
-        "filled": filled,
-        "dropped": dropped,
-        "missing_counts": missing_counts,
-        "max_consecutive_gaps": max_gaps,
+    return {
+        column: MissingPolicyFillDetails(
+            method=result.policy[column],
+            count=count,
+        )
+        for column, count in result.filled.items()
+        if count > 0
     }
 
-    return result, summary
 
-
-def apply_missing_policy(
-    frame: pd.DataFrame,
-    policy: str | Mapping[str, str] | None,
-    *,
-    limit: int | Mapping[str, int | None] | None = None,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Preserve the historic market-data API via the canonical policy engine."""
-
-    return _legacy_apply_missing_policy(frame, policy, limit=limit)
-
-
-def _summarise_missing_policy(info: Mapping[str, Any]) -> str:
-    policy = info.get("policy", _DEFAULT_MISSING_POLICY)
-    limit = info.get("limit")
-    limit_text = f"limit={limit}" if limit is not None else "unlimited"
-
-    overrides: dict[str, str] = {}
-    policy_map = cast(Mapping[str, str], info.get("policy_map", {}))
-    default_policy = policy
-    for column, value in policy_map.items():
-        if value != default_policy:
-            overrides[column] = value
-
-    filled = cast(Mapping[str, Any], info.get("filled", {}))
-    filled_chunks = []
-    for column, details in filled.items():
-        method: str
-        count: int
-        if isinstance(details, MissingPolicyFillDetails):
-            method = details.method
-            count = details.count
-        elif isinstance(details, Mapping):
-            raw_method = details.get("method", "fill")
-            raw_count = details.get("count", 0)
-            method = str(raw_method) if raw_method is not None else "fill"
-            try:
-                count = int(raw_count) if raw_count is not None else 0
-            except (TypeError, ValueError):
-                count = 0
-        else:
-            method = "fill"
-            count = 0
-        filled_chunks.append(f"{column} ({method}: {count})")
-
-    dropped = [str(item) for item in info.get("dropped", [])]
-
-    parts = [f"policy={policy}", limit_text]
-    if overrides:
-        overrides_text = ", ".join(f"{col}:{val}" for col, val in sorted(overrides.items()))
-        parts.append(f"overrides={overrides_text}")
-    if filled_chunks:
-        parts.append("filled=" + ", ".join(sorted(filled_chunks)))
-    if dropped:
-        parts.append("dropped=" + ", ".join(sorted(dropped)))
+def _summarise_missing_policy(result: MissingPolicyResult) -> str:
+    parts = [result.summary]
+    filled = _missing_policy_fill_details(result)
+    if filled:
+        chunks = [
+            f"{column} ({details.method}: {details.count})"
+            for column, details in sorted(filled.items())
+        ]
+        parts.append("filled=" + ", ".join(chunks))
+    if result.dropped_assets:
+        parts.append("dropped=" + ", ".join(sorted(result.dropped_assets)))
     return "; ".join(parts)
 
 
@@ -899,7 +589,7 @@ def validate_market_data(
         raise MarketDataValidationError(_format_issues(numeric_issues), numeric_issues)
 
     try:
-        policy_frame, policy_info = _legacy_apply_missing_policy(
+        policy_frame, policy_result = _apply_missing_policy(
             numeric_frame, missing_policy, limit=missing_limit
         )
     except ValueError as exc:
@@ -908,7 +598,7 @@ def validate_market_data(
         raise
 
     if policy_frame.empty:
-        dropped = [str(item) for item in policy_info.get("dropped", [])]
+        dropped = list(policy_result.dropped_assets)
         detail = f" (dropped columns: {', '.join(dropped)})" if dropped else ""
         issues = [
             "Missing-data policy removed every column. "
@@ -916,9 +606,7 @@ def validate_market_data(
         ]
         raise MarketDataValidationError(_format_issues(issues), issues)
 
-    limit_candidates = [
-        value for value in policy_info.get("limit_map", {}).values() if value is not None
-    ]
+    limit_candidates = [value for value in policy_result.limit.values() if value is not None]
     max_gap_limit = max(limit_candidates) if limit_candidates else None
 
     frequency, label, frequency_info = _infer_frequency(
@@ -940,20 +628,19 @@ def validate_market_data(
         rows=len(policy_frame),
         columns=list(policy_frame.columns),
         symbols=list(policy_frame.columns),
-        missing_policy=policy_info.get("policy", _DEFAULT_MISSING_POLICY),
-        missing_policy_limit=policy_info.get("limit"),
+        missing_policy=policy_result.default_policy,
+        missing_policy_limit=policy_result.default_limit,
         # Record only per-column policies that differ from the default so the
         # metadata reflects explicit user overrides (instead of a full expansion).
-        # Keys are already normalized to strings by _build_policy_maps.
         missing_policy_overrides={
             column: value
-            for column, value in policy_info.get("policy_map", {}).items()
-            if value != policy_info.get("policy", _DEFAULT_MISSING_POLICY)
+            for column, value in policy_result.policy.items()
+            if value != policy_result.default_policy
         },
-        missing_policy_limits=policy_info.get("limit_map", {}),
-        missing_policy_filled=policy_info.get("filled", {}),
-        missing_policy_dropped=[str(item) for item in policy_info.get("dropped", [])],
-        missing_policy_summary=_summarise_missing_policy(policy_info),
+        missing_policy_limits=policy_result.limit,
+        missing_policy_filled=_missing_policy_fill_details(policy_result),
+        missing_policy_dropped=list(policy_result.dropped_assets),
+        missing_policy_summary=_summarise_missing_policy(policy_result),
     )
 
     validated = policy_frame.sort_index()

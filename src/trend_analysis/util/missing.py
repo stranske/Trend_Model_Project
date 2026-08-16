@@ -206,15 +206,15 @@ def apply_missing_policy(
             continue
         if col_policy == "ffill":
             filled_before = int(series.isna().sum())
-            series = series.ffill(limit=col_limit)
+            if col_limit != 0:
+                series = series.ffill(limit=col_limit)
             if col_limit is None:
                 series = series.bfill()
             filled_after = int(series.isna().sum())
             filled_counts[column_key] = filled_before - filled_after
             limit_used[column_key] = col_limit
             if series.isna().any():
-                has_alternative = len(cols) > 1 or result_columns
-                if enforce_completeness and has_alternative:
+                if enforce_completeness:
                     dropped.append(column_key)
                     continue
             result_columns[col] = series

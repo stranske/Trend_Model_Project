@@ -179,6 +179,8 @@ def validate_returns_schema(df: pd.DataFrame) -> ValidationResult:
 
 
 def _read_uploaded_file(file_like: Any) -> tuple[pd.DataFrame, str]:
+    """Read every upload shape through one format and error boundary."""
+
     name = getattr(file_like, "name", None)
     lower_name = name.lower() if isinstance(name, str) else ""
 
@@ -188,67 +190,49 @@ def _read_uploaded_file(file_like: Any) -> tuple[pd.DataFrame, str]:
             raise ValueError(f"File not found: '{path}'")
         if path.is_dir():
             raise ValueError(f"Path is a directory, not a file: '{path}'")
-        try:
-            if path.suffix.lower() in {".xlsx", ".xls"}:
-                return pd.read_excel(path), str(path)
-            if path.suffix.lower() in {".parquet", ".pq"}:
-                return pd.read_parquet(path), str(path)
-            return pd.read_csv(path), str(path)
-        except Exception as exc:
-            raise ValueError(f"Failed to read file: '{path}'") from exc
+        reader_input: Any = path
+        source = str(path)
+        suffix = path.suffix.lower()
+    else:
+        if not hasattr(file_like, "read") and not lower_name:
+            raise ValueError("Unsupported upload source")
+        reader_input = file_like
+        source = lower_name or "uploaded file"
+        suffix = Path(lower_name).suffix.lower()
 
     try:
-        if hasattr(file_like, "read"):
-            if lower_name.endswith((".xlsx", ".xls")):
-                data = file_like.read()
-                buf = io.BytesIO(data)
-                frame = pd.read_excel(buf)
-            elif lower_name.endswith((".parquet", ".pq")):
-                data = file_like.read()
-                buf = io.BytesIO(data)
-                frame = pd.read_parquet(buf)
+        if suffix in {".xlsx", ".xls"}:
+            if isinstance(reader_input, Path):
+                frame = pd.read_excel(reader_input)
             else:
-                frame = pd.read_csv(file_like)
+                frame = pd.read_excel(io.BytesIO(reader_input.read()))
+        elif suffix in {".parquet", ".pq"}:
+            if isinstance(reader_input, Path):
+                frame = pd.read_parquet(reader_input)
+            else:
+                frame = pd.read_parquet(io.BytesIO(reader_input.read()))
+        else:
+            frame = pd.read_csv(reader_input)
+    except FileNotFoundError as exc:
+        raise ValueError(f"File not found: '{source}'") from exc
+    except PermissionError as exc:
+        raise ValueError(f"Permission denied accessing file: '{source}'") from exc
+    except IsADirectoryError as exc:
+        raise ValueError(f"Path is a directory, not a file: '{source}'") from exc
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError(f"File contains no data: '{source}'") from exc
+    except pd.errors.ParserError as exc:
+        raise ValueError(f"Failed to parse file (corrupted or invalid format): '{source}'") from exc
+    except Exception as exc:
+        raise ValueError(f"Failed to read file: '{source}'") from exc
+    finally:
+        if not isinstance(reader_input, Path) and hasattr(reader_input, "seek"):
             try:
-                file_like.seek(0)
+                reader_input.seek(0)
             except Exception:  # pragma: no cover - not all streams support seek
                 pass
-            return frame, lower_name or "uploaded file"
-    except FileNotFoundError:
-        raise ValueError(f"File not found: '{lower_name or file_like}'")
-    except PermissionError:
-        raise ValueError(f"Permission denied accessing file: '{lower_name or file_like}'")
-    except IsADirectoryError:
-        raise ValueError(f"Path is a directory, not a file: '{lower_name or file_like}'")
-    except pd.errors.EmptyDataError:
-        raise ValueError(f"File contains no data: '{lower_name or file_like}'")
-    except pd.errors.ParserError:
-        raise ValueError(
-            f"Failed to parse file (corrupted or invalid format): '{lower_name or file_like}'"
-        )
-    except Exception as exc:
-        raise ValueError(f"Failed to read file: '{lower_name or file_like}'") from exc
 
-    if lower_name:
-        try:
-            frame = pd.read_csv(file_like)
-            return frame, lower_name
-        except FileNotFoundError:
-            raise ValueError(f"File not found: '{lower_name or file_like}'")
-        except PermissionError:
-            raise ValueError(f"Permission denied accessing file: '{lower_name or file_like}'")
-        except IsADirectoryError:
-            raise ValueError(f"Path is a directory, not a file: '{lower_name or file_like}'")
-        except pd.errors.EmptyDataError:
-            raise ValueError(f"File contains no data: '{lower_name or file_like}'")
-        except pd.errors.ParserError:
-            raise ValueError(
-                f"Failed to parse file (corrupted or invalid format): '{lower_name or file_like}'"
-            )
-        except Exception as exc:
-            raise ValueError(f"Failed to read file: '{lower_name or file_like}'") from exc
-
-    raise ValueError("Unsupported upload source")
+    return frame, source
 
 
 def load_and_validate_upload(file_like: Any) -> tuple[pd.DataFrame, dict[str, Any]]:
