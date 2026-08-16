@@ -137,9 +137,11 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
         if weighting_scheme in SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES
         else {}
     )
-    weight_engine_params.update(
-        bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
+    robustness_params = bindings.weight_engine_params_from_robustness(
+        weighting_scheme, robustness_cfg
     )
+    if robustness_params is not None:
+        weight_engine_params.update(robustness_params)
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
@@ -275,9 +277,11 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
         if weighting_scheme in SCORE_BASED_PORTFOLIO_WEIGHTING_NAMES
         else {}
     )
-    weight_engine_params.update(
-        bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg)
+    robustness_params = bindings.weight_engine_params_from_robustness(
+        weighting_scheme, robustness_cfg
     )
+    if robustness_params is not None:
+        weight_engine_params.update(robustness_params)
     trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
     lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
     risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
