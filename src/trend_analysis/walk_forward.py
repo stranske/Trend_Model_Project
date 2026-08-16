@@ -313,7 +313,16 @@ def evaluate_parameter_grid(
             for key, value in params.items():
                 record[f"param_{key}"] = value
             records.append(record)
-        trial_results.append((params, pd.concat(trial_fold_returns, ignore_index=True)))
+        # Walk-forward test windows may overlap when ``step < test``.  DSR's
+        # sample-size term must use independent calendar observations, so keep
+        # the newest fold's result for each date rather than counting an
+        # overlap twice.  Retaining the index here is essential: ``ignore_index``
+        # would make duplicate calendar dates impossible to detect.
+        trial_returns = pd.concat(trial_fold_returns)
+        trial_returns = trial_returns.loc[
+            ~trial_returns.index.duplicated(keep="last")
+        ].sort_index()
+        trial_results.append((params, trial_returns))
 
     folds_df = pd.DataFrame.from_records(records)
     param_cols = [col for col in folds_df.columns if col.startswith("param_")]

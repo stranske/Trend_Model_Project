@@ -26,6 +26,19 @@ def test_dsr_decreases_with_trial_count() -> None:
     assert all(value < undeflated_psr for value in values[1:])
 
 
+def test_dsr_is_lower_with_deduplicated_overlapping_oos_returns() -> None:
+    dates = pd.date_range("2024-01-31", periods=6, freq="ME")
+    unique_returns = pd.Series(
+        [0.010, 0.012, -0.004, 0.016, 0.008, -0.003], index=dates, dtype=float
+    )
+    overlapping_returns = pd.concat([unique_returns.iloc[:4], unique_returns.iloc[2:]])
+
+    duplicated_dsr = wf._sweep_deflated_sharpe(overlapping_returns, n_trials=10)
+    deduplicated_dsr = wf._sweep_deflated_sharpe(unique_returns, n_trials=10)
+
+    assert deduplicated_dsr < duplicated_dsr
+
+
 def test_parameter_sweep_reports_actual_trial_count_and_dsr(monkeypatch) -> None:
     rng = np.random.default_rng(1)
     index = pd.date_range("2020-01-31", periods=72, freq="ME")
