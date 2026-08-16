@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from trend_analysis.config.schema_generator import generate_schema
+from trend_analysis.config.schema_generator import _compact_schema, generate_schema
 from trend_analysis.config.schema_validation import validate_config_data
 
 
@@ -59,6 +60,15 @@ def test_defaults_declare_portfolio_weighting_once() -> None:
 
     assert source.count("\n  weighting:\n") == 1
     assert defaults["properties"]["name"]["default"] == "equal"
+
+
+def test_checked_in_schemas_match_generator() -> None:
+    generated = generate_schema()
+
+    assert json.loads(Path("config.schema.json").read_text(encoding="utf-8")) == generated
+    assert json.loads(Path("config.schema.compact.json").read_text(encoding="utf-8")) == (
+        _compact_schema(generated)
+    )
 
 
 def test_schema_validation_flags_unknown_keys() -> None:

@@ -139,10 +139,8 @@
         }
       },
       "weighting": {
-        "name": "score_prop_bayes",
-        "params": {
-          "shrink_tau": 0.25
-        }
+        "name": "equal",
+        "params": {}
       }
     },
     "preprocessing": {
@@ -913,10 +911,8 @@
           }
         },
         "weighting": {
-          "name": "score_prop_bayes",
-          "params": {
-            "shrink_tau": 0.25
-          }
+          "name": "equal",
+          "params": {}
         }
       },
       "description": "Portfolio controls validated before running analyses.",
@@ -1511,24 +1507,20 @@
         },
         "weighting": {
           "default": {
-            "name": "score_prop_bayes",
-            "params": {
-              "shrink_tau": 0.25
-            }
+            "name": "equal",
+            "params": {}
           },
           "description": "Weighting plugin settings.",
           "nl_editable": true,
           "properties": {
             "name": {
-              "default": "score_prop_bayes",
+              "default": "equal",
               "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity",
               "nl_editable": true,
               "type": "string"
             },
             "params": {
-              "default": {
-                "shrink_tau": 0.25
-              },
+              "default": {},
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
@@ -1560,10 +1552,13 @@
                   ]
                 },
                 "shrink_tau": {
-                  "default": 0.25,
+                  "default": null,
                   "description": "Shrinkage tau for Bayesian weighting.",
                   "nl_editable": true,
-                  "type": "number"
+                  "type": [
+                    "null",
+                    "number"
+                  ]
                 },
                 "shrinkage_method": {
                   "default": null,

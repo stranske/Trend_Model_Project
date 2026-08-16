@@ -141,10 +141,8 @@
         }
       },
       "weighting": {
-        "name": "score_prop_bayes",
-        "params": {
-          "shrink_tau": 0.25
-        }
+        "name": "equal",
+        "params": {}
       }
     },
     "preprocessing": {
@@ -1022,10 +1020,8 @@
           }
         },
         "weighting": {
-          "name": "score_prop_bayes",
-          "params": {
-            "shrink_tau": 0.25
-          }
+          "name": "equal",
+          "params": {}
         }
       },
       "description": "Portfolio controls validated before running analyses.",
@@ -1786,57 +1782,16 @@
           "additionalProperties": false,
           "constraints": {},
           "default": {
-            "name": "score_prop_bayes",
-            "params": {
-              "shrink_tau": 0.25
-            }
+            "name": "equal",
+            "params": {}
           },
           "description": "Weighting plugin settings.",
           "nl_editable": true,
           "properties": {
             "name": {
-              "constraints": {
-                "enum": [
-                  "adaptive",
-                  "adaptive_bayes",
-                  "bayes",
-                  "equal",
-                  "erc",
-                  "ew",
-                  "hrp",
-                  "risk_parity",
-                  "robust",
-                  "robust_mean_variance",
-                  "robust_mv",
-                  "robust_risk_parity",
-                  "score",
-                  "score_bayes",
-                  "score_prop",
-                  "score_prop_bayes",
-                  "score_prop_simple"
-                ]
-              },
-              "default": "score_prop_bayes",
+              "constraints": {},
+              "default": "equal",
               "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity",
-              "enum": [
-                "adaptive",
-                "adaptive_bayes",
-                "bayes",
-                "equal",
-                "erc",
-                "ew",
-                "hrp",
-                "risk_parity",
-                "robust",
-                "robust_mean_variance",
-                "robust_mv",
-                "robust_risk_parity",
-                "score",
-                "score_bayes",
-                "score_prop",
-                "score_prop_bayes",
-                "score_prop_simple"
-              ],
               "nl_editable": true,
               "type": "string"
             },
@@ -1852,9 +1807,7 @@
                 ]
               },
               "constraints": {},
-              "default": {
-                "shrink_tau": 0.25
-              },
+              "default": {},
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
@@ -1890,10 +1843,13 @@
                 },
                 "shrink_tau": {
                   "constraints": {},
-                  "default": 0.25,
+                  "default": null,
                   "description": "Shrinkage tau for Bayesian weighting.",
                   "nl_editable": true,
-                  "type": "number"
+                  "type": [
+                    "null",
+                    "number"
+                  ]
                 },
                 "shrinkage_method": {
                   "constraints": {},
