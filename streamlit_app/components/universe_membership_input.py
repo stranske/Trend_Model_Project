@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -48,6 +49,30 @@ def summarise_membership(path: str | Path) -> dict[str, object]:
         "exited_fund_count": len(exited),
         "exited_funds": sorted(exited),
     }
+
+
+def membership_cache_fingerprint(session_state: Mapping[str, Any] | None = None) -> str:
+    """Return a stable cache identity for the active membership file, if any."""
+
+    path = resolve_universe_membership_path(session_state)
+    if not path:
+        return "__none__"
+    membership_path = Path(path)
+    try:
+        digest = hashlib.sha256(membership_path.read_bytes()).hexdigest()[:16]
+    except OSError:
+        digest = "missing"
+    return f"{membership_path}:{digest}"
+
+
+def invalidate_analysis_for_membership_change() -> None:
+    """Clear cached and session analysis results after membership changes."""
+
+    from streamlit_app import state as app_state
+    from streamlit_app.components import analysis_runner
+
+    analysis_runner.clear_cached_analysis()
+    app_state.clear_analysis_results()
 
 
 def persist_membership_upload(upload_bytes: bytes, *, upload_dir: Path, filename: str) -> str:

@@ -20,7 +20,10 @@ from streamlit_app.components import (
     comparison_llm,
     explain_results,
 )
-from streamlit_app.components.universe_membership_input import UNIVERSE_MEMBERSHIP_SUMMARY_KEY
+from streamlit_app.components.universe_membership_input import (
+    UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    membership_cache_fingerprint,
+)
 from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend_analysis.diagnostics import PipelineReasonCode
 from trend_analysis.util.weights import normalize_weights
@@ -241,7 +244,13 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
 
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
+    membership_hash = hashlib.sha256(
+        membership_cache_fingerprint().encode("utf-8")
+    ).hexdigest()[:12]
+    return (
+        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:"
+        f"{membership_hash}:{model_blob}"
+    )
 
 
 def _data_hash_for_analysis(df: pd.DataFrame) -> str:

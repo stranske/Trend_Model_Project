@@ -168,13 +168,17 @@ def _run_multi_period_simulation(
     """
     from .export import combined_summary_result
     from .multi_period import run as run_multi_period
+    from .multi_period.loaders import load_membership
 
     run_id = getattr(config, "run_id", None) or "api_multi_run"
     _log_step(run_id, "multi_period_start", "Starting multi-period simulation")
 
+    membership_df = load_membership(config)
+    membership_arg = membership_df if not membership_df.empty else None
+
     _dispatch_start = time.perf_counter()
     try:
-        period_results = run_multi_period(config, returns)
+        period_results = run_multi_period(config, returns, membership=membership_arg)
     except Exception as exc:
         logger.error("Multi-period simulation failed: %s", exc)
         return RunResult(

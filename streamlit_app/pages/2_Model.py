@@ -41,6 +41,7 @@ from streamlit_app.components.progress_eta import (
     progress_ratio_and_remaining,
     update_eta_seconds,
 )
+from streamlit_app.components.universe_membership_input import membership_cache_fingerprint
 from streamlit_app.theme import apply_density_compact, apply_ds_theme
 from trend_analysis.config.patch import apply_config_patch, diff_configs
 from trend_analysis.llm import (
@@ -1701,7 +1702,13 @@ def _current_run_key(model_state: dict[str, Any], benchmark: str | None) -> str:
 
     funds_blob = json.dumps(list(sanitized_funds), sort_keys=False, default=str)
     funds_hash = hashlib.sha256(funds_blob.encode("utf-8")).hexdigest()[:12]
-    return f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:{model_blob}"
+    membership_hash = hashlib.sha256(
+        membership_cache_fingerprint().encode("utf-8")
+    ).hexdigest()[:12]
+    return (
+        f"{fingerprint}:{bench}:{selected_rf_key}:{funds_hash}:"
+        f"{membership_hash}:{model_blob}"
+    )
 
 
 def _apply_preview_state(

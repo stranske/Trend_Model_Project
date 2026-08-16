@@ -30,6 +30,7 @@ from streamlit_app.components.upload_guard import (
 from streamlit_app.components.universe_membership_input import (
     UNIVERSE_MEMBERSHIP_SESSION_KEY,
     UNIVERSE_MEMBERSHIP_SUMMARY_KEY,
+    invalidate_analysis_for_membership_change,
     persist_membership_upload,
     resolve_universe_membership_path,
     summarise_membership,
@@ -121,10 +122,12 @@ def _render_universe_membership_controls() -> None:
             validate_membership_file(demo_path)
             st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = str(demo_path)
             st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(demo_path)
+            invalidate_analysis_for_membership_change()
     with col_b:
         if st.button("Clear membership", key="clear_universe_membership"):
             st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
             st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
+            invalidate_analysis_for_membership_change()
 
     uploaded = st.file_uploader(
         "Upload membership CSV (fund, effective_date, end_date)",
@@ -141,11 +144,13 @@ def _render_universe_membership_controls() -> None:
             )
             st.session_state[UNIVERSE_MEMBERSHIP_SESSION_KEY] = saved
             st.session_state[UNIVERSE_MEMBERSHIP_SUMMARY_KEY] = summarise_membership(saved)
+            invalidate_analysis_for_membership_change()
             st.success("Membership file validated and ready.")
         except Exception as exc:
             st.error(f"Membership file rejected: {exc}")
             st.session_state.pop(UNIVERSE_MEMBERSHIP_SESSION_KEY, None)
             st.session_state.pop(UNIVERSE_MEMBERSHIP_SUMMARY_KEY, None)
+            invalidate_analysis_for_membership_change()
 
     active_path = resolve_universe_membership_path()
     if active_path:
