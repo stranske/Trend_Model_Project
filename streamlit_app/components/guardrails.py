@@ -142,6 +142,7 @@ def validate_startup_payload(
     date_column: str,
     risk_target: float,
     timestamps: Iterable[pd.Timestamp],
+    universe_membership_path: str | None = None,
 ) -> tuple[dict[str, object] | None, List[str]]:
     """Validate a minimal payload without importing heavyweight validators."""
 
@@ -173,7 +174,7 @@ def validate_startup_payload(
 
     payload = build_config_payload(
         csv_path=str(csv_real) if csv_real is not None else None,
-        universe_membership_path=None,
+        universe_membership_path=universe_membership_path,
         managers_glob=None,
         date_column=date_column,
         frequency=frequency,

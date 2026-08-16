@@ -322,6 +322,7 @@ def build_config_from_ui_state(
     benchmark: str | None,
     frequency: str,
     csv_path: str | None,
+    universe_membership_path: str | None = None,
 ) -> ConfigType:
     weights = normalise_metric_weights(model_state.get("metric_weights", {}))
     index = returns.index
@@ -543,6 +544,8 @@ def build_config_from_ui_state(
         data_cfg["missing_limit"] = missing_limit
     if csv_path:
         data_cfg["csv_path"] = csv_path
+    if universe_membership_path:
+        data_cfg["universe_membership_path"] = universe_membership_path
 
     risk_free_column = model_state.get("risk_free_column")
     if isinstance(risk_free_column, str) and risk_free_column.strip():
