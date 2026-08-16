@@ -346,9 +346,7 @@ def evaluate_parameter_grid(
     )
     finite_trial_sharpes = trial_sharpes[np.isfinite(trial_sharpes)]
     trial_sharpe_variance = (
-        float(finite_trial_sharpes.var(ddof=1))
-        if finite_trial_sharpes.size > 1
-        else float("nan")
+        float(finite_trial_sharpes.var(ddof=1)) if finite_trial_sharpes.size > 1 else float("nan")
     )
     dsr_records: list[dict[str, Any]] = []
     for params, trial_returns in trial_results:
