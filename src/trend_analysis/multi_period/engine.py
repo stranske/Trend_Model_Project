@@ -2202,30 +2202,19 @@ def _run_threshold_hold_multi_periods(
             column_names.append("Alpha")
         parts: list[pd.Series] = []
         for m in metrics:
-            # Back-compat: some tests monkeypatch `_compute_metric_series` with a
-            # simplified signature that doesn't accept `risk_free_override`.
-            if risk_free_override is None and benchmark is None:
-                parts.append(_compute_metric_series(in_df[funds], m, stats_cfg))
-                continue
-            try:
-                kwargs: dict[str, Any] = {}
-                if risk_free_override is not None:
-                    kwargs["risk_free_override"] = risk_free_override
-                if benchmark is not None:
-                    kwargs["benchmark"] = benchmark
-                parts.append(
-                    _compute_metric_series(
-                        in_df[funds],
-                        m,
-                        stats_cfg,
-                        **kwargs,
-                    )
+            kwargs: dict[str, Any] = {}
+            if risk_free_override is not None:
+                kwargs["risk_free_override"] = risk_free_override
+            if benchmark is not None:
+                kwargs["benchmark"] = benchmark
+            parts.append(
+                _compute_metric_series(
+                    in_df[funds],
+                    m,
+                    stats_cfg,
+                    **kwargs,
                 )
-            except TypeError as exc:
-                if kwargs and "unexpected keyword argument" in str(exc):
-                    parts.append(_compute_metric_series(in_df[funds], m, stats_cfg))
-                else:
-                    raise
+            )
         sf = pd.concat(parts, axis=1)
         sf.columns = column_names
         sf = sf.astype(float)
