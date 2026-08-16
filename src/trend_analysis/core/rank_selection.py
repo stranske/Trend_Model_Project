@@ -737,6 +737,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "sortino_ratio": "Sortino",
     "max_drawdown": "MaxDrawdown",
     "information_ratio": "InformationRatio",
+    "alpha": "Alpha",
     "avg_corr": "AvgCorr",
 }
 
@@ -827,6 +828,17 @@ register_metric("InformationRatio")(
             else (risk_free if risk_free is not None else pd.Series(0, index=s.index))
         ),
         periods_per_year=periods_per_year,
+    )
+)
+
+register_metric("Alpha")(
+    lambda s, *, periods_per_year=12, risk_free=0.0, benchmark=None, **k: _metrics.alpha(
+        s,
+        benchmark=(
+            benchmark
+            if benchmark is not None
+            else (risk_free if isinstance(risk_free, (pd.Series, pd.DataFrame)) else None)
+        ),
     )
 )
 

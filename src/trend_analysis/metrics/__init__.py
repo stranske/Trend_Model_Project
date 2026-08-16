@@ -7,6 +7,7 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 
 from __future__ import annotations
 
+import math
 from importlib import import_module
 from typing import Any, Callable, cast
 
@@ -410,6 +411,39 @@ from .deflated_sharpe import (  # noqa: E402
 )
 from .factor_attribution import factor_exposures  # noqa: E402
 
+
+@register_metric("alpha")
+def alpha(
+    returns: Series | DataFrame,
+    *,
+    benchmark: Series | DataFrame | float | None = None,
+    risk_free: Series | DataFrame | float | None = None,
+    **_: Any,
+) -> float | pd.Series:
+    """Benchmark-adjusted alpha via OLS factor attribution intercept."""
+
+    _validate_input(returns, "alpha")
+
+    factors = benchmark
+    if factors is None and isinstance(risk_free, (Series, DataFrame)):
+        factors = risk_free
+    if factors is None:
+        return _empty_like(returns, "alpha")
+
+    if isinstance(factors, Series):
+        factors = factors.to_frame(name=str(factors.name or "benchmark"))
+
+    def _alpha_one(col: Series) -> float:
+        name = str(col.name or "manager")
+        exposures = factor_exposures(col.to_frame(name=name), factors)
+        value = float(exposures.loc[name, "alpha"])
+        return value if math.isfinite(value) else float("nan")
+
+    if isinstance(returns, Series):
+        return _alpha_one(returns)
+    return returns.apply(_alpha_one)
+
+
 # Public submodules exposed via attribute assignment for compatibility while
 # keeping Ruff satisfied about unused imports.
 attribution = import_module(".attribution", __name__)
@@ -420,6 +454,7 @@ turnover = import_module(".turnover", __name__)
 
 __all__ = [
     "METRIC_REGISTRY",
+    "alpha",
     "annual_return",
     "annualize_return",
     "annualize_sharpe_ratio",
