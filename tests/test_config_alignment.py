@@ -158,3 +158,9 @@ def test_config_coverage_report_flags_read_and_validation_gaps(
     report = tracker.generate_report()
     assert "data.date_column" in report.unread_validated
     assert "data.unexpected_key" in report.unvalidated_reads
+    assert {
+        "portfolio.transaction_cost_bps",
+        "portfolio.slippage_bps",
+        "portfolio.cost_model.bps_per_trade",
+        "portfolio.cost_model.slippage_bps",
+    } <= report.validated

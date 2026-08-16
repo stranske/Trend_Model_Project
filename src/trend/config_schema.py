@@ -276,6 +276,8 @@ def validate_core_config(
     for removed in ("transaction_cost_bps", "slippage_bps"):
         if removed in portfolio_section:
             raise CoreConfigError(f"portfolio.{removed} was removed; use portfolio.cost_model")
+        if tracker is not None:
+            tracker.track_validated(f"portfolio.{removed}")
     cost_model_section = portfolio_section.get("cost_model") or {}
     cost_model = _as_mapping(cost_model_section, field="portfolio.cost_model")
     for removed in ("bps_per_trade", "slippage_bps"):
@@ -283,6 +285,8 @@ def validate_core_config(
             raise CoreConfigError(
                 f"portfolio.cost_model.{removed} was removed; use per_trade_bps and half_spread_bps"
             )
+        if tracker is not None:
+            tracker.track_validated(f"portfolio.cost_model.{removed}")
     per_trade_bps = _coerce_float(
         cost_model.get("per_trade_bps", _DEFAULT_PER_TRADE_COST),
         field="portfolio.cost_model.per_trade_bps",
