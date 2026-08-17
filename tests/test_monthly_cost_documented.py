@@ -60,7 +60,16 @@ def test_schema_accepts_documented_run_monthly_cost() -> None:
     schema = load_schema()
 
     assert "monthly_cost" in schema["properties"]["run"]["properties"]
-    assert validate_config_data({"run": {"monthly_cost": 0.001}}, schema) == []
+    assert (
+        validate_config_data(
+            {
+                "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+                "run": {"monthly_cost": 0.001},
+            },
+            schema,
+        )
+        == []
+    )
 
 
 def test_run_section_documents_live_jobs_key() -> None:

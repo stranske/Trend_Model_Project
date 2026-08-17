@@ -89,15 +89,22 @@ def test_checked_in_schemas_match_generator() -> None:
 def test_identity_schema_matches_non_null_runtime_model() -> None:
     schema = generate_schema()
 
-    assert validate_config_data({"identity": {}}, schema) == []
-    errors = validate_config_data({"identity": None}, schema)
+    assert (
+        validate_config_data({"identity": {}, "portfolio": {"cost_model": _COST_MODEL}}, schema)
+        == []
+    )
+    errors = validate_config_data(
+        {"identity": None, "portfolio": {"cost_model": _COST_MODEL}}, schema
+    )
     assert errors
     assert any("identity" in error for error in errors)
 
 
 def test_schema_validation_flags_unknown_keys() -> None:
     schema = generate_schema()
-    errors = validate_config_data({"unknown_key": 1}, schema)
+    errors = validate_config_data(
+        {"unknown_key": 1, "portfolio": {"cost_model": _COST_MODEL}}, schema
+    )
     assert errors
     assert any("unknown_key" in error for error in errors)
 
@@ -120,7 +127,13 @@ def test_schema_validation_accepts_rf_override_enabled() -> None:
     assert metrics_schema["type"] == "boolean"
     assert metrics_schema["default"] is False
 
-    errors = validate_config_data({"metrics": {"rf_override_enabled": True}}, schema)
+    errors = validate_config_data(
+        {
+            "metrics": {"rf_override_enabled": True},
+            "portfolio": {"cost_model": _COST_MODEL},
+        },
+        schema,
+    )
     assert errors == []
 
 
@@ -130,7 +143,13 @@ def test_schema_validation_accepts_regime_model() -> None:
     assert regime_schema["type"] == "string"
     assert regime_schema["default"] == "binary_threshold"
 
-    errors = validate_config_data({"regime": {"model": "binary_threshold"}}, schema)
+    errors = validate_config_data(
+        {
+            "regime": {"model": "binary_threshold"},
+            "portfolio": {"cost_model": _COST_MODEL},
+        },
+        schema,
+    )
     assert errors == []
 
 
@@ -139,6 +158,7 @@ def test_schema_validation_accepts_cost_model_float_bps() -> None:
     portfolio_schema = schema["properties"]["portfolio"]
     cost_model_schema = portfolio_schema["properties"]["cost_model"]
     cost_properties = cost_model_schema["properties"]
+    assert schema["required"] == ["portfolio"]
     assert portfolio_schema["required"] == ["cost_model"]
     assert cost_model_schema["required"] == ["half_spread_bps", "per_trade_bps"]
     assert cost_properties["per_trade_bps"]["type"] == "number"
@@ -151,6 +171,7 @@ def test_schema_validation_accepts_cost_model_float_bps() -> None:
         schema,
     )
     assert errors == []
+    assert validate_config_data({}, schema)
     assert validate_config_data({"portfolio": {}}, schema)
     assert validate_config_data({"portfolio": {"cost_model": {"per_trade_bps": 2.5}}}, schema)
 
@@ -184,14 +205,25 @@ def test_schema_validation_accepts_canonical_minimum_tenure() -> None:
 
 def test_schema_validation_rejects_misspelled_rf_override_enabled() -> None:
     schema = generate_schema()
-    errors = validate_config_data({"metrics": {"rf_override_enbaled": True}}, schema)
+    errors = validate_config_data(
+        {
+            "metrics": {"rf_override_enbaled": True},
+            "portfolio": {"cost_model": _COST_MODEL},
+        },
+        schema,
+    )
     assert errors
     assert any("metrics" in error and "rf_override_enbaled" in error for error in errors)
 
 
 def test_schema_validation_rejects_invalid_regime_turnover_caps() -> None:
     schema = generate_schema()
-    payload = {"portfolio": {"max_turnover": {"risk_on": "fast"}}}
+    payload = {
+        "portfolio": {
+            "cost_model": _COST_MODEL,
+            "max_turnover": {"risk_on": "fast"},
+        }
+    }
     errors = validate_config_data(payload, schema)
     assert errors
     assert any("max_turnover" in error for error in errors)

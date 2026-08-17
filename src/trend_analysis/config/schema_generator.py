@@ -86,6 +86,7 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
 # Object fields that the runtime models require whenever their parent section
 # is present. Keep the generated validators aligned with fail-closed loading.
 _REQUIRED_PROPERTIES: dict[str, list[str]] = {
+    "": ["portfolio"],
     "portfolio": ["cost_model"],
     "portfolio.cost_model": ["half_spread_bps", "per_trade_bps"],
 }
@@ -623,6 +624,7 @@ def generate_schema(
         "description": _schema_root_description(config_map_path),
         "additionalProperties": False,
         "properties": {},
+        "required": _REQUIRED_PROPERTIES[""],
         "default": defaults,
     }
     properties_dict: dict[str, Any] = schema["properties"]

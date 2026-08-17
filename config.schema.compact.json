@@ -2087,5 +2087,8 @@
       "type": "object"
     }
   },
+  "required": [
+    "portfolio"
+  ],
   "type": "object"
 }

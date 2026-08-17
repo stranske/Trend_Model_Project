@@ -2524,6 +2524,9 @@
       "type": "object"
     }
   },
+  "required": [
+    "portfolio"
+  ],
   "title": "Trend Model configuration",
   "type": "object"
 }
