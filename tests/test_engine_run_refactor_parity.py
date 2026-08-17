@@ -199,7 +199,7 @@ def test_run_signature_matches_pre_refactor_contract() -> None:
 
 def test_threshold_path_extracted_helpers_are_called_in_required_order() -> None:
     helpers = (
-        "_setup_period",
+        "_prepare_threshold_hold_period",
         "_weight_period",
         "_apply_turnover_and_cost",
         "_assemble_period_result",
@@ -217,12 +217,12 @@ def test_threshold_path_extracted_helpers_are_called_in_required_order() -> None
     HelperCallVisitor().visit(tree)
 
     assert list(call_lines) == [
-        "_setup_period",
+        "_prepare_threshold_hold_period",
         "_weight_period",
         "_apply_turnover_and_cost",
         "_assemble_period_result",
     ]
-    assert call_lines["_setup_period"] < call_lines["_weight_period"]
+    assert call_lines["_prepare_threshold_hold_period"] < call_lines["_weight_period"]
     assert call_lines["_weight_period"] < call_lines["_apply_turnover_and_cost"]
     assert call_lines["_apply_turnover_and_cost"] < call_lines["_assemble_period_result"]
 

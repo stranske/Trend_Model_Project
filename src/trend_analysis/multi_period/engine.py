@@ -344,6 +344,29 @@ class _PeriodSetup:
     fund_cols: list[str]
 
 
+@dataclass
+class _ThresholdHoldPeriodInput:
+    """Explicit inputs for one threshold-hold period's setup phase."""
+
+    pt: Any
+    cooldown_periods: int
+    cooldown_book: dict[str, int]
+    valid_universe: Callable[..., tuple[pd.DataFrame, pd.DataFrame, list[str], str | None]]
+    df: pd.DataFrame
+    missing_policy_diagnostic: Mapping[str, Any]
+
+
+@dataclass
+class _ThresholdHoldPreparedPeriod:
+    """Prepared data or an alignment-preserving empty-universe result."""
+
+    period_ts: pd.Timestamp
+    in_df: pd.DataFrame
+    out_df: pd.DataFrame
+    fund_cols: list[str]
+    placeholder: MultiPeriodPeriodResult | None = None
+
+
 def _setup_period(
     pt: Any,
     *,
@@ -380,6 +403,83 @@ def _setup_period(
         in_df=in_df,
         out_df=out_df,
         fund_cols=fund_cols,
+    )
+
+
+def _prepare_threshold_hold_period(
+    inputs: _ThresholdHoldPeriodInput,
+) -> _ThresholdHoldPreparedPeriod:
+    """Set up one period and preserve an explicit result for an empty universe."""
+
+    period_setup = _setup_period(
+        inputs.pt,
+        cooldown_periods=inputs.cooldown_periods,
+        cooldown_book=inputs.cooldown_book,
+        valid_universe=inputs.valid_universe,
+        df=inputs.df,
+    )
+    fund_cols = period_setup.fund_cols
+    if (
+        fund_cols
+        and isinstance(period_setup.out_df, pd.DataFrame)
+        and not period_setup.out_df.empty
+    ):
+        holdable_cols = [
+            column
+            for column in fund_cols
+            if column in period_setup.out_df.columns and period_setup.out_df[column].notna().any()
+        ]
+        if not holdable_cols:
+            fund_cols = []
+
+    if fund_cols:
+        return _ThresholdHoldPreparedPeriod(
+            period_ts=period_setup.period_ts,
+            in_df=period_setup.in_df,
+            out_df=period_setup.out_df,
+            fund_cols=fund_cols,
+        )
+
+    empty_metrics = None
+    placeholder = cast(
+        MultiPeriodPeriodResult,
+        {
+            "period": (
+                inputs.pt.in_start,
+                inputs.pt.in_end,
+                inputs.pt.out_start,
+                inputs.pt.out_end,
+            ),
+            "selected_funds": [],
+            "in_sample_scaled": pd.DataFrame(),
+            "out_sample_scaled": pd.DataFrame(),
+            "in_sample_stats": {},
+            "out_sample_stats": {},
+            "out_sample_stats_raw": {},
+            "in_ew_stats": empty_metrics,
+            "out_ew_stats": empty_metrics,
+            "out_ew_stats_raw": empty_metrics,
+            "in_user_stats": empty_metrics,
+            "out_user_stats": empty_metrics,
+            "out_user_stats_raw": empty_metrics,
+            "ew_weights": {},
+            "fund_weights": {},
+            "benchmark_stats": {},
+            "benchmark_ir": {},
+            "score_frame": pd.DataFrame(),
+            "weight_engine_fallback": None,
+            "manager_changes": [],
+            "turnover": 0.0,
+            "transaction_cost": 0.0,
+            "missing_policy_diagnostic": dict(inputs.missing_policy_diagnostic),
+        },
+    )
+    return _ThresholdHoldPreparedPeriod(
+        period_ts=period_setup.period_ts,
+        in_df=period_setup.in_df,
+        out_df=period_setup.out_df,
+        fund_cols=[],
+        placeholder=placeholder,
     )
 
 
@@ -2792,69 +2892,22 @@ def _run_threshold_hold_multi_periods(
 
     for pt in periods:
         seed_period = prev_weights is None or prev_weights.empty
-        period_setup = _setup_period(
-            pt,
-            cooldown_periods=cooldown_periods,
-            cooldown_book=cooldown_book,
-            valid_universe=_valid_universe,
-            df=df,
-        )
-        period_ts = period_setup.period_ts
-        in_df = period_setup.in_df
-        out_df = period_setup.out_df
-        fund_cols = period_setup.fund_cols
-        # Even with relaxed in-sample filtering, if no fund has OOS data,
-        # we cannot form a portfolio, so produce a placeholder.
-        if fund_cols and isinstance(out_df, pd.DataFrame) and not out_df.empty:
-            holdable_cols = [
-                c for c in fund_cols if c in out_df.columns and out_df[c].notna().any()
-            ]
-            if not holdable_cols:
-                fund_cols = []  # Force placeholder path
-        if not fund_cols:
-            # Preserve period alignment: produce a minimal placeholder so downstream
-            # consumers expecting one entry per generated period retain indexing.
-            # (Chosen over 'continue' because some tests assert len(results) == len(periods)).
-            # Represent missing metrics explicitly as ``None`` rather than a
-            # tuple of zeroes.  Downstream consumers (and tests) expect a
-            # ``None`` placeholder so that an empty universe is distinguishable
-            # from genuine statistics that just happen to be zero.
-            empty_metrics = None
-            results.append(
-                cast(
-                    MultiPeriodPeriodResult,
-                    {
-                        "period": (
-                            pt.in_start,
-                            pt.in_end,
-                            pt.out_start,
-                            pt.out_end,
-                        ),
-                        "selected_funds": [],
-                        "in_sample_scaled": pd.DataFrame(),
-                        "out_sample_scaled": pd.DataFrame(),
-                        "in_sample_stats": {},
-                        "out_sample_stats": {},
-                        "out_sample_stats_raw": {},
-                        "in_ew_stats": empty_metrics,
-                        "out_ew_stats": empty_metrics,
-                        "out_ew_stats_raw": empty_metrics,
-                        "in_user_stats": empty_metrics,
-                        "out_user_stats": empty_metrics,
-                        "out_user_stats_raw": empty_metrics,
-                        "ew_weights": {},
-                        "fund_weights": {},
-                        "benchmark_stats": {},
-                        "benchmark_ir": {},
-                        "score_frame": pd.DataFrame(),
-                        "weight_engine_fallback": None,
-                        "manager_changes": [],
-                        "turnover": 0.0,
-                        "transaction_cost": 0.0,
-                        "missing_policy_diagnostic": dict(missing_policy_diagnostic),
-                    },
-                )
+        prepared_period = _prepare_threshold_hold_period(
+            _ThresholdHoldPeriodInput(
+                pt=pt,
+                cooldown_periods=cooldown_periods,
+                cooldown_book=cooldown_book,
+                valid_universe=_valid_universe,
+                df=df,
+                missing_policy_diagnostic=missing_policy_diagnostic,
             )
+        )
+        period_ts = prepared_period.period_ts
+        in_df = prepared_period.in_df
+        out_df = prepared_period.out_df
+        fund_cols = prepared_period.fund_cols
+        if prepared_period.placeholder is not None:
+            results.append(prepared_period.placeholder)
             continue
         metrics_cfg = cast(dict[str, Any], getattr(cfg, "metrics", {}) or {})
         rf_override_enabled = bool(metrics_cfg.get("rf_override_enabled", False))
