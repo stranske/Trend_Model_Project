@@ -586,6 +586,10 @@ def rank_select_funds(
         else:
             scores = _call_metric_series(df, metric_name, cfg, risk_free_override=risk_free)
 
+    # Normalise metric representation before transforming it.  In particular,
+    # MaxDrawdown may arrive as either a signed depth or a positive magnitude.
+    scores = normalize_metric_scores(scores, metric_name)
+
     # Apply transform
     scores = _apply_transform(
         scores,
@@ -594,14 +598,7 @@ def rank_select_funds(
         ddof=zscore_ddof,
         rank_pct=rank_pct,
     )
-    # Determine sort order:
-    # - transform == 'rank' produces 1=best so ascending True
-    # - for metrics where smaller is better, sort ascending
-    # - otherwise sort descending (larger is better)
-    if transform == "rank":
-        ascending = True
-    else:
-        ascending = metric_name in ASCENDING_METRICS
+    ascending = ranking_sort_ascending(metric_name, transform=transform)
 
     # Drop NaNs (e.g., from percentile masking) before sorting
     scores = scores.dropna()
@@ -827,6 +824,8 @@ register_metric("Sortino")(
     )
 )
 
+# The ranking boundary accepts either signed depths or positive magnitudes and
+# normalises both to positive magnitudes before comparing MaxDrawdown values.
 register_metric("MaxDrawdown")(lambda s, **k: _metrics.max_drawdown(s))
 
 register_metric("InformationRatio")(
@@ -885,7 +884,36 @@ def _avg_corr_metric(series: pd.Series, **_: Any) -> float:
 #  NEW: RANK‑BASED FUND SELECTION
 # ===============================================================
 
-ASCENDING_METRICS = {"MaxDrawdown"}  # smaller is better
+# Canonical metric names whose smaller numeric values are better.
+ASCENDING_METRICS = {"MaxDrawdown", "Volatility"}
+
+_MAGNITUDE_METRICS = {"MaxDrawdown"}
+
+
+def normalize_metric_scores(scores: pd.Series, metric_name: str) -> pd.Series:
+    """Return scores in the canonical representation used for ranking.
+
+    MaxDrawdown is a positive magnitude at this boundary.  Taking the absolute
+    value also supports legacy producers that emit signed-negative depths.
+    Other metrics retain their registered numeric representation.
+    """
+
+    canonical_name = _METRIC_ALIASES.get(metric_name, metric_name)
+    normalized = scores.astype(float).copy()
+    if canonical_name in _MAGNITUDE_METRICS:
+        normalized = normalized.abs()
+    return normalized
+
+
+def ranking_sort_ascending(metric_name: str, *, transform: str = "raw") -> bool:
+    """Return whether transformed scores should be sorted in ascending order."""
+
+    if transform == "rank":
+        return True
+    canonical_name = _METRIC_ALIASES.get(metric_name, metric_name)
+    return canonical_name in ASCENDING_METRICS
+
+
 DEFAULT_METRIC = "AnnualReturn"
 
 
@@ -1110,6 +1138,7 @@ def blended_score(
                 stats_cfg,
                 risk_free_override=risk_free_override,
             )
+        raw = normalize_metric_scores(raw, metric)
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score
         if metric in ASCENDING_METRICS:
@@ -1152,4 +1181,6 @@ __all__ = [
     "set_window_metric_cache_limit",
     "build_ui",
     "canonical_metric_list",
+    "normalize_metric_scores",
+    "ranking_sort_ascending",
 ]

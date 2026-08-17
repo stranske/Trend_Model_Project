@@ -41,7 +41,11 @@ from ..config_contract import (
     resolve_portfolio_weighting_name,
 )
 from ..constants import NUMERICAL_TOLERANCE_HIGH
-from ..core.rank_selection import ASCENDING_METRICS
+from ..core.rank_selection import (
+    ASCENDING_METRICS,
+    normalize_metric_scores,
+    ranking_sort_ascending,
+)
 from ..data import load_csv
 from ..diagnostics import PipelineResult, coerce_pipeline_result
 from ..metrics.turnover import linear_turnover_cost
@@ -2531,7 +2535,7 @@ def _run_threshold_hold_multi_periods(
             combo = pd.Series(0.0, index=score_frame.index, dtype=float)
             for m, w in norm_w.items():
                 if m in score_frame.columns:
-                    col_series = score_frame[m].astype(float)
+                    col_series = normalize_metric_scores(score_frame[m], m)
                     mu = float(col_series.mean())
                     sigma = float(col_series.std(ddof=0))
                     z = (
@@ -2549,7 +2553,7 @@ def _run_threshold_hold_multi_periods(
                 if score_frame.columns.empty:
                     return pd.Series(dtype=float), False
                 score_col = str(score_frame.columns[0])
-            scores = score_frame[score_col].astype(float)
+            scores = normalize_metric_scores(score_frame[score_col], score_by)
 
         if transform == "zscore":
             mu, sigma = scores.mean(), scores.std(ddof=0)
@@ -2558,9 +2562,7 @@ def _run_threshold_hold_multi_periods(
             else:
                 scores = pd.Series(0.0, index=scores.index)
 
-        ascending = False
-        if score_by in ASCENDING_METRICS and transform != "zscore":
-            ascending = True
+        ascending = ranking_sort_ascending(score_by, transform=transform)
 
         return scores, ascending
 
@@ -3105,7 +3107,8 @@ def _run_threshold_hold_multi_periods(
                             combo = pd.Series(0.0, index=score_frame.index, dtype=float)
                             for m, w in norm_w.items():
                                 if m in score_frame.columns:
-                                    z = _zscore_or_zero(score_frame[m])
+                                    metric_scores = normalize_metric_scores(score_frame[m], m)
+                                    z = _zscore_or_zero(metric_scores)
                                     # Invert for ascending metrics (smaller is better)
                                     combo += w * (-z if m in ASCENDING_METRICS else z)
                             scores = combo
@@ -3114,7 +3117,7 @@ def _run_threshold_hold_multi_periods(
                             score_col = (
                                 rank_score_by if rank_score_by in score_frame.columns else "Sharpe"
                             )
-                            scores = score_frame[score_col].astype(float)
+                            scores = normalize_metric_scores(score_frame[score_col], rank_score_by)
 
                         # Apply transform if zscore
                         if rank_transform == "zscore":
@@ -3124,10 +3127,7 @@ def _run_threshold_hold_multi_periods(
                             else:
                                 scores = pd.Series(0.0, index=scores.index)
 
-                        # Determine sort order
-                        ascending = False  # Higher score is better for blended/zscore
-                        if rank_score_by in ASCENDING_METRICS and rank_transform != "zscore":
-                            ascending = True
+                        ascending = ranking_sort_ascending(rank_score_by, transform=rank_transform)
 
                         # Sort scores
                         sorted_scores = scores.sort_values(ascending=ascending)

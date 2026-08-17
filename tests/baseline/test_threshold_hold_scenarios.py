@@ -549,7 +549,7 @@ def test_alternate_seed_paths_golden(
     }
 
 
-def test_blended_seed_uses_metric_specific_scores_golden(
+def test_blended_seed_normalizes_signed_drawdown_scores_golden(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
@@ -576,16 +576,16 @@ def test_blended_seed_uses_metric_specific_scores_golden(
     results = engine.run(cfg, df=_returns_frame())
 
     assert _snapshot(results[0]) == {
-        "funds": ["C", "B"],
-        "weights": {"C": 0.5, "B": 0.5},
+        "funds": ["A", "D"],
+        "weights": {"A": 0.5, "D": 0.5},
         "turnover": 1.0,
         "cost": 0.0,
-        "events": [("added", "C", "seed"), ("added", "B", "seed")],
-        "tenure": {"C": 1, "B": 1},
+        "events": [("added", "A", "seed"), ("added", "D", "seed")],
+        "tenure": {"A": 1, "D": 1},
     }
 
 
-def test_zscore_threshold_differs_from_raw_ascending_selection_golden(
+def test_zscore_threshold_selects_shallowest_drawdown_magnitudes_golden(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
@@ -604,14 +604,14 @@ def test_zscore_threshold_differs_from_raw_ascending_selection_golden(
         metric_by_in_end={"2020-02": fallback},
         metric_by_name={
             "Sharpe": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
-            "MaxDrawdown": {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0},
+            "MaxDrawdown": {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0},
         },
     )
 
     results = engine.run(cfg, df=_returns_frame())
 
-    # CHARACTERIZATION: z-score transformation currently treats the larger
-    # standardized MaxDrawdown as better; raw ascending selection would choose B/C.
+    # Production MaxDrawdown magnitudes remain lower-is-better after z-scoring,
+    # so the ascending comparison retains the two shallowest eligible drawdowns.
     assert _snapshot(results[0]) == {
         "funds": ["A", "D"],
         "weights": {"A": 0.5, "D": 0.5},
@@ -620,6 +620,45 @@ def test_zscore_threshold_differs_from_raw_ascending_selection_golden(
         "events": [("added", "A", "seed"), ("added", "D", "seed")],
         "tenure": {"A": 1, "D": 1},
     }
+
+
+@pytest.mark.parametrize(
+    ("metric", "metric_values"),
+    [
+        ("MaxDrawdown", {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0}),
+        ("MaxDrawdown", {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0}),
+        ("Volatility", {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0}),
+    ],
+)
+def test_order_based_lower_is_better_raw_and_zscore_agree(
+    monkeypatch: pytest.MonkeyPatch,
+    metric: str,
+    metric_values: dict[str, float],
+) -> None:
+    fallback = {fund: 0.0 for fund in metric_values}
+    _patch_scenario(
+        monkeypatch,
+        period_count=1,
+        metric_by_in_end={"2020-02": fallback},
+        metric_by_name={metric: metric_values},
+    )
+
+    selections: dict[str, list[str]] = {}
+    for transform in ("raw", "zscore"):
+        cfg = ThresholdScenarioConfig()
+        cfg.portfolio["rank"].update(
+            {
+                "inclusion_approach": "top_pct",
+                "pct": 0.4,
+                "score_by": metric,
+                "transform": transform,
+            }
+        )
+
+        result = engine.run(cfg, df=_returns_frame())[0]
+        selections[transform] = result["selected_funds"]
+
+    assert selections == {"raw": ["A", "D"], "zscore": ["A", "D"]}
 
 
 def test_top_percent_seed_golden(monkeypatch: pytest.MonkeyPatch) -> None:
