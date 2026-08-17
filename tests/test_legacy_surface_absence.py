@@ -44,6 +44,8 @@ ROOT_RUNTIME_TEXT_FILES = tuple(
     and (path.suffix.lower() in TEXT_SUFFIXES or path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES)
 )
 RUNTIME_TEXT_ROOTS = (
+    REPO_ROOT / "analysis",
+    REPO_ROOT / "design-system",
     REPO_ROOT / "src",
     REPO_ROOT / "streamlit_app",
     REPO_ROOT / "scripts",
