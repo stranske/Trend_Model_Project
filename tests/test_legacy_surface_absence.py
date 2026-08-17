@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -93,6 +94,27 @@ REMOVED_PATHS = (
 NOTEBOOK_TRANSFORMER = TransformerManager()
 
 
+def _textual_import_modules(text: str) -> list[str]:
+    """Recover import targets from executable non-Python wrapper syntax."""
+
+    modules = [
+        match.group(1)
+        for match in re.finditer(r"\bimport\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)", text)
+    ]
+    from_pattern = re.compile(
+        r"\bfrom\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+import\s+(\([^)]*\)|[^\n;]+)",
+        re.DOTALL,
+    )
+    for match in from_pattern.finditer(text):
+        parent = match.group(1)
+        imported = match.group(2).strip().strip("()")
+        for item in imported.split(","):
+            name = item.strip().split(maxsplit=1)[0] if item.strip() else ""
+            if name and re.fullmatch(r"[A-Za-z_]\w*", name):
+                modules.append(f"{parent}.{name}")
+    return modules
+
+
 def _is_archived(path: Path) -> bool:
     return any(path.is_relative_to(root) for root in ARCHIVE_ROOTS)
 
@@ -151,7 +173,10 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
         try:
             tree = ast.parse(code_unit, filename=str(path))
         except SyntaxError:
-            # Keep scanning other notebook cells if unrelated syntax is invalid.
+            # Non-Python cell magics can wrap executable Python commands or
+            # heredocs. Recover import forms even when their wrapper is not a
+            # valid Python AST, then continue with the remaining cells.
+            modules.extend(_textual_import_modules(code_unit))
             continue
         modules.extend(
             alias.name
@@ -388,6 +413,33 @@ def test_notebook_cell_magic_body_cannot_hide_retired_import(tmp_path: Path) -> 
                             "%%capture\n",
                             "files = !ls\n",
                             "from trend_analysis import cli\n",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_non_python_cell_magic_cannot_hide_retired_import(tmp_path: Path) -> None:
+    """Shell cell magics may execute Python imports through heredocs."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "%%bash\n",
+                            "python - <<'PY'\n",
+                            "from trend_analysis import cli\n",
+                            "PY\n",
                         ],
                     }
                 ]
