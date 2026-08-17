@@ -692,6 +692,8 @@ def _prepare_ui_command_inputs(
         returns, metadata, summary = load_ui_dataset(
             data_path,
             auto_fix_dates=args.auto_fix_dates,
+            missing_policy=model_state.get("missing_policy") or "ffill",
+            missing_limit=model_state.get("missing_limit"),
         )
     except MarketDataValidationError as exc:
         details = "\n".join(f"- {issue}" for issue in exc.issues)

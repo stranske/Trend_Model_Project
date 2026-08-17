@@ -648,6 +648,8 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
                     "selection_count": 3,
                     "metric_weights": {"Sharpe": 1.0},
                     "signal_window": 63,
+                    "missing_policy": {"default": "ffill", "A": "zero"},
+                    "missing_limit": {"default": 2},
                 },
                 "selected_benchmark": "SPX",
                 "selected_risk_free": "RF",
@@ -664,6 +666,7 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
     cfg = _make_config()
     mapped: dict[str, object] = {}
     dispatched: dict[str, object] = {}
+    ingestion: dict[str, object] = {}
 
     def fake_build_config_from_ui_state(**kwargs: object) -> object:
         mapped.update(kwargs)
@@ -685,15 +688,15 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
         )
         return 0
 
-    monkeypatch.setattr(
-        trend_cli,
-        "load_ui_dataset",
-        lambda *_args, **_kwargs: (
+    def fake_load_ui_dataset(path: Path, **kwargs: object):
+        ingestion.update(path=path, **kwargs)
+        return (
             returns,
             SimpleNamespace(frequency="M"),
             SimpleNamespace(corrected_dates=0, dropped_rows=0),
-        ),
-    )
+        )
+
+    monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
     monkeypatch.setattr(trend_cli, "build_config_from_ui_state", fake_build_config_from_ui_state)
     monkeypatch.setattr(trend_cli, "ensure_run_spec", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(trend_cli, "run_analysis_command", fake_run_analysis_command)
@@ -705,6 +708,12 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
     assert mapped["frequency"] == "M"
     assert mapped["csv_path"] == str(data_path.resolve())
     assert mapped["model_state"]["risk_free_column"] == "RF"
+    assert ingestion == {
+        "path": data_path.resolve(),
+        "auto_fix_dates": False,
+        "missing_policy": {"default": "ffill", "A": "zero"},
+        "missing_limit": {"default": 2},
+    }
     assert dispatched["cfg_path"] == params_path.resolve()
     assert dispatched["cfg"] is cfg
     assert dispatched["returns_path"] == data_path.resolve()
