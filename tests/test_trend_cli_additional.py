@@ -119,8 +119,7 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
 
     cli._handle_exports(cfg, result, structured_log=False, run_id="run42")
 
-    assert export_calls[:2] == ["excel", "data:csv"]
-    assert export_calls[-1] == "log"
+    assert export_calls == ["log", "excel", "data:csv", "log"]
 
 
 def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):

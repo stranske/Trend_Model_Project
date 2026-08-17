@@ -324,12 +324,21 @@ def test_handle_exports_invokes_exporters(monkeypatch: pytest.MonkeyPatch, tmp_p
         "export_data",
         lambda data, path, formats: export_calls.append((tuple(sorted(formats)), path)),
     )
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    log_events: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+    )
 
     trend_cli._handle_exports(cfg, result, structured_log=True, run_id="abc")
 
     assert summary_called and export_calls
     assert (tmp_path / "analysis.xlsx").exists()
+    assert log_events == [
+        ("export_start", {"formats": ["xlsx", "csv"]}),
+        ("export_complete", {}),
+    ]
 
 
 def test_handle_exports_without_excel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -357,7 +366,12 @@ def test_run_pipeline_sets_metadata_and_bundle(
     monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: result)
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    log_events: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+    )
     handled: list[tuple] = []
     monkeypatch.setattr(trend_cli, "_handle_exports", lambda *args, **kwargs: handled.append(args))
     written: list[tuple] = []
@@ -381,6 +395,12 @@ def test_run_pipeline_sets_metadata_and_bundle(
     assert log_path == tmp_path / f"{run_id}.log"
     assert handled and written
     assert result_obj is result
+    assert log_events == [
+        ("start", {}),
+        ("load_data", {"rows": 3}),
+        ("pipeline_complete", {"metrics_rows": len(result.metrics)}),
+        ("summary_render", {}),
+    ]
     ledger = Path("perf") / run_id / "turnover.csv"
     assert ledger.exists()
     df = pd.read_csv(ledger)

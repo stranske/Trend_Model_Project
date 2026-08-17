@@ -823,8 +823,22 @@ def _run_pipeline(
         log_path = log_file or run_logging.get_default_log_path(run_id)
         run_logging.init_run_logger(run_id, log_path)
     maybe_log_step(structured_log, run_id, "start", "trend CLI execution started")
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "load_data",
+        "Loaded returns dataframe",
+        rows=len(returns_df),
+    )
 
     result = run_simulation(cfg, returns_df)
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "pipeline_complete",
+        "Pipeline execution finished",
+        metrics_rows=len(result.metrics),
+    )
     diagnostic = getattr(result, "diagnostic", None)
     if diagnostic and not result.details:
         _report_pipeline_diagnostic(
@@ -904,8 +918,16 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
         out_formats = DEFAULT_OUTPUT_FORMATS
     if not out_dir or not out_formats:
         return
+    format_list = list(out_formats)
     out_dir_path = Path(out_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
+    maybe_log_step(
+        structured_log,
+        run_id,
+        "export_start",
+        "Beginning export",
+        formats=format_list,
+    )
     data = {"metrics": result.metrics}
     export.append_narrative_section(data, result.details, config=cfg)
     split = getattr(cfg, "sample_split", {})
@@ -913,7 +935,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
     in_end = str(split.get("in_end")) if split else ""
     out_start = str(split.get("out_start")) if split else ""
     out_end = str(split.get("out_end")) if split else ""
-    if any(fmt.lower() in {"excel", "xlsx"} for fmt in out_formats):
+    if any(fmt.lower() in {"excel", "xlsx"} for fmt in format_list):
         formatter = export.make_summary_formatter(
             result.details, in_start, in_end, out_start, out_end
         )
@@ -923,7 +945,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
             str(out_dir_path / f"{filename}.xlsx"),
             default_sheet_formatter=formatter,
         )
-        remaining = [fmt for fmt in out_formats if fmt.lower() not in {"excel", "xlsx"}]
+        remaining = [fmt for fmt in format_list if fmt.lower() not in {"excel", "xlsx"}]
         if remaining:
             export.export_data(
                 data,
@@ -934,7 +956,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
         export.export_data(
             data,
             str(out_dir_path / filename),
-            formats=out_formats,
+            formats=format_list,
         )
     maybe_log_step(structured_log, run_id, "export_complete", "Export done")
 
