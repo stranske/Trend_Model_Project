@@ -106,6 +106,7 @@ def run_analysis_command(
     run_pipeline: Callable[..., tuple[Any, str, Path | None]],
     write_artifacts: Callable[..., Path | None],
     print_summary: Callable[[Any, Any], None],
+    finish_structured_log: Callable[[bool, str, Path | None], None],
     finalize_coverage: Callable[[], None],
 ) -> int:
     """Execute ``trend run`` with all side-effecting dependencies explicit."""
@@ -154,6 +155,7 @@ def run_analysis_command(
         structured_log=not args.no_structured_log,
     )
     print_summary(cfg, result)
+    finish_structured_log(not args.no_structured_log, run_id, log_path)
     if log_path:
         print(f"Structured log: {log_path}")
     finalize_coverage()

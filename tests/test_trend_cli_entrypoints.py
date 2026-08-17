@@ -518,7 +518,14 @@ def test_main_run_command(
         "_run_pipeline",
         lambda *_args, **_kwargs: (DummyResult(), "run123", tmp_path / "log.jsonl"),
     )
+    monkeypatch.setattr(trend_cli, "_write_trend_run_artifacts", lambda **_kwargs: None)
     monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
+    log_steps: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda *args, **_kwargs: log_steps.append(args),
+    )
 
     exit_code = trend_cli.main(
         [
@@ -533,6 +540,7 @@ def test_main_run_command(
     )
 
     assert exit_code == 0
+    assert any(step[2] == "end" for step in log_steps)
     assert "Structured log" in capsys.readouterr().out
 
 

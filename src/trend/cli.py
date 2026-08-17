@@ -100,6 +100,7 @@ from trend_analysis.presets import (
     get_trend_preset,
     list_preset_slugs,
 )
+from trend_analysis.export.run_envelope import write_run_envelope
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 from trend_analysis.signal_presets import (
@@ -814,6 +815,18 @@ def _run_pipeline(
     return result, run_id, log_path
 
 
+def _finish_structured_log(enabled: bool, run_id: str, log_path: Path | None) -> None:
+    """Record the terminal event after every run artifact has been written."""
+
+    maybe_log_step(
+        enabled,
+        run_id,
+        "end",
+        "CLI run complete",
+        log_file=str(log_path) if log_path is not None else "",
+    )
+
+
 def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
     export_cfg = getattr(cfg, "export", {}) or {}
     out_dir = export_cfg.get("directory")
@@ -896,7 +909,7 @@ def _write_trend_run_artifacts(
     run_id: str,
     structured_log: bool,
 ) -> Path | None:
-    """Write the manifest/index used by ``trend run --skip-if-exists``."""
+    """Write the replay manifest and run envelope used by ``trend run``."""
 
     export_cfg = getattr(cfg, "export", {}) or {}
     out_dir = export_cfg.get("directory")
@@ -961,6 +974,23 @@ def _write_trend_run_artifacts(
         "Run manifest written",
         directory=str(manifest_dir),
     )
+    try:
+        envelope_path = write_run_envelope(
+            result,
+            config=config_payload,
+            manifest_path=manifest_dir / "manifest.json",
+            run_dir=manifest_dir,
+        )
+    except Exception as exc:  # pragma: no cover - defensive parity with manifest writer
+        logger.warning("Failed to write run envelope: %s", exc)
+    else:
+        maybe_log_step(
+            structured_log,
+            run_id,
+            "run_envelope",
+            "Run envelope written",
+            path=str(envelope_path),
+        )
     return manifest_dir
 
 
@@ -2305,6 +2335,7 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 run_pipeline=_run_pipeline,
                 write_artifacts=_write_trend_run_artifacts,
                 print_summary=_print_summary,
+                finish_structured_log=_finish_structured_log,
                 finalize_coverage=_finalize_config_coverage,
             )
 
