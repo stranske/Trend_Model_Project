@@ -33,7 +33,7 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -71,7 +71,10 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"portfolio\.constraints\.max_active"):
         validate_trend_config(retired_max_active, base_path=tmp_path)
 
-    production_payload["portfolio"] = {"constraints": {"max_active": 3}}
+    production_payload["portfolio"] = {
+        "constraints": {"max_active": 3},
+        "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+    }
     with pytest.raises(ValidationError, match=r"portfolio\.constraints\.max_active"):
         models.Config.model_validate(production_payload)
 

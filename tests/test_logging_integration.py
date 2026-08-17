@@ -37,7 +37,11 @@ def _make_cfg():
             "out_start": "2022-08",
             "out_end": "2022-10",
         },
-        portfolio={"selection_mode": "all", "weighting": {"name": "equal"}},
+        portfolio={
+            "selection_mode": "all",
+            "weighting": {"name": "equal"},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+        },
         benchmarks={"spx": "SPX"},
         metrics={},
         export={},

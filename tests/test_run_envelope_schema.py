@@ -85,6 +85,7 @@ def _make_robust_cfg() -> Config:
             "out_end": "2020-08",
         },
         portfolio={
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "weighting": {"name": "robust_mv"},
             "robustness": {
                 "shrinkage": {"enabled": False},

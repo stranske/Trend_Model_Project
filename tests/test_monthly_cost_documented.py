@@ -42,7 +42,7 @@ def _make_cfg(monthly_cost: float) -> Config:
             "out_start": "2020-04",
             "out_end": "2020-06",
         },
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         metrics={},
         export={},
         run={"monthly_cost": monthly_cost},

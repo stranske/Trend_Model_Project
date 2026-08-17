@@ -291,7 +291,7 @@ def test_run_missing_csv_key(tmp_path):
         preprocessing={},
         vol_adjust={},
         sample_split={},
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         metrics={},
         export={},
         run={},

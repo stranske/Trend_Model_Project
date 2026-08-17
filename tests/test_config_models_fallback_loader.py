@@ -123,7 +123,7 @@ def test_fallback_loader_swallows_validation_errors(
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -131,7 +131,7 @@ def test_fallback_loader_swallows_validation_errors(
 
     cfg = module.load(payload)  # type: ignore[attr-defined]
 
-    assert cfg.portfolio == {}
+    assert cfg.portfolio == {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}}
     assert cfg.metrics == {}
 
 
@@ -174,7 +174,7 @@ def test_fallback_load_config_handles_validator_failure(
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -183,4 +183,4 @@ def test_fallback_load_config_handles_validator_failure(
     cfg = module.load_config(payload)  # type: ignore[attr-defined]
 
     assert cfg.version == "1"
-    assert cfg.portfolio == {}
+    assert cfg.portfolio == {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}}

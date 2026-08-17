@@ -111,6 +111,7 @@ def _make_buy_and_hold_config(
         },
         sample_split={},
         portfolio={
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "policy": "threshold_hold",
             "selection_mode": "buy_and_hold",
             "buy_and_hold": {
@@ -284,6 +285,7 @@ class TestBuyAndHoldConfigValidation:
             vol_adjust={"target_vol": 0.1},
             sample_split={},
             portfolio={
+                "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
                 "policy": "threshold_hold",
                 "selection_mode": "buy_and_hold",
                 "buy_and_hold": {"n": 5},  # No initial_method specified
@@ -439,6 +441,7 @@ def test_manual_selection_mode_includes_funds_with_partial_data() -> None:
         },
         sample_split={},
         portfolio={
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "policy": "threshold_hold",
             "selection_mode": "rank",
             "min_funds": 3,

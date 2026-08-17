@@ -43,7 +43,7 @@ def _config() -> Config:
             "out_start": "2020-07",
             "out_end": "2020-12",
         },
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         benchmarks={"spx": "SPX"},
         metrics={},
         export={},

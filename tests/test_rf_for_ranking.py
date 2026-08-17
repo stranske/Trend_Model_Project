@@ -39,7 +39,7 @@ def _make_config(rf_rate_annual: float, rf_override_enabled: bool) -> Config:
             "out_start": "2020-02",
             "out_end": "2020-02",
         },
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         metrics={
             "registry": ["Sharpe"],
             "rf_rate_annual": rf_rate_annual,

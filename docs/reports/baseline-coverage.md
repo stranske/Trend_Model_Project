@@ -1,8 +1,8 @@
 # Baseline coverage manifest
 
-- Input parameters: **167**
-- Exercised by a scenario: **14** (8.4%)
-- Observed read at runtime: **65**
+- Input parameters: **169**
+- Exercised by a scenario: **14** (8.3%)
+- Observed read at runtime: **67**
 
 ## Priority parameters
 
