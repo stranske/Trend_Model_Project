@@ -137,15 +137,25 @@ class AdaptiveBayesWeighting(BaseWeighting):
             w /= w.sum()
         if self.max_w is not None:
             cap = self.max_w
-            w = w.clip(upper=cap)
-            total = w.sum()
-            if total < 1.0:
-                deficit = 1.0 - total
-                room = w[w < cap]
-                if not room.empty:
-                    w.loc[room.index] += deficit / len(room)
-                else:
-                    w /= total
+            if cap * len(w) < 1.0 - 1e-12:
+                # A fully invested portfolio cannot satisfy this cap. Preserve
+                # the historical equal-weight fallback instead of returning a
+                # sub-100% allocation.
+                w[:] = 1.0 / len(w)
+            else:
+                w = w.clip(upper=cap)
+                deficit = 1.0 - float(w.sum())
+                # Each vectorised pass saturates at least one receiver. Repeating
+                # is required because a single equal redistribution can itself
+                # push near-cap weights above the configured limit.
+                while deficit > 1e-12:
+                    room = (cap - w).clip(lower=0.0)
+                    receivers = room > 1e-12
+                    if not bool(receivers.any()):
+                        break
+                    addition = min(deficit / int(receivers.sum()), float(room[receivers].max()))
+                    w.loc[receivers] += np.minimum(addition, room.loc[receivers])
+                    deficit = 1.0 - float(w.sum())
         return pd.DataFrame({"weight": w}, index=candidates.index)
 
     def get_state(self) -> dict[str, Any]:

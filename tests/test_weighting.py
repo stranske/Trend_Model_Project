@@ -42,6 +42,24 @@ def test_single_period_risk_weighting_stays_on_plugin_path() -> None:
     assert _score_weighting_percentages("risk_parity", scores, list(scores.index), {}) is None
 
 
+def test_single_period_adaptive_weighting_respects_feasible_configured_cap() -> None:
+    scores = pd.DataFrame(
+        {"Sharpe": [5.0, 2.4, 2.4, 0.1, 0.1]},
+        index=["FundA", "FundB", "FundC", "FundD", "FundE"],
+    )
+
+    weights = _score_weighting_percentages(
+        "adaptive_bayes",
+        scores,
+        list(scores.index),
+        {"max_w": 0.25},
+    )
+
+    assert weights is not None
+    assert sum(weights.values()) == pytest.approx(100.0)
+    assert max(weights.values()) <= 25.0 + 1e-10
+
+
 def test_score_prop_simple_basic_proportional_weights() -> None:
     data = pd.DataFrame(
         {"Sharpe": [0.5, 1.5], "Other": [1.0, 2.0]},
