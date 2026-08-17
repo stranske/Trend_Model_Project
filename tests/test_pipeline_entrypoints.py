@@ -69,6 +69,20 @@ def test_single_period_cost_model_honours_canonical_fields() -> None:
     assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
 
 
+def test_zero_cost_model_preserves_configured_flat_monthly_cost() -> None:
+    portfolio = {
+        "cost_model": {
+            "per_trade_bps": 0,
+            "half_spread_bps": 0,
+        }
+    }
+
+    assert _resolve_single_period_monthly_cost(
+        portfolio,
+        {"monthly_cost": 0.0025},
+    ) == pytest.approx(0.0025)
+
+
 def test_single_period_uses_nested_weighting_name() -> None:
     portfolio = {"weighting": {"name": "risk_parity"}}
 

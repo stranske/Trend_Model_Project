@@ -160,12 +160,7 @@ def resolve_pipeline_monthly_cost(
     """Resolve the decimal per-period cost sent to the shared analysis pipeline."""
 
     tc_bps, slippage_bps = resolve_portfolio_cost_bps(portfolio_cfg, section_get=section_get)
-    cost_model = section_get(portfolio_cfg, "cost_model", None)
-    cost_values = (
-        section_get(cost_model, "per_trade_bps", None),
-        section_get(cost_model, "half_spread_bps", None),
-    )
-    if any(value is not None for value in cost_values):
+    if tc_bps > 0.0 or slippage_bps > 0.0:
         return (tc_bps + slippage_bps) / 10000.0
     try:
         monthly_cost = float(section_get(run_cfg, "monthly_cost", 0.0) or 0.0)
