@@ -47,8 +47,6 @@ _GLOB_CHARS = {"*", "?", "[", "]"}
 _DEFAULT_BASE = proj_path()
 _DEFAULT_DATE_COLUMN = "Date"
 _DEFAULT_FREQUENCY = "M"
-_DEFAULT_PER_TRADE_COST = 0.0
-_DEFAULT_HALF_SPREAD = 0.0
 
 
 class CoreConfigError(ValueError):
@@ -278,8 +276,16 @@ def validate_core_config(
             raise CoreConfigError(f"portfolio.{removed} was removed; use portfolio.cost_model")
         if tracker is not None:
             tracker.track_validated(f"portfolio.{removed}")
-    cost_model_section = portfolio_section.get("cost_model") or {}
+    cost_model_section = portfolio_section.get("cost_model")
+    if cost_model_section is None:
+        raise CoreConfigError("portfolio.cost_model is required and must be a mapping")
     cost_model = _as_mapping(cost_model_section, field="portfolio.cost_model")
+    missing_cost_fields = sorted(
+        field for field in ("per_trade_bps", "half_spread_bps") if field not in cost_model
+    )
+    if missing_cost_fields:
+        missing = ", ".join(missing_cost_fields)
+        raise CoreConfigError(f"portfolio.cost_model missing required field(s): {missing}")
     for removed in ("bps_per_trade", "slippage_bps"):
         if removed in cost_model:
             raise CoreConfigError(
@@ -288,13 +294,13 @@ def validate_core_config(
         if tracker is not None:
             tracker.track_validated(f"portfolio.cost_model.{removed}")
     per_trade_bps = _coerce_float(
-        cost_model.get("per_trade_bps", _DEFAULT_PER_TRADE_COST),
+        cost_model["per_trade_bps"],
         field="portfolio.cost_model.per_trade_bps",
     )
     if tracker is not None:
         tracker.track_validated("portfolio.cost_model.per_trade_bps")
     half_spread_bps = _coerce_float(
-        cost_model.get("half_spread_bps", _DEFAULT_HALF_SPREAD),
+        cost_model["half_spread_bps"],
         field="portfolio.cost_model.half_spread_bps",
     )
     if tracker is not None:

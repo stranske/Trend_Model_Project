@@ -83,6 +83,25 @@ def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.Monk
     assert cfg.data.csv_path == csv_file.resolve()
 
 
+def test_load_trend_config_preserves_canonical_signals(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    signals = {
+        "window": 63,
+        "lag": 1,
+        "min_periods": None,
+        "zscore": False,
+        "vol_adjust": False,
+        "vol_target": 0.10,
+    }
+    cfg_path = _write_config(tmp_path, csv_file, signals=signals)
+
+    cfg, _ = load_trend_config(cfg_path)
+
+    assert cfg.signals == signals
+    assert cfg.model_dump()["signals"] == signals
+
+
 def test_trend_config_rejects_invalid_frequency(tmp_path: Path) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")

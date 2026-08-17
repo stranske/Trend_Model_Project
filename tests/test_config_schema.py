@@ -79,6 +79,31 @@ def test_validate_core_config_rejects_cost_type(tmp_path: Path) -> None:
         validate_core_config(payload, base_path=tmp_path)
 
 
+@pytest.mark.parametrize(
+    "cost_model",
+    [
+        None,
+        {},
+        {"per_trade_bps": 0.0},
+        {"half_spread_bps": 0.0},
+    ],
+)
+def test_validate_core_config_requires_complete_cost_model(
+    tmp_path: Path,
+    cost_model: dict[str, float] | None,
+) -> None:
+    csv = tmp_path / "returns.csv"
+    csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    payload = _payload(csv)
+    if cost_model is None:
+        payload["portfolio"].pop("cost_model")
+    else:
+        payload["portfolio"]["cost_model"] = cost_model
+
+    with pytest.raises(CoreConfigError, match="cost_model.*required"):
+        validate_core_config(payload, base_path=tmp_path)
+
+
 def test_validate_core_config_allows_managers_glob(tmp_path: Path) -> None:
     data_dir = tmp_path / "inputs"
     data_dir.mkdir()

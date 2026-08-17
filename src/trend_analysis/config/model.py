@@ -628,6 +628,7 @@ class TrendConfig(BaseModel):
     data: DataSettings
     portfolio: PortfolioSettings
     vol_adjust: RiskSettings
+    signals: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="ignore")
 
