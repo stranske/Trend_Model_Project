@@ -108,12 +108,13 @@ def _score_weighting_percentages(
             shrink_tau=float(options.get("shrink_tau", 0.25)),
         )
     else:
+        adaptive_cap = {"max_w": options["max_w"]} if "max_w" in options else {}
         adaptive_weighting = AdaptiveBayesWeighting(
             half_life=int(options.get("half_life", 90)),
             obs_sigma=float(options.get("obs_sigma", 0.25)),
-            max_w=options.get("max_w"),
             prior_mean=options.get("prior_mean", "equal"),
             prior_tau=float(options.get("prior_tau", 1.0)),
+            **adaptive_cap,
         )
         if column not in candidates.columns:
             raise KeyError(column)

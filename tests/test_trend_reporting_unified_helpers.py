@@ -355,6 +355,20 @@ def test_backtest_spec_summary_with_method_and_proxy():
     assert "proxy=SPX" in summary["Regime analysis"]
 
 
+def test_backtest_spec_summary_omits_zero_cost_model() -> None:
+    spec = SimpleNamespace(
+        rank={},
+        metrics=(),
+        regime={},
+        multi_period={},
+        cost_model=SimpleNamespace(bps_per_trade=0.0, slippage_bps=0.0),
+    )
+
+    summary = dict(unified._backtest_spec_summary(spec))
+
+    assert "Cost model" not in summary
+
+
 def test_build_param_summary_exposes_optional_fields():
     config = SimpleNamespace(
         sample_split={"in_start": "2020-01", "out_end": "2021-12"},

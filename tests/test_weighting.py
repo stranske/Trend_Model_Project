@@ -60,6 +60,24 @@ def test_single_period_adaptive_weighting_respects_feasible_configured_cap() -> 
     assert max(weights.values()) <= 25.0 + 1e-10
 
 
+def test_single_period_adaptive_weighting_preserves_default_cap() -> None:
+    scores = pd.DataFrame(
+        {"Sharpe": [8.0, 2.0, 1.0, 0.5, 0.1]},
+        index=["FundA", "FundB", "FundC", "FundD", "FundE"],
+    )
+
+    weights = _score_weighting_percentages(
+        "adaptive_bayes",
+        scores,
+        list(scores.index),
+        {},
+    )
+
+    assert weights is not None
+    assert sum(weights.values()) == pytest.approx(100.0)
+    assert max(weights.values()) <= 20.0 + 1e-10
+
+
 def test_score_prop_simple_basic_proportional_weights() -> None:
     data = pd.DataFrame(
         {"Sharpe": [0.5, 1.5], "Other": [1.0, 2.0]},

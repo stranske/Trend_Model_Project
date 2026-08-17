@@ -435,11 +435,13 @@ def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
         entries.append(("Multi-period frequency", freq))
     model = getattr(spec, "cost_model", None)
     if model is not None:
-        desc = f"{float(getattr(model, 'bps_per_trade', 0.0)):.2f} bps"
+        bps_per_trade = float(getattr(model, "bps_per_trade", 0.0))
         slip = float(getattr(model, "slippage_bps", 0.0))
-        if slip:
-            desc = f"{desc} + {slip:.2f} bps slippage"
-        entries.append(("Cost model", desc))
+        if bps_per_trade or slip:
+            desc = f"{bps_per_trade:.2f} bps"
+            if slip:
+                desc = f"{desc} + {slip:.2f} bps slippage"
+            entries.append(("Cost model", desc))
     return entries
 
 
