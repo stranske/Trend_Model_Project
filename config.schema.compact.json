@@ -1561,33 +1561,6 @@
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
-                "condition_threshold": {
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "diagonal_loading_factor": {
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "safe_mode": {
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.safe_mode.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
                 "shrink_tau": {
                   "default": null,
                   "description": "Shrinkage tau for Bayesian weighting.",
@@ -1595,15 +1568,6 @@
                   "type": [
                     "null",
                     "number"
-                  ]
-                },
-                "shrinkage_method": {
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
                   ]
                 }
               },

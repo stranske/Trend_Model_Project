@@ -1855,36 +1855,6 @@
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
-                "condition_threshold": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "diagonal_loading_factor": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "safe_mode": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.safe_mode.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
                 "shrink_tau": {
                   "constraints": {},
                   "default": null,
@@ -1893,16 +1863,6 @@
                   "type": [
                     "null",
                     "number"
-                  ]
-                },
-                "shrinkage_method": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
                   ]
                 }
               },
