@@ -211,6 +211,17 @@ def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:
     assert expected_active_docs <= root_runtime_files
 
 
+def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
+    """Every scanned surface must trigger the CI job that enforces this contract."""
+
+    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
+    legacy_job_header = gate.split("  legacy-surface:\n", 1)[1].split("    runs-on:", 1)[0]
+
+    assert "needs.detect.result == 'success'" in legacy_job_header
+    assert "is_python_code" not in legacy_job_header
+    assert "is_docs_only" not in legacy_job_header
+
+
 @pytest.mark.parametrize(
     ("arguments", "expected_output"),
     [
