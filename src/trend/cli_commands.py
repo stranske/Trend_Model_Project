@@ -46,15 +46,18 @@ def prepare_command_inputs(
     prepare_config(cfg)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     returns_path = resolve_returns_path(cfg_path, cfg, getattr(args, "returns", None))
+    ingestion_kwargs: dict[str, Any] = {"config": cfg}
+    if getattr(args, "auto_fix_dates", False):
+        ingestion_kwargs.update(auto_fix_dates=True, yes=bool(getattr(args, "yes", False)))
     try:
-        inspect.signature(ensure_dataframe).bind(returns_path, config=cfg)
+        inspect.signature(ensure_dataframe).bind(returns_path, **ingestion_kwargs)
     except (TypeError, ValueError):
         # Keep injected path-only test/extension loaders compatible. The
         # canonical CLI loader accepts ``config`` and applies its ingestion
         # contract before the pipeline sees the frame.
         returns_df = ensure_dataframe(returns_path)
     else:
-        returns_df = ensure_dataframe(returns_path, config=cfg)
+        returns_df = ensure_dataframe(returns_path, **ingestion_kwargs)
     seed = determine_seed(cfg, getattr(args, "seed", None))
     return PreparedCommandInputs(
         cfg_path=cfg_path,
@@ -115,7 +118,7 @@ def run_analysis_command(
     run_pipeline: Callable[..., tuple[Any, str, Path | None]],
     write_artifacts: Callable[..., Path | None],
     print_summary: Callable[[Any, Any], None],
-    finish_structured_log: Callable[[bool, str, Path | None], None],
+    finish_structured_log: Callable[[bool, str, Path | None, Any], None],
     finalize_coverage: Callable[[], None],
 ) -> int:
     """Execute ``trend run`` with all side-effecting dependencies explicit."""
@@ -164,7 +167,7 @@ def run_analysis_command(
         structured_log=not args.no_structured_log,
     )
     print_summary(cfg, result)
-    finish_structured_log(not args.no_structured_log, run_id, log_path)
+    finish_structured_log(not args.no_structured_log, run_id, log_path, result)
     if log_path:
         print(f"Structured log: {log_path}")
     finalize_coverage()

@@ -139,6 +139,89 @@ def test_prepare_command_inputs_passes_loaded_config_to_ingestion() -> None:
     assert seen == {"path": Path("returns.csv"), "config": config}
 
 
+def test_prepare_command_inputs_forwards_schema_date_fix_flags() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(
+        path: Path, *, config: object, auto_fix_dates: bool, yes: bool
+    ) -> pd.DataFrame:
+        seen.update(
+            path=path,
+            config=config,
+            auto_fix_dates=auto_fix_dates,
+            yes=yes,
+        )
+        return pd.DataFrame({"Fund": [0.01]})
+
+    trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(
+            config="config.yml",
+            returns=None,
+            seed=None,
+            auto_fix_dates=True,
+            yes=True,
+        ),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert seen == {
+        "path": Path("returns.csv"),
+        "config": config,
+        "auto_fix_dates": True,
+        "yes": True,
+    }
+
+
+def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = types.SimpleNamespace(data={"missing_policy": "ffill", "missing_limit": 2})
+    fixed = pd.DataFrame(
+        {"Fund": [0.01]},
+        index=pd.DatetimeIndex(["2020-01-31"], name="Date"),
+    )
+    confirmed: dict[str, object] = {}
+    loaded: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        trend_cli,
+        "_confirm_ui_date_fixes",
+        lambda path, *, yes: confirmed.update(path=path, yes=yes),
+    )
+
+    def fake_load_ui_dataset(path: Path, **kwargs: object):
+        loaded.update(path=path, **kwargs)
+        return (
+            fixed,
+            SimpleNamespace(frequency="M"),
+            SimpleNamespace(corrected_dates=1, dropped_rows=0),
+        )
+
+    monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
+
+    result = trend_cli._ensure_dataframe(
+        Path("returns.csv"),
+        config=config,
+        auto_fix_dates=True,
+        yes=True,
+    )
+
+    assert result.columns.tolist() == ["Date", "Fund"]
+    assert confirmed == {"path": Path("returns.csv"), "yes": True}
+    assert loaded == {
+        "path": Path("returns.csv"),
+        "auto_fix_dates": True,
+        "missing_policy": "ffill",
+        "missing_limit": 2,
+    }
+
+
 def test_determine_seed_prefers_override_and_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -335,6 +418,22 @@ def test_print_summary_emits_cache_stats(
     trend_cli._print_summary(cfg, result)
     out = capsys.readouterr().out
     assert "SUMMARY" in out and "Cache statistics" in out
+
+
+def test_finish_structured_log_emits_cache_stats_before_end(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    monkeypatch.setattr(trend_cli, "extract_cache_stats", lambda *_: {"hits": 2})
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, event, _message, **_fields: events.append(event),
+    )
+
+    trend_cli._finish_structured_log(True, "run123", Path("run.jsonl"), DummyResult())
+
+    assert events == ["cache_stats", "end"]
 
 
 def test_write_report_files_creates_expected_outputs(

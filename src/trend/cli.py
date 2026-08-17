@@ -547,7 +547,13 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     return _resolve_relative(Path(csv_path), include_config_roots=True)
 
 
-def _ensure_dataframe(path: Path, *, config: Any | None = None) -> pd.DataFrame:
+def _ensure_dataframe(
+    path: Path,
+    *,
+    config: Any | None = None,
+    auto_fix_dates: bool = False,
+    yes: bool = False,
+) -> pd.DataFrame:
     data_settings = getattr(config, "data", {}) if config is not None else {}
     if isinstance(data_settings, Mapping):
         missing_policy = data_settings.get("missing_policy")
@@ -557,6 +563,28 @@ def _ensure_dataframe(path: Path, *, config: Any | None = None) -> pd.DataFrame:
         missing_policy = getattr(data_settings, "missing_policy", None)
         missing_limit = getattr(data_settings, "missing_limit", None)
         date_column = getattr(data_settings, "date_column", "Date") or "Date"
+    if auto_fix_dates:
+        _confirm_ui_date_fixes(path, yes=yes)
+        try:
+            frame, _, summary = load_ui_dataset(
+                path,
+                auto_fix_dates=True,
+                missing_policy=missing_policy or "drop",
+                missing_limit=missing_limit,
+            )
+        except MarketDataValidationError as exc:
+            details = "\n".join(f"- {issue}" for issue in exc.issues)
+            suffix = f"\n{details}" if details else ""
+            raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
+        changes = []
+        if summary.corrected_dates:
+            changes.append(f"{summary.corrected_dates} date correction(s)")
+        if summary.dropped_rows:
+            changes.append(f"{summary.dropped_rows} row(s) dropped")
+        if changes:
+            print(f"Applied UI-style date fixes: {', '.join(changes)}")
+        return frame.reset_index()
+
     df = load_csv(
         str(path),
         errors="raise",
@@ -829,9 +857,23 @@ def _run_pipeline(
     return result, run_id, log_path
 
 
-def _finish_structured_log(enabled: bool, run_id: str, log_path: Path | None) -> None:
+def _finish_structured_log(
+    enabled: bool,
+    run_id: str,
+    log_path: Path | None,
+    result: RunResult,
+) -> None:
     """Record the terminal event after every run artifact has been written."""
 
+    cache_stats = extract_cache_stats(result.details)
+    if cache_stats:
+        maybe_log_step(
+            enabled,
+            run_id,
+            "cache_stats",
+            "Cache statistics summary",
+            **cache_stats,
+        )
     maybe_log_step(
         enabled,
         run_id,
