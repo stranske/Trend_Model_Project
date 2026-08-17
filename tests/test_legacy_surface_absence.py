@@ -111,7 +111,8 @@ def _text_files(root: Path) -> list[Path]:
 
 
 def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
-    if path.suffix.lower() != ".py":
+    is_extensionless_launcher = path.suffix == "" and path.parent.name == "scripts"
+    if path.suffix.lower() != ".py" and not is_extensionless_launcher:
         return []
     try:
         tree = ast.parse(text, filename=str(path))
@@ -199,9 +200,14 @@ def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path) -> None:
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     launcher = scripts / "trend"
-    launcher.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+    launcher.write_text(
+        "#!/usr/bin/env python\nfrom trend_analysis import cli\n",
+        encoding="utf-8",
+    )
 
     assert launcher in _text_files(tmp_path)
+    offenders = _forbidden_import_offenders(launcher, launcher.read_text(encoding="utf-8"))
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
 def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -> None:
