@@ -83,6 +83,13 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
     "strategy.grid": {"type": ["array", "number", "string", "boolean", "object", "null"]},
 }
 
+# Object fields that the runtime models require whenever their parent section
+# is present. Keep the generated validators aligned with fail-closed loading.
+_REQUIRED_PROPERTIES: dict[str, list[str]] = {
+    "portfolio": ["cost_model"],
+    "portfolio.cost_model": ["half_spread_bps", "per_trade_bps"],
+}
+
 # Manual descriptions for common fields that lack inline comments.
 _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "benchmarks": "Mapping of benchmark labels to column names.",
@@ -526,6 +533,8 @@ def build_schema(
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
+        if path_key in _REQUIRED_PROPERTIES:
+            schema["required"] = _REQUIRED_PROPERTIES[path_key]
         schema["default"] = value
         return schema
 
@@ -551,6 +560,8 @@ def build_schema(
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
+        if path_key in _REQUIRED_PROPERTIES:
+            schema["required"] = _REQUIRED_PROPERTIES[path_key]
         schema["default"] = None
         return schema
 
@@ -622,7 +633,15 @@ def generate_schema(
 def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Create a compact schema for prompt injection."""
 
-    allowed_keys = {"type", "description", "default", "nl_editable", "properties", "items"}
+    allowed_keys = {
+        "type",
+        "description",
+        "default",
+        "nl_editable",
+        "properties",
+        "required",
+        "items",
+    }
     compact: dict[str, Any] = {k: v for k, v in schema.items() if k in allowed_keys}
     if "properties" in schema:
         compact["properties"] = {
