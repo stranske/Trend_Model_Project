@@ -45,8 +45,11 @@ except Exception:  # pragma: no cover - fallback when model unavailable
 
     validate_trend_config = _fallback_validate_trend_config
 
+_SignalSettings: Any
 try:  # pragma: no cover - normal path
-    from trend_analysis.config.model import SignalSettings as _SignalSettings
+    from trend_analysis.config.model import SignalSettings
+
+    _SignalSettings = SignalSettings
 except Exception:  # pragma: no cover - pydantic-free fallback and loader tests
     _SignalSettings = None
 
@@ -194,7 +197,7 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
         raise ValueError("signals must be a dictionary")
     if _SignalSettings is not None:
         validated = _SignalSettings.model_validate(dict(value))
-        return cast(dict[str, Any], validated.model_dump(exclude_none=True))
+        return dict(validated.model_dump(exclude_none=True))
 
     cleaned = dict(value)
     allowed = {"window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
