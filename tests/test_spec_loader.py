@@ -167,7 +167,7 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
             "lag": 2,
             "vol_adjust": False,
             "vol_target": 0.1,
-            "min_periods": -5,
+            "min_periods": None,
         },
         "vol_adjust": {"target_vol": 0.15, "floor_vol": 0.05, "warmup_periods": 0},
         "sample_split": {
@@ -209,6 +209,11 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
     assert spec.backtest.export_directory == (base / "exports").resolve()
     assert spec.backtest.output_path == (base / "report.html").resolve()
     assert spec.backtest.export_formats == ("csv",)
+
+    invalid_payload = dict(payload)
+    invalid_payload["signals"] = {**payload["signals"], "min_periods": -5}
+    with pytest.raises(ValueError, match="signals.min_periods"):
+        load_run_spec_from_mapping(invalid_payload, base_path=base)
 
 
 def test_temporary_cwd_creates_directory(tmp_path: Path) -> None:

@@ -2424,14 +2424,31 @@
       "description": "Canonical time-series momentum signal settings.",
       "nl_editable": true,
       "properties": {
+        "kind": {
+          "constraints": {
+            "enum": [
+              "tsmom",
+              null
+            ]
+          },
+          "default": null,
+          "description": "Canonical signal family. Only time-series momentum is supported.",
+          "enum": [
+            "tsmom",
+            null
+          ],
+          "nl_editable": true,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "lag": {
           "constraints": {
-            "maximum": 10,
             "minimum": 1
           },
           "default": null,
           "description": "Periods to lag signals for causal execution.",
-          "maximum": 10,
           "minimum": 1,
           "nl_editable": true,
           "type": [
@@ -2441,12 +2458,10 @@
         },
         "min_periods": {
           "constraints": {
-            "maximum": 252,
             "minimum": 1
           },
           "default": null,
           "description": "Minimum observations required for a valid signal.",
-          "maximum": 252,
           "minimum": 1,
           "nl_editable": true,
           "type": [
@@ -2466,13 +2481,11 @@
         },
         "vol_target": {
           "constraints": {
-            "maximum": 0.5,
-            "minimum": 0.01
+            "exclusiveMinimum": 0
           },
           "default": null,
           "description": "Target volatility for volatility-adjusted signals.",
-          "maximum": 0.5,
-          "minimum": 0.01,
+          "exclusiveMinimum": 0,
           "nl_editable": true,
           "type": [
             "number",
@@ -2481,13 +2494,11 @@
         },
         "window": {
           "constraints": {
-            "maximum": 252,
-            "minimum": 5
+            "minimum": 1
           },
           "default": null,
           "description": "Rolling window used to compute trend signals.",
-          "maximum": 252,
-          "minimum": 5,
+          "minimum": 1,
           "nl_editable": true,
           "type": [
             "integer",

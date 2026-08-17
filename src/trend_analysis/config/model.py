@@ -626,12 +626,13 @@ class RiskSettings(BaseModel):
 class SignalSettings(BaseModel):
     """Closed canonical trend-signal controls preserved by startup loading."""
 
-    window: int | None = Field(default=None, ge=5, le=252)
-    lag: int | None = Field(default=None, ge=1, le=10)
-    min_periods: int | None = Field(default=None, ge=1, le=252)
+    kind: Literal["tsmom"] | None = None
+    window: int | None = Field(default=None, ge=1)
+    lag: int | None = Field(default=None, ge=1)
+    min_periods: int | None = Field(default=None, ge=1)
     zscore: bool | float | None = None
     vol_adjust: bool | None = None
-    vol_target: float | None = Field(default=None, ge=0.01, le=0.5)
+    vol_target: float | None = Field(default=None, gt=0)
 
     model_config = ConfigDict(extra="forbid")
 

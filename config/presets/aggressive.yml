@@ -22,6 +22,7 @@ metrics:
 
 # Trend signal configuration
 signals:
+    kind: tsmom
     window: 42           # ≈2 months of trading days
     min_periods: 30      # Require at least ~1.5 months of history
     lag: 1

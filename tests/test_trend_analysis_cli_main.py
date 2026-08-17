@@ -188,7 +188,7 @@ def test_main_run_with_config_coverage_prints_report(monkeypatch, tmp_path, caps
     cfg.data = {"csv_path": str(returns_path)}
     config_payload = {
         "data": {"csv_path": str(returns_path)},
-        "portfolio": {"cost_model": {"per_trade_bps": 0.0}, "half_spread_bps": 0},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
     }
 
     monkeypatch.setattr(cli, "load_config", lambda path: cfg)

@@ -29,6 +29,7 @@ risk_target: 0.10
 
 # Trend signal configuration
 signals:
+  kind: tsmom
   window: 63
   min_periods: 42
   lag: 1

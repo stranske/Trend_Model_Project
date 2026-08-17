@@ -158,6 +158,7 @@ def test_schema_validation_accepts_canonical_signals_section() -> None:
     signals_schema = schema["properties"]["signals"]
     payload = {
         "signals": {
+            "kind": "tsmom",
             "window": 63,
             "lag": 1,
             "min_periods": None,

@@ -200,16 +200,18 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
         return dict(validated.model_dump(exclude_none=True))
 
     cleaned = dict(value)
-    allowed = {"window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
+    allowed = {"kind", "window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
     unknown = sorted(set(cleaned) - allowed)
     if unknown:
         raise ValueError(f"signals contains unknown field(s): {', '.join(unknown)}")
 
-    for key, lower, upper in (
-        ("window", 5, 252),
-        ("lag", 1, 10),
-        ("min_periods", 1, 252),
-    ):
+    kind = cleaned.get("kind")
+    if kind is not None and kind != "tsmom":
+        raise ValueError("signals.kind must be 'tsmom'")
+    if kind is None:
+        cleaned.pop("kind", None)
+
+    for key in ("window", "lag", "min_periods"):
         raw = cleaned.get(key)
         if raw is None:
             cleaned.pop(key, None)
@@ -220,8 +222,8 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
             parsed = int(raw)
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"signals.{key} must be an integer") from exc
-        if parsed < lower or parsed > upper:
-            raise ValueError(f"signals.{key} must be between {lower} and {upper}")
+        if parsed < 1:
+            raise ValueError(f"signals.{key} must be at least 1")
         cleaned[key] = parsed
 
     raw_zscore = cleaned.get("zscore")
@@ -244,8 +246,8 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
             parsed_target = float(raw_target)
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError("signals.vol_target must be numeric") from exc
-        if not math.isfinite(parsed_target) or not 0.01 <= parsed_target <= 0.5:
-            raise ValueError("signals.vol_target must be between 0.01 and 0.5")
+        if not math.isfinite(parsed_target) or parsed_target <= 0:
+            raise ValueError("signals.vol_target must be greater than zero")
         cleaned["vol_target"] = parsed_target
 
     if cleaned.get("min_periods") is not None and cleaned.get("window") is not None:

@@ -2014,6 +2014,15 @@
       "description": "Canonical time-series momentum signal settings.",
       "nl_editable": true,
       "properties": {
+        "kind": {
+          "default": null,
+          "description": "Canonical signal family. Only time-series momentum is supported.",
+          "nl_editable": true,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "lag": {
           "default": null,
           "description": "Periods to lag signals for causal execution.",
@@ -2044,6 +2053,7 @@
         "vol_target": {
           "default": null,
           "description": "Target volatility for volatility-adjusted signals.",
+          "exclusiveMinimum": 0,
           "nl_editable": true,
           "type": [
             "number",

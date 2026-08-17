@@ -91,6 +91,7 @@ def test_load_trend_config_preserves_canonical_signals(tmp_path: Path) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     signals = {
+        "kind": "tsmom",
         "window": 63,
         "lag": 1,
         "min_periods": None,
@@ -146,6 +147,24 @@ def test_signal_min_periods_cannot_exceed_window() -> None:
             portfolio={"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
             signals={"window": 5, "min_periods": 6},
         )
+
+
+def test_signal_settings_match_canonical_trend_spec_bounds() -> None:
+    settings = SignalSettings(
+        kind="tsmom",
+        window=1,
+        lag=11,
+        min_periods=1,
+        vol_target=0.001,
+    )
+
+    assert settings.kind == "tsmom"
+    assert settings.window == 1
+    assert settings.lag == 11
+    assert settings.vol_target == pytest.approx(0.001)
+
+    with pytest.raises(ValueError, match="kind"):
+        SignalSettings(kind="cross_sectional")  # type: ignore[arg-type]
 
 
 def test_trend_config_rejects_invalid_frequency(tmp_path: Path) -> None:
