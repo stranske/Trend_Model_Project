@@ -286,6 +286,34 @@ def _resolve_portfolio_weighting(
         return EqualWeight(), False, None, fallback, weighting_name
 
 
+def _configured_custom_weighting(
+    portfolio_cfg: Mapping[str, Any], holdings: list[str]
+) -> pd.DataFrame:
+    """Return configured custom weights aligned to the current holdings."""
+
+    configured = portfolio_cfg.get("custom_weights")
+    if not isinstance(configured, Mapping) or not configured:
+        raise ValueError("portfolio.weighting.name 'custom' requires portfolio.custom_weights")
+
+    values: dict[str, float] = {}
+    for holding in holdings:
+        try:
+            value = float(configured.get(holding, 0.0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"portfolio.custom_weights.{holding} must be numeric") from exc
+        if not np.isfinite(value):
+            raise ValueError(f"portfolio.custom_weights.{holding} must be finite")
+        values[holding] = value
+
+    weights = pd.Series(values, dtype=float)
+    total = float(weights.sum())
+    if total <= NUMERICAL_TOLERANCE_HIGH:
+        raise ValueError(
+            "portfolio.custom_weights must assign positive total weight to selected holdings"
+        )
+    return pd.DataFrame({"weight": weights / total}, index=weights.index)
+
+
 def _portfolio_weighting_config(cfg: Any) -> dict[str, Any]:
     """Return weighting config while preserving the declared root robustness contract."""
 
@@ -2782,6 +2810,8 @@ def _run_threshold_hold_multi_periods(
         compute weights using the risk-based engine (risk_parity, hrp, etc.).
         Otherwise use the configured score-weighting object.
         """
+        if weighting_scheme == "custom":
+            return _configured_custom_weighting(portfolio_for_weighting, holdings)
         if use_risk_weighting and risk_weight_engine is not None:
             # Risk-based weighting requires returns data
             try:

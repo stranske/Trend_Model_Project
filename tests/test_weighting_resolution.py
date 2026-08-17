@@ -6,6 +6,7 @@ import pytest
 import pandas as pd
 
 from trend_analysis.multi_period.engine import (
+    _configured_custom_weighting,
     _portfolio_weighting_config,
     _resolve_portfolio_weighting,
 )
@@ -36,6 +37,17 @@ def test_custom_weighting_is_a_non_plugin_mode() -> None:
     assert risk_engine is None
     assert fallback is None
     assert isinstance(weighting, EqualWeight)
+
+    configured = _configured_custom_weighting(
+        {"custom_weights": {"FundA": 60, "FundB": 40, "FundC": 20}},
+        ["FundA", "FundB"],
+    )
+    assert configured["weight"].to_dict() == pytest.approx({"FundA": 0.6, "FundB": 0.4})
+
+
+def test_custom_weighting_requires_selected_configured_weight() -> None:
+    with pytest.raises(ValueError, match="positive total weight"):
+        _configured_custom_weighting({"custom_weights": {"FundC": 100}}, ["FundA", "FundB"])
 
 
 def test_weighting_name_score_prop_is_reachable() -> None:

@@ -15,6 +15,7 @@ CURRENT_WEIGHTING_GUIDES = (
     Path("docs/phase-2/Agents.md"),
     Path("docs/phase-3/MonteCarlo.md"),
 )
+CURRENT_SIGNAL_GUIDES = (Path("docs/TrendSignalSettings.md"),)
 
 
 def test_active_docs_do_not_reference_removed_runners() -> None:
@@ -47,3 +48,23 @@ def test_current_guides_use_canonical_weighting_shape() -> None:
     ]
 
     assert not offenders, "Current guides use removed weighting shapes:\n" + "\n".join(offenders)
+
+
+def test_current_guides_use_canonical_signal_shape() -> None:
+    forbidden = (
+        "trend_" + "window",
+        "trend_" + "lag",
+        "trend_" + "min_periods",
+        "trend_" + "zscore",
+        "trend_" + "vol_adjust",
+        "trend_" + "vol_target",
+        "signals:\n  " + "trend:",
+    )
+    offenders = [
+        f"{path}: {token}"
+        for path in CURRENT_SIGNAL_GUIDES
+        for token in forbidden
+        if token in path.read_text(encoding="utf-8")
+    ]
+
+    assert not offenders, "Current guides use removed signal shapes:\n" + "\n".join(offenders)
