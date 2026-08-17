@@ -1,0 +1,266 @@
+import re
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+_DRAFT_PR_PHRASE = re.compile(
+    r"\bdraft(?:[-\s]+)(?:prs?|pull(?:[-\s]+)requests?)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_ACTION = re.compile(
+    r"\b(?:bootstrap|convert|create|file|keep|leave|make|mark|open|publish|"
+    r"set|start|submit|turn|use|work(?:ing)?)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_NORMATIVE = re.compile(
+    r"\b(?:allowed|default|enabled|must|required|should)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_PROHIBITION = re.compile(
+    r"\b(?:do\s+not|does\s+not|must\s+not|never|no|not|should\s+not|without)\b",
+    re.IGNORECASE,
+)
+_DRAFT_PR_FORBIDDEN = re.compile(
+    r"\b(?:disabled|forbidden|not\s+allowed|prohibited)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_affirmative_draft_instruction(text: str) -> bool:
+    """Return whether current guidance tells an operator to use a draft PR."""
+
+    for line in text.splitlines():
+        for match in _DRAFT_PR_PHRASE.finditer(line):
+            before = line[max(0, match.start() - 100) : match.start()]
+            after = line[match.end() : match.end() + 60]
+            if before.rstrip().lower().endswith("non-"):
+                continue
+            if _DRAFT_PR_PROHIBITION.search(before) or _DRAFT_PR_FORBIDDEN.search(after):
+                continue
+            if _DRAFT_PR_ACTION.search(before) or _DRAFT_PR_NORMATIVE.search(after):
+                return True
+    return False
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Open a draft PR.",
+        "Open draft PRs for both fixes.",
+        "Create draft pull requests.",
+        "Submit draft-pull-requests for review.",
+        "Draft PRs are required.",
+    ),
+)
+def test_affirmative_draft_instruction_detector_rejects_creation_guidance(text: str) -> None:
+    assert _has_affirmative_draft_instruction(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Do not create a draft PR.",
+        "Never open draft PRs.",
+        "Use a non-draft PR.",
+        "Draft pull requests are prohibited.",
+        "The workflow has no draft-PR input.",
+    ),
+)
+def test_affirmative_draft_instruction_detector_accepts_prohibitions(text: str) -> None:
+    assert not _has_affirmative_draft_instruction(text)
+
+
+def test_retired_local_bootstrap_surfaces_stay_removed() -> None:
+    retired_paths = (
+        ".github/actions/codex-bootstrap-lite/action.yml",
+        "scripts/verify_codex_bootstrap.py",
+        "tests/scripts/test_verify_codex_bootstrap_timestamps.py",
+        "tools/simulate_codex_bootstrap.py",
+        "tests/test_simulate_codex_bootstrap.py",
+        "docs/agent_codex_troubleshooting.md",
+        "docs/codex-simulation.md",
+        "docs/codex_bootstrap_verification.md",
+    )
+
+    assert not [path for path in retired_paths if (ROOT / path).exists()]
+
+
+def test_repo_instructions_require_ready_for_review_pull_requests() -> None:
+    agents = (ROOT / "Agents.md").read_text(encoding="utf-8")
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    facts = (ROOT / "docs/ops/codex-bootstrap-facts.md").read_text(encoding="utf-8")
+
+    assert "verify `isDraft=false` before handoff" in agents
+    assert "Open a draft PR early" not in contributing
+    assert "do not use draft state" in contributing
+    assert "Automation-created pull requests are opened ready for review" in facts
+
+
+def test_active_intake_has_no_draft_control() -> None:
+    intake = (ROOT / ".github/workflows/agents-issue-intake.yml").read_text(encoding="utf-8")
+
+    assert "bridge_draft_pr" not in intake
+    assert "agent_pr_draft" not in intake
+
+
+def test_issue_intake_docs_match_permissive_label_filter() -> None:
+    intake = (ROOT / ".github/workflows/agents-issue-intake.yml").read_text(encoding="utf-8")
+    system_docs = (ROOT / "docs/ci/WORKFLOW_SYSTEM.md").read_text(encoding="utf-8")
+    normalized_docs = " ".join(system_docs.split())
+
+    assert "l.match(/^agents?:([a-z-]+)$/i)" in intake
+    assert "!metadataLabels.has(suffix)" in intake
+    assert "does not validate the suffix against the local agent registry" in normalized_docs
+    assert "registered `agent:*`" not in system_docs
+    assert "registered agent labels" not in system_docs
+
+
+def test_documented_agent_entrypoints_match_workflow_topology() -> None:
+    workflows = ROOT / ".github" / "workflows"
+    dispatchable = (
+        "agents-auto-pilot.yml",
+        "agents-71-codex-belt-dispatcher.yml",
+        "agents-72-codex-belt-worker-dispatch.yml",
+    )
+    for filename in dispatchable:
+        text = (workflows / filename).read_text(encoding="utf-8")
+        assert "workflow_dispatch:" in text, filename
+
+    callable_only = (
+        "agents-72-codex-belt-worker.yml",
+        "agents-73-codex-belt-conveyor.yml",
+    )
+    for filename in callable_only:
+        text = (workflows / filename).read_text(encoding="utf-8")
+        assert "workflow_call:" in text, filename
+        assert "workflow_dispatch:" not in text, filename
+
+    wrapper = (workflows / "agents-72-codex-belt-worker-dispatch.yml").read_text(encoding="utf-8")
+    auto_pilot = (workflows / "agents-auto-pilot.yml").read_text(encoding="utf-8")
+    assert "uses: ./.github/workflows/agents-72-codex-belt-worker.yml" in wrapper
+    assert "workflow_id: 'agents-71-codex-belt-dispatcher.yml'" in auto_pilot
+    assert "workflow_id: 'agents-72-codex-belt-worker-dispatch.yml'" in auto_pilot
+
+    quick_start = (workflows / "README.md").read_text(encoding="utf-8")
+    primary_table = quick_start.split("## Primary Entry Points", maxsplit=1)[1].split(
+        "The old consumer orchestrator", maxsplit=1
+    )[0]
+    assert "`agents-auto-pilot.yml`" in primary_table
+    assert "`agents-72-codex-belt-worker-dispatch.yml`" in primary_table
+    assert "`agents-72-codex-belt-worker.yml`" not in primary_table
+    assert "`agents-73-codex-belt-conveyor.yml`" not in primary_table
+
+    protected_policy = (ROOT / "docs/AGENTS_POLICY.md").read_text(encoding="utf-8")
+    assert "`.github/workflows/agents-auto-pilot.yml`" in protected_policy
+
+
+def test_current_operator_instructions_do_not_restore_retired_orchestrator() -> None:
+    operator_docs = (
+        "Agents.md",
+        "CONTRIBUTING.md",
+        "WORKFLOW_USER_GUIDE.md",
+        ".github/workflows/README.md",
+        "docs/AGENTS_POLICY.md",
+        "docs/CI_SYSTEM_GUIDE.md",
+        "docs/ci/AGENTS_POLICY.md",
+        "docs/WORKFLOW_GUIDE.md",
+        "docs/ci/WORKFLOWS.md",
+        "docs/ci/WORKFLOW_SYSTEM.md",
+        "docs/ci/ISSUE_FORMAT_GUIDE.md",
+        "docs/ops/codex-bootstrap-facts.md",
+        "docs/ops/template-setup.md",
+        "docs/agent-automation.md",
+        "docs/workflow-chatgpt-issue-sync.md",
+        "docs/LABELS.md",
+        "docs/prompts/library.md",
+        "docs/ci_reuse.md",
+        "docs/SETUP_CHECKLIST.md",
+        "docs/keepalive/GoalsAndPlumbing.md",
+        "docs/keepalive/Observability_Contract.md",
+        "NEXT_STEPS_MONITORING.md",
+        ".github/workflows/agents-auto-pilot.yml",
+    )
+
+    retired_tokens = (
+        "agents-70-orchestrator.yml",
+        "reusable-16-agents.yml",
+        "agents-63-issue-intake.yml",
+        "bridge_draft_pr",
+        "agent_pr_draft",
+        "draft_pr",
+        "agents-63",
+        "Agents 63",
+        "agents-pr-meta.yml",
+        "agents-orchestrator.yml",
+        "agents-moderate-connector.yml",
+        "agents-keepalive-branch-sync.yml",
+        "agents-keepalive-dispatch-handler.yml",
+        "agents-debug-issue-event.yml",
+        "PR Meta",
+        "pr_meta_comment",
+        "allow_replay",
+        "raw.githubusercontent.com/stranske/Workflows/v1",
+        "@v1",
+        "agents-keepalive-loop.yml",
+        "agents-pr-meta-v4.yml",
+    )
+    stale = []
+    for relative in operator_docs:
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        matches = [token for token in retired_tokens if token in text]
+        if _has_affirmative_draft_instruction(text):
+            matches.append("affirmative draft-PR instruction")
+        if matches:
+            stale.append((relative, matches))
+
+    assert not stale, f"retired consumer automation remains in: {stale}"
+
+
+def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
+    workflow = (ROOT / ".github/workflows/agents-81-gate-followups.yml").read_text(encoding="utf-8")
+    labels = (ROOT / "docs/LABELS.md").read_text(encoding="utf-8")
+    monitoring = (ROOT / "NEXT_STEPS_MONITORING.md").read_text(encoding="utf-8")
+    keepalive_contracts = (
+        ROOT / "docs/keepalive/GoalsAndPlumbing.md",
+        ROOT / "docs/keepalive/Observability_Contract.md",
+    )
+
+    assert "reusable-codex-run.yml@main" in workflow
+    assert "reusable-claude-run.yml@main" in workflow
+    assert "reusable-cursor-run.yml@main" not in workflow
+    assert "reusable-gemini-run.yml@main" not in workflow
+    assert "no Cursor runner job" in labels
+    assert "no Gemini runner job" in labels
+
+    assert "INPUT_FORCE_RETRY" in workflow
+    assert "github.event.inputs.force_retry" in workflow
+    assert "applying it alone does not set" in monitoring
+    assert "-f force_retry=true" in monitoring
+    for contract in keepalive_contracts:
+        text = contract.read_text(encoding="utf-8")
+        assert "agents-80-pr-event-hub.yml" in text, contract
+        assert "agents-81-gate-followups.yml" in text, contract
+        assert "agents-keepalive-sweep.yml" in text, contract
+
+    retired_dispatch_targets = (
+        "agents-keepalive-loop.yml",
+        "agents-pr-meta-v4.yml",
+    )
+    stale_workflows = []
+    for path in sorted((ROOT / ".github/workflows").glob("*.y*ml")):
+        text = path.read_text(encoding="utf-8")
+        matches = [token for token in retired_dispatch_targets if token in text]
+        if matches:
+            stale_workflows.append((path.relative_to(ROOT).as_posix(), matches))
+
+    assert not stale_workflows, f"retired dispatch targets remain in: {stale_workflows}"
+
+    checklist = (ROOT / "docs/SETUP_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
+    assert checklist.count("both `agent:codex` and `agents:keepalive` labels") == 2
+
+    codeowners = (ROOT / ".github/CODEOWNERS").read_text(encoding="utf-8")
+    assert "agents-70-orchestrator.yml" not in codeowners
+    assert "/.github/workflows/agents-issue-intake.yml" in codeowners

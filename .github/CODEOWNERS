@@ -35,7 +35,9 @@
 /.github/workflows/**               @stranske
 
 # Critical agent workflows require owner approval
-/.github/workflows/agents-63-issue-intake.yml       @stranske
-/.github/workflows/agents-70-orchestrator.yml        @stranske
+/.github/workflows/agents-issue-intake.yml             @stranske
+/.github/workflows/agents-71-codex-belt-dispatcher.yml @stranske
+/.github/workflows/agents-72-codex-belt-worker.yml     @stranske
+/.github/workflows/agents-73-codex-belt-conveyor.yml   @stranske
 /Dockerfile                         @stranske
 /docker-compose.yml                 @stranske

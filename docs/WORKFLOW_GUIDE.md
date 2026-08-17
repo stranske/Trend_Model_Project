@@ -2,8 +2,9 @@
 
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
-remains the required merge check, while **Agents 70 Orchestrator** continues to drive readiness/bootstrap and the
-**Agents 71–73 Codex Belt** automates the queue → branch → PR → merge conveyor for labeled Codex issues. For the executive
+remains the required merge check, while **Agents Issue Intake** is the local bootstrap entry point and the
+**Agents Auto-Pilot** route invokes the dispatchable Agents 71 queue selector and Agents 72 worker wrapper for end-to-end issues.
+Agents 81 owns active post-Gate delivery; the callable-only Agents 73 definition has no local caller. For the executive
 summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
@@ -20,8 +21,8 @@ operational detail for the kept set.
 | `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-11-ci-smoke.yml` |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-47-disable-legacy-workflows.yml`, `maint-50-tool-version-check.yml`, `maint-51-dependency-refresh.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-coverage-guard.yml` |
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
-| `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-guard.yml`, `agents-pr-meta.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-agents-issue-bridge.yml` |
+| `agents-` | Agent automation and reusable components | `agents-issue-intake.yml`, `agents-auto-pilot.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-keepalive-sweep.yml`, `agents-guard.yml` |
+| `reusable-` | Reusable CI composites invoked by local workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
 | `autofix.yml` | CI autofix loop | `autofix.yml` |
 
@@ -63,18 +64,13 @@ _Inline Gate helper_
 - **`health-50-security-scan.yml`** — Security scanning workflow triggered on push, PR, and schedule. Runs vulnerability checks and security audits.
 
 ### Agents & Issues
-- **`agents-63-issue-intake.yml`** — Canonical front door that seeds Codex bootstrap PRs on `agent:codex`/`agents:codex` labels, exposes manual dispatch inputs, and services ChatGPT sync via `workflow_call`.
-- **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator ensuring `agent:codex` issues remain assigned to approved automation accounts.
-- **`agents-70-orchestrator.yml`** — 20-minute cron plus manual dispatch entry point for readiness, Codex bootstrap, diagnostics, verification, and keepalive sweeps. Delegates to `reusable-16-agents.yml` and accepts extended options via `options_json`.
-- **`agents-71-codex-belt-dispatcher.yml`** — Cron + manual dispatcher that selects the next `agent:codex` + `status:ready` issue, prepares the deterministic `codex/issue-*` branch, labels the source issue as in-progress, and repository-dispatches the worker.
-- **`agents-72-codex-belt-worker.yml`** — Repository-dispatch consumer that re-validates labels, ensures the branch diverges from the base (empty commit when needed), and opens or refreshes the Codex automation PR with labels, assignees, and activation comment.
-- **`agents-73-codex-belt-conveyor.yml`** — Gate follower that squash-merges successful belt PRs, deletes the branch, closes the originating issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue keeps moving.
+- **`agents-issue-intake.yml`** — Canonical consumer front door that seeds ready-for-review Codex bootstrap PRs on `agent:codex`/`agents:codex` labels, exposes manual dispatch inputs, and calls the shared Workflows implementation.
+- **`agents-auto-pilot.yml`** — Label/manual end-to-end controller that dispatches Agents 71, then the Agents 72 dispatch wrapper, and monitors the resulting ready-for-review PR.
+- **`agents-71-codex-belt-dispatcher.yml`** — Manual/callable queue selector used by Auto-Pilot to prepare the deterministic `codex/issue-*` branch and mark the issue in progress. It has no cron trigger and does not itself invoke the worker.
+- **`agents-72-codex-belt-worker-dispatch.yml`** — Dispatchable wrapper used by Auto-Pilot and operators to invoke the callable worker.
+- **`agents-72-codex-belt-worker.yml`** — `workflow_call` component that creates or refreshes the ready-for-review automation PR. It is not directly dispatchable.
+- **`agents-73-codex-belt-conveyor.yml`** — `workflow_call` component with no local caller. Do not advertise it as an automatic Gate follower; Agents 81 is the active guarded post-Gate delivery route.
 - **`agents-guard.yml`** (aka Health 45 Agents Guard) — PR workflow that validates agent-related labels and permissions.
-- **`agents-pr-meta.yml`** — PR metadata manager that serializes Codex activation commands and PR body decoration through dedicated jobs sharing a concurrency group keyed by PR number.
-- **`agents-moderate-connector.yml`** — Comment moderation workflow that filters connector-authored comments based on allow/deny lists.
-- **`agents-keepalive-branch-sync.yml`** — Dispatch-triggered utility that syncs PR branches with their base branch (merges base into head).
-- **`agents-keepalive-dispatch-handler.yml`** — Repository dispatch handler for keepalive events.
-- **`agents-debug-issue-event.yml`** — Debug workflow that dumps GitHub context on issue events (labeled, unlabeled, opened, reopened). Useful for troubleshooting label triggers.
 
 ### Autofix
 - **`autofix.yml`** — CI Autofix Loop triggered on `pull_request` and `pull_request_target`. Runs formatting fixes and commits changes back to the PR branch.
@@ -82,9 +78,7 @@ _Inline Gate helper_
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers.
-- **`reusable-16-agents.yml`** — Reusable agent automation stack.
 - **`reusable-18-autofix.yml`** — Autofix harness used by the Gate summary job.
-- **`reusable-agents-issue-bridge.yml`** — Reusable workflow for bridging issues to agent automation, called by `agents-63-issue-intake.yml`.
 
 ### Self-tests
 - **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
@@ -95,12 +89,13 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 - **`pr-14-docs-only.yml`** — Former docs-only fast path superseded by Gate’s internal detection.
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary embedded in the Gate workflow.
-- **Historical consumer wrappers** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
+- **Historical consumer wrappers** — Fully replaced by shared Workflows orchestration and the local intake/belt entry points. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 
 ## Trigger Wiring Tips
+
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes the Gate summary job.
-2. The orchestrator relies on the workflow names, not just filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
+2. Event routers rely on workflow names as well as filenames. Keep `name:` fields synchronized with filenames to avoid missing triggers.
 3. Reusable workflows stay invisible in the Actions tab; top-level consumers should include summary steps for observability.
 
 ### Failure rollup quick reference
@@ -109,20 +104,24 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Escalations apply the `priority: high` label once the same signature fires three times.
 
 ## Agent Operations
-- Use **Agents 70 Orchestrator** for readiness checks, Codex bootstrap, diagnostics, and keepalive sweeps. The **Agents 71–73 Codex Belt** now owns the queue automation loop—dispatcher selects issues, worker opens/refreshes the PR, conveyor merges after Gate, and the dispatcher is re-triggered. Historical consumer shims remain retired (see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md)), and the Agent task issue template still auto-labels issues (`agents`, `agent:codex`) so the bridge can open the branch/PR before the belt takes over.
-- Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
-- Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
+- Apply the registry-backed `agent:codex` label or manually dispatch **Agents Issue Intake** in `agent_bridge` mode. The shared implementation remains in `stranske/Workflows`; do not copy it into this consumer repository.
+- **Agents Auto-Pilot** invokes Agents 71 and the Agents 72 dispatch wrapper for end-to-end issues. Agents 81 handles guarded post-Gate delivery; Agents 73 is not locally invoked.
+- **Agents Keepalive Sweep** periodically re-evaluates stalled non-draft agent PRs through the consolidated gate-followup loop. Labels and lifecycle metadata, not draft state, pause or stage work.
 
 ### Manual dispatch quick steps
-1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
-2. Supply inputs such as `enable_bootstrap: true` and `bootstrap_issues_label: agent:codex` either via dedicated fields or inside `options_json`.
-3. Review the `orchestrate` job summary for readiness tables, bootstrap planner output, verification notes, and links to spawned PRs. Failures provide direct links for triage.
-4. For CLI/API usage, reuse the `params_json` example in [docs/ci/WORKFLOWS.md](ci/WORKFLOWS.md#manual-orchestrator-dispatch) and post it directly—either with `gh workflow run agents-70-orchestrator.yml --raw-field params_json="$(cat orchestrator.json)"` or with a REST call such as `curl -X POST ... '{"ref":"phase-2-dev","inputs":{"params_json":"$(cat orchestrator.json)"}}'`. Export `GITHUB_TOKEN` to a PAT or workflow token that can dispatch workflows before invoking the CLI/API call. Mix in individual overrides only when a flag must diverge from the JSON payload.
+
+1. Open **Actions → Agents Issue Intake → Run workflow**.
+2. Choose `agent_bridge`, supply the issue number, and leave the bridge agent as `codex` unless routing requires another registered agent.
+3. Review the intake summary—or, for `agents:auto-pilot`, the Auto-Pilot, Agents 71, and Agents 72 wrapper summaries—for the spawned ready-for-review PR. Use Agents 81 for the exact-head Gate follow-up state.
+4. For CLI usage, run `gh workflow run agents-issue-intake.yml --field mode=agent_bridge --field issue_number=NUMBER` with a token allowed to dispatch workflows.
 
 ### Troubleshooting signals
-- **Immediate readiness failure** — missing PAT or scope. Inspect the `Authentication` step and rerun with `SERVICE_BOT_PAT`.
-- **Bootstrap skipped** — no labelled issues matched `bootstrap_issues_label`. Add the label and rerun.
+
+- **Immediate readiness failure** — missing PAT or scope. Inspect the intake run and shared Workflows call, then repair the shared source rather than adding a local shim.
+- **Bootstrap skipped** — the issue lacks an assignment-shaped `agent:*` or
+  `agents:*` label, or only carries an excluded metadata label. Add the correct
+  assignment label and rerun intake.
 - **Branch push blocked** — repository protections blocking automation. Grant the PAT required scopes or adjust branch rules.
 
 ## Maintenance Playbook
@@ -135,4 +134,4 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ## Additional References
 - `.github/workflows/README.md` — Architecture snapshot for the CI + agent stack.
 - `docs/ci/WORKFLOWS.md` — Acceptance-criteria checklist for the final workflow set.
-- `docs/agent-automation.md` — Detailed description of the agent orchestrator and options.
+- `docs/agent-automation.md` — Current consumer intake, belt, event-routing, and keepalive topology.

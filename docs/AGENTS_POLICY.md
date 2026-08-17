@@ -1,62 +1,35 @@
 # Agents Workflow Protection Policy
 
-The agents orchestrator and intake workflows are contract-critical automation.
-They must remain available unless a maintainer deliberately overrides the
-protections described below. Legacy consumer shims (Agents 61/62) were fully
-retired; all supported automation now flows through Agents 63 (intake) and
-Agents 70 (orchestrator).
+Trend Model Project is a consumer of the shared automation maintained in
+`stranske/Workflows`. The local contract-critical surfaces are:
 
-## Covered files
+- `.github/workflows/agents-issue-intake.yml`
+- `.github/workflows/agents-auto-pilot.yml`
+- `.github/workflows/agents-71-codex-belt-dispatcher.yml`
+- `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
+- `.github/workflows/agents-72-codex-belt-worker.yml`
+- `.github/workflows/agents-73-codex-belt-conveyor.yml`
+- `.github/workflows/agents-80-pr-event-hub.yml`
+- `.github/workflows/agents-81-gate-followups.yml`
+- `.github/workflows/agents-guard.yml`
 
-- `.github/workflows/agents-63-issue-intake.yml`
-- `.github/workflows/agents-70-orchestrator.yml`
+The consumer-side Agents 70 orchestrator was retired. Do not recreate it or
+route operators to it.
 
-These are the only active Agents entry points. Former consumer wrappers
-(`agents-61-consumer-compat.yml`, `agents-62-consumer.yml`) must not be
-reintroduced; the orchestrator surface replaced them entirely.
+## Change Contract
 
-## Protection layers
+1. Fix shared behavior and consumer templates in `stranske/Workflows` first.
+2. Apply the matching consumer sync or an explicitly source-matched forward
+   fix here; do not introduce a consumer-only fork.
+3. Use the `agents:allow-change` label and obtain the reviews required by
+   CODEOWNERS and branch protection for protected workflow edits.
+4. Keep automation-created pull requests ready for review. Draft state and PR
+   closure are not dependency, staging, stack-order, or capacity controls.
+5. Verify `isDraft=false` before handing off a created or reused automation PR.
 
-1. **CODEOWNERS gate** – the files above are owned by `@stranske`. Pull
-   requests cannot merge changes to them without Code Owner approval. In the
-   default branch protection rule, enable **Require review from Code Owners** so
-   GitHub enforces the restriction automatically.
-2. **Repository ruleset** – create (or update) a ruleset that targets the
-   default branch and blocks deletions or renames of the covered workflows. Use
-   the protected file patterns listed above and set the bypass mode to
-   *Maintainers only* so emergencies still require a deliberate maintainer
-   action. Administrators can provision the ruleset through the repository
-   settings (**Settings → Code security and analysis → Rulesets → New ruleset →
-   Branch**). Capture screenshots of the configuration in the incident log so
-   auditors can confirm the guardrail is in place.
-3. **CI guardrail** – the `Health 45 Agents Guard` check (see
-   `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
-   deletes, or renames a protected file without the required label and
-   approvals. The check documents override steps and prevents merges unless a
-   maintainer explicitly bypasses the branch protection rule. Mark this status
-   check as **required** on the default branch so the enforcement cannot be
-   skipped accidentally.
+Health 45 Agents Guard enforces the protected `agents-*.yml` surface. Emergency
+bypasses require a maintainer, a dedicated PR, and restoration of the guard
+immediately after the change.
 
-## Emergency override procedure
-
-1. Confirm the incident really requires editing or temporarily removing one of
-   the protected workflows.
-2. A maintainer with admin access temporarily adjusts the repository ruleset
-   (or applies a bypass) via **Settings → Code security and analysis → Rulesets**
-   and, if required, toggles the `Health 45 Agents Guard` status check in branch
-   protection.
-3. Apply and review the change in a dedicated pull request. Code Owner approval
-   remains required even when a maintainer performs the edits.
-4. Re-enable the ruleset block and restore the CI guard immediately after the
-   change merges. Document the incident and restoration steps in the associated
-   issue or runbook entry.
-
-## Verification checklist
-
-- The default branch protection lists **Require review from Code Owners** and
-   includes the files above. The `Health 45 Agents Guard` status check is marked as
-   required.
-- The repository ruleset shows the three workflows in its “Protected file
-  patterns” section with **Block deletion** and **Block rename** enabled.
-- A maintainer can describe the override procedure without referencing this
-  document (spot check during ops reviews).
+See [Repo Ops Facts - Agent Bootstrap](ops/codex-bootstrap-facts.md) for the
+operator entry point and shared-source boundary.

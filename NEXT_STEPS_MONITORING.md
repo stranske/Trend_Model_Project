@@ -1,137 +1,70 @@
-# Next Steps: Monitoring Task Appendix Fix
+# Keepalive Monitoring Checklist
 
-## ✅ Completed
+Use this checklist to validate the current consolidated keepalive path. The consumer entry points are
+`.github/workflows/agents-81-gate-followups.yml` for Gate-triggered or manual follow-ups and
+`.github/workflows/agents-keepalive-sweep.yml` for scheduled recovery. Generated consumer workflow
+changes must come from the canonical `stranske/Workflows` source and its sync process.
 
-1. **Root cause identified**: GitHub Actions secret scanner blocks `task_appendix` job output with long/repetitive content
-2. **Immediate fix**: Deduplicated PR #4742 and issue #4735 (16→8 checkboxes)
-3. **Systemic fix PR #1300**: Merged (but had critical issues in review comments)
-4. **Review fixes PR #1306**: Created with 4 critical corrections
-   - Write task_appendix directly in github-script (bypasses output blocking)
-   - Stream file contents (avoid memory limits)
-   - Updated to actions/download-artifact@v7
-   - Mirrored to consumer template
+## 1. Select an active agent PR
 
-## 🔄 In Progress
-
-**Workflows PR #1306**: https://github.com/stranske/Workflows/pull/1306
-- State: OPEN, mergeable
-- CI: Gate running (Health 44 Gate Branch Protection: IN_PROGRESS)
-- Waiting for: CI pass → merge
-
-## 📋 Next Steps
-
-### 1. After PR #1306 Merges
-
-**Wait for template sync to Trend_Model_Project**:
 ```bash
-# Monitor sync PR creation
-gh pr list --search "sync workflow templates" --state open --limit 1
-
-# Or manually trigger sync if needed
-gh workflow run template-sync.yml --repo stranske/Workflows
+gh pr list --label "agents:keepalive" --state open --limit 5
+gh pr view PRNUM --json headRefOid,isDraft,labels,statusCheckRollup
 ```
 
-### 2. Monitor First Keepalive Run with Fix
+The PR must be open and ready for review. Confirm it has one supported concrete route,
+`agent:codex` or `agent:claude`; the current Gate-followup workflow has no Cursor or Gemini runner
+job.
 
-**Find a PR with keepalive activity**:
+## 2. Inspect the current follow-up runs
+
 ```bash
-# List open agent PRs
-gh pr list --label "agent:codex" --state open --limit 5
-
-# Check recent keepalive runs
-gh run list --workflow agents-keepalive-loop.yml --limit 10
+gh run list --workflow agents-81-gate-followups.yml --limit 10
+gh run list --workflow agents-keepalive-sweep.yml --limit 10
 ```
 
-**Check for artifact creation**:
-```bash
-# Get latest keepalive run
-RUN_ID=$(gh run list --workflow agents-keepalive-loop.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+For a specific run, inspect the evaluation and runner jobs:
 
-# Check if artifact was created
-gh api repos/stranske/Trend_Model_Project/actions/runs/$RUN_ID/artifacts | \
-  jq '.artifacts[] | select(.name | startswith("keepalive-task-appendix"))'
+```bash
+gh run view RUN_ID --json headSha,status,conclusion,jobs
+gh run view RUN_ID --log
 ```
 
-### 3. Verify Codex Receives Task List
+The evaluated head must match the PR head. A successful evaluation passes the task appendix directly
+to the selected shared runner; the current wrapper does not publish a task-appendix artifact.
 
-**Download and inspect artifact**:
+## 3. Inspect durable evidence
+
+The Gate-followup summary job publishes a `keepalive-metrics` artifact. Download and inspect it:
+
 ```bash
-# Download artifact from run
-gh run download $RUN_ID --name keepalive-task-appendix-PRNUM
-
-# Check contents
-cat task-appendix.txt
+gh run download RUN_ID --name keepalive-metrics --dir /tmp/keepalive-metrics-RUN_ID
+jq . /tmp/keepalive-metrics-RUN_ID/keepalive-metrics.ndjson
 ```
 
-**Check assembled prompt logs**:
-```bash
-# View "Assemble prompt" step logs
-gh run view $RUN_ID --log | grep -A 20 "Assemble prompt"
+Confirm the PR number, action, stop reason, task totals, and Gate conclusion match the PR's current
+state. Then check the PR's status comment and work log for the same iteration and head.
 
-# Should show: "Streaming task appendix from artifact file"
-# Or: "Reading task appendix from artifact file" (old message)
+## 4. Force one bounded retry when appropriate
+
+The `agent:retry` label is an observability marker; applying it alone does not set the workflow's
+`force_retry` input. Use an explicit dispatch:
+
+```bash
+gh workflow run agents-81-gate-followups.yml \
+  -f pr_number=PRNUM \
+  -f force_retry=true
 ```
 
-### 4. Confirm No Task Drift
+Confirm the dispatched run before removing stale `agent:retry` or `agent:rate-limited` labels. Do not
+use forced retries to bypass a human-owned blocker, an unsupported runner, or a changed PR head.
 
-**Monitor PR commits**:
-```bash
-# Check what files Codex is modifying
-gh pr view PRNUM --json files --jq '.files[].path'
+## 5. Completion checks
 
-# Should match PR tasks (e.g., for turnover caps: simulation files, not cache config)
-```
-
-**Check task completion**:
-```bash
-# Count unchecked tasks over time
-gh pr view PRNUM --json body --jq '.body' | grep -c "^- \[ \]"
-
-# Should decrease as work progresses
-```
-
-## 🛡️ Validation Checklist
-
-After PR #1306 merges and syncs:
-
-- [ ] Template sync PR appears in Trend_Model_Project
-- [ ] Next keepalive run creates `keepalive-task-appendix-*` artifact
-- [ ] Artifact contains expected task list (not empty)
-- [ ] Codex prompt assembly logs show artifact usage
-- [ ] Codex works on correct tasks (matches PR body)
-- [ ] Task checkboxes update as work completes
-- [ ] No more "secret scanner blocking" warnings in logs
-
-## 📊 Known Issues Resolved
-
-| Issue | Old Behavior | New Behavior |
-|-------|--------------|--------------|
-| Secret scanner blocking | Output censored, artifact empty | Direct file write, bypasses output |
-| Memory limits | `appendix_content=$(cat file)` | Stream with `cat file >> output` |
-| Template drift | Consumer template outdated | Mirrored changes included |
-| Action versions | Using v6 | Updated to v7 |
-
-## 🔗 Related Links
-
-- **Blocking issue**: stranske/Trend_Model_Project#4735
-- **Deduplicated content**: stranske/Trend_Model_Project#4742 (closed/merged?)
-- **Original fix**: stranske/Workflows#1300 (merged with issues)
-- **Review fixes**: stranske/Workflows#1306 (open, awaiting merge)
-- **Evidence**: https://github.com/stranske/Trend_Model_Project/actions/runs/21777658244 (secret scanner warning)
-
-## 💡 If Problems Persist
-
-**Symptom**: Artifact still empty
-- Check: Was PR #1306 actually merged?
-- Check: Did template sync complete?
-- Check: Is consumer repo using latest workflow version?
-
-**Symptom**: Still seeing task drift
-- Check: PR body deduplicated? (should be 8 items, not 16)
-- Check: Does artifact contain correct tasks?
-- Check: Are there other duplicate issues (#4735 pattern)?
-
-**Symptom**: Agent working on wrong code
-- Check: Assembled prompt includes "## Run context" section?
-- Check: Task list matches PR body exactly?
-- Compare: Artifact content vs what Codex received
+- The run evaluated the unchanged PR head.
+- The selected runner was Codex or Claude and actually ran, or the summary records a concrete stop
+  reason.
+- `keepalive-metrics` agrees with the PR status comment and current task counts.
+- Changed files remain within the PR's stated scope.
+- Recovery labels do not remain after the recovered state is confirmed.
+- Required checks, review threads, and merge state are checked separately before merge.

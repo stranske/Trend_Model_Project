@@ -6,13 +6,13 @@
 - **Status-Check Hygiene**: Remove or archive any legacy required contexts (e.g., historical "CI" jobs) to prevent stale blockers once Gate is locked in.
 - **Up-to-Date Requirement**: Enforce GitHub's "Require branches to be up to date before merging" toggle to guarantee Gate runs on the current tip of the default branch.
 - **Documentation Impact**: Update contributor onboarding docs (notably `CONTRIBUTING.md`) without disrupting existing workflow guidance.
-- **Validation Strategy**: Use a controlled draft PR (no unintended merges) to exercise both failing and passing Gate scenarios, capturing evidence for the issue record and repo-health automation.
+- **Validation Strategy**: Use a controlled ready-for-review PR with auto-merge disabled to exercise both failing and passing Gate scenarios, then close it without merging after capturing evidence.
 
 ## Acceptance Criteria / Definition of Done
 1. The default branch rule lists Gate as a required status check **and** has "Require branches to be up to date" enabled.
 2. No superseded required checks remain; the rule set only references workflows that still exist (Gate today).
 3. `CONTRIBUTING.md` explicitly states that Gate must pass before merging to the default branch and references the up-to-date requirement.
-4. A validation PR demonstrates the enforcement path: Gate blocks merge while red, then permits merge (or would permit, for draft) after the fix.
+4. A validation PR demonstrates the enforcement path: Gate blocks merge while red, then would permit merge after the fix; the validation PR is closed without merging.
 5. Runbook or planning docs (this file + validation notes) record the configuration steps and evidence so future audits can confirm compliance.
 
 ## Initial Task Checklist
@@ -24,8 +24,8 @@
    - Remove deprecated contexts so only live workflows remain.
 3. **Refresh Documentation**
    - Update `CONTRIBUTING.md` (and linked onboarding snippets if needed) with the Gate requirement and the expectation to refresh stale branches.
-4. **Validate with Draft PR Workflow**
-   - Open a draft PR engineered to fail Gate, capture the merge-block UI, then push a fix to show Gate passing and the block clearing.
+4. **Validate with a Ready-for-Review PR Workflow**
+   - Open a ready-for-review PR with auto-merge disabled, engineer Gate to fail, capture the merge-block UI, then push a fix to show Gate passing and the block clearing.
    - Store screenshots or run logs with the issue or repo-health evidence folder.
 5. **Archive Findings and Tooling State**
    - Record the validation outcome, confirm scheduled enforcement (e.g., `health-44-gate-branch-protection.yml`) observes the new rule, and flag any follow-up automation gaps.
@@ -41,7 +41,7 @@
   applies the rule when the optional `BRANCH_PROTECTION_TOKEN` secret is present, and then **always** runs `--check` with the
   default GitHub token. Drift immediately fails the workflow so repository owners are alerted even when the enforcement token is
   absent. Snapshot artifacts from each run are published for the evidence archive.
-- ✅ **Validation draft PR** – Completed via draft PR [#2583](https://github.com/stranske/Trend_Model_Project/pull/2583).
+- ✅ **Historical validation PR** – Completed via draft PR [#2583](https://github.com/stranske/Trend_Model_Project/pull/2583); current policy requires ready-for-review validation PRs.
    Failing commit `3e21785b17b570495e77601ad1422ee1bbfe0927` produced Gate run [18486687859](https://github.com/stranske/Trend_Model_Project/actions/runs/18486687859)
    with `state: failure`; follow-up commit `6b9cbb9f32a53409a3ddf0e7493e678f5cbd404e` triggered run
    [18486884063](https://github.com/stranske/Trend_Model_Project/actions/runs/18486884063) which passed and cleared the merge block.

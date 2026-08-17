@@ -163,8 +163,8 @@ Prompts for working with the agent automation system.
 2. **List Agent Workflow Runs**
    Check agent-related workflow activity.
    ```
-   gh run list --workflow=agents-70-orchestrator.yml --limit 5
-   gh run list --workflow=agents-pr-meta-v4.yml --limit 5
+   gh run list --workflow=agents-issue-intake.yml --limit 5
+   gh run list --workflow=agents-keepalive-sweep.yml --limit 5
    ```
 
 3. **Check Workflow File Version**

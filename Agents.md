@@ -41,21 +41,26 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 
 ## Automation Entry Points
 
-### Agents 70 Orchestrator
-- **File**: `.github/workflows/agents-70-orchestrator.yml`
-- **Role**: Single automation front door for all agent operations
-- **Triggers**: 20-minute schedule sweep plus manual `workflow_dispatch`
+### Agents Issue Intake
 
-### Agents 63 Issue Intake
-- **File**: `.github/workflows/agents-63-issue-intake.yml`
+- **File**: `.github/workflows/agents-issue-intake.yml`
 - **Role**: Bootstrap Codex PRs on `agent:codex` labeled issues
 - **Triggers**: Issue events (`opened`, `labeled`, `reopened`) plus manual dispatch
 
-### Agents 64 Verify Agent Assignment
-- **File**: `.github/workflows/agents-64-verify-agent-assignment.yml`
-- **Role**: Validates agent assignment before orchestrator proceeds
+### Agents Auto-Pilot and Belt Dispatch
 
-Legacy consumer wrappers were retired. See [docs/archive/ARCHIVE_WORKFLOWS.md](docs/archive/ARCHIVE_WORKFLOWS.md).
+- **Entry points**: `.github/workflows/agents-auto-pilot.yml`,
+  `.github/workflows/agents-71-codex-belt-dispatcher.yml`, and
+  `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
+- **Role**: Auto-Pilot invokes Agents 71 to claim queued issues and the Agents
+  72 wrapper to run the callable worker. Agents 81 owns guarded post-Gate
+  delivery.
+- **Callable only**: `.github/workflows/agents-72-codex-belt-worker.yml` and
+  `.github/workflows/agents-73-codex-belt-conveyor.yml`; the latter currently
+  has no local caller and is not an operator entry point.
+
+The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
+`stranske/Workflows`; do not restore a local replacement.
 
 ---
 
@@ -151,6 +156,9 @@ gh pr view --json state,mergedAt,closed
 ```
 - ❌ Never push to merged/closed PRs
 - ✅ Create a new branch and PR if the original is closed
+- ✅ Open automation-created PRs ready for review and verify `isDraft=false` before handoff
+- ❌ Never use draft state or closure as a dependency, stack-order, staging, or opener-cap control
+- ✅ Represent dependencies and staging with labels, PR-body state, disabled auto-merge, required checks, and exact-head merge guards
 
 ---
 
@@ -193,7 +201,6 @@ Helper functions:
 - Rank-based manager selection mode (`mode: rank`)
 - Blended scoring with z-score normalization
 - Scalar metric memoization (opt-in via `performance.cache.metrics: true`)
-- PR draft toggle for Codex bootstrap (`codex_pr_draft` input)
 - Multi-period Phase-1 style exports
 - Selector and weighting plugin classes
 

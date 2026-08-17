@@ -1,80 +1,47 @@
-# Repo Ops Facts — Codex Bootstrap
+# Repo Ops Facts — Agent Bootstrap
 
-_Last updated: 2026-10-12_
+_Last updated: 2026-08-16_
 
-Issue #2190 collapsed the Codex automation surface to a single orchestrator. Issue #2650 reaffirmed that stance by removing the
-last consumer shim and codifying the issue-bridge → orchestrator hand-off. This page captures the authoritative facts that
-remain true after the cleanup.
+Trend Model Project is a consumer of the shared agent-bootstrap system in
+[`stranske/Workflows`](https://github.com/stranske/Workflows). Do not restore a
+local bootstrap composite action, simulation harness, or duplicate behavior
+guide here.
 
-## Branches and Events
-- Default branch: `phase-2-dev`.
-- Manual dispatches of **Agents 70 Orchestrator** run from the current default branch.
-- The orchestrator continues to create a fresh branch for every bootstrap run; no existing branches are re-used.
+## Source Of Truth
 
-## Trigger Labels
-- Primary issue label: `agent:codex` (case-sensitive). Use it to document that an issue expects Codex handling even though the
-  workflow is manually dispatched.
-- Aliases such as `agents:codex` remain supported and trigger the same automation path.
-- Preferred entry point: open the [Agent task issue template](https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml)
-  so the required `agents` and `agent:codex` labels are applied up front.
-- The template change from Issue #2650 guarantees both labels are present, ensuring the intake workflow triggers and then
-  defers work to `agents-70-orchestrator.yml`.
+- Consumer entry point: `.github/workflows/agents-issue-intake.yml`
+- Shared implementation: `stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main`
+- Shared orchestration: `stranske/Workflows/.github/workflows/reusable-70-orchestrator-*.yml@main`
+- Consumer template and documentation: `stranske/Workflows/templates/consumer-repo/`
 
-## PR Hygiene
-- Codex PRs remain non-draft by default.
-- `@codex start` is posted on the PR body during bootstrap.
-- Automation assigns `chatgpt-codex-connector`; additional assignees may be configured via repository variables.
+The local intake workflow and consumer documentation are sync-managed. Fix
+shared behavior in Workflows first, then let the consumer-sync campaign align
+this repository.
 
-## Tokens & Secrets
-- Token precedence for authoring PRs: `OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`.
-- Workflows avoid token switching inside step-level `if` statements; decisions are made once and forwarded via environment
-  variables to the reusable composite.
+## Pull Request State
 
-## Active Workflows & Actions
-- **Issue intake:** `.github/workflows/agents-63-issue-intake.yml`
-  - Reacts to `agent:codex` / `agents:codex` labels, manual dispatch, and reusable workflow calls.
-  - Creates or reuses Codex bootstrap branches/PRs, posts copyable issue snippets + `@codex start` instructions, and services ChatGPT sync inputs via the same pipeline.
-- **Orchestrator:** `.github/workflows/agents-70-orchestrator.yml`
-  - 20-minute cron plus manual dispatch.
-  - Inputs: readiness toggles, Codex preflight, watchdog controls, issue verification, `options_json` for extended flags.
-  - Calls `.github/workflows/reusable-16-agents.yml` for the actual implementation.
-- **Legacy consumer wrappers:** Former manual shims remain retired. Their history and verification notes are tracked in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md); automation must call the orchestrator instead.
-- **Reusable composite:** `.github/workflows/reusable-16-agents.yml`
-  - Provides readiness probes, Codex bootstrap, verification, and watchdog jobs.
-  - Exposes Markdown + JSON summaries for downstream tooling.
-- **Composite action:** `.github/actions/codex-bootstrap-lite/action.yml`
-  - Handles PAT selection, branch creation (`agents/codex-issue-<num>-<runid>`), marker files, PR authoring, and notification
-    comments.
+- Automation-created pull requests are opened ready for review.
+- Draft state is not a dependency, staging, stack-order, or capacity control.
+- Labels, PR-body lifecycle state, disabled auto-merge, required checks, and
+  exact-head merge guards carry those controls.
+- Before ending a run that creates or changes a pull request, verify it is open
+  and GitHub reports `isDraft=false`.
+- A pre-existing draft is a recovery condition: convert it to ready. Do not
+  close an otherwise valid pull request merely to free an automation slot.
 
- Legacy wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, `agents-44-copilot-readiness.yml`, etc.) remain deleted as
-part of Issue #2190; the label-driven workflow now lands directly in the shared intake front door.
+## Operations
 
-## Quick Index
+1. Apply the registry-backed `agent:*` label required by the issue-intake
+   workflow.
+2. To run intake manually, open **Actions → Agents Issue Intake → Run
+   workflow**, choose `agent_bridge`, and supply the issue number. For the
+   end-to-end issue pipeline, apply `agents:auto-pilot` or manually dispatch
+   **Agents Auto-Pilot**; it invokes Agents 71 and the Agents 72 dispatch
+   wrapper. Agents 73 is callable-only and has no local caller.
+3. Diagnose shared bootstrap failures in Workflows rather than copying its
+   actions or reusable workflows into this repo.
+4. Keep `Agents.md` and `CONTRIBUTING.md` aligned with the ready-for-review
+   invariant.
 
-| Concern | File |
-|---------|------|
-| Agent orchestrator | [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) |
-| Reusable agent stack | [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) |
-| Codex bootstrap composite action | [`.github/actions/codex-bootstrap-lite`](../../.github/actions/codex-bootstrap-lite/action.yml) |
-| Gate workflow | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) |
-| Autofix follower | Gate summary job (`pr-00-gate.yml`, job `summary`) |
-| Failure tracker | Gate summary job (`pr-00-gate.yml`, job `summary`) |
-
-## Operational Notes
-- Run the orchestrator manually to re-bootstrap an issue, perform readiness checks, or trigger watchdog sweeps.
-- Use `options_json` to pass extended flags: diagnostic mode (`off`, `dry-run`, `full`), additional readiness logins, a custom
-  Codex command phrase, or Codex bootstrap toggles (set `enable_bootstrap: true`
-  and optionally `bootstrap_issues_label`).
-- The orchestrator still honours `SERVICE_BOT_PAT` when creating PRs; provide the secret to avoid `github-actions[bot]` authorship.
-- A local dry-run helper (`python tools/simulate_codex_bootstrap.py …`) reproduces the `Find Ready Issues` outputs to confirm the
-  JSON payload parsed by `fromJson(...)` remains well-formed when labels resolve to multiple issues.
-
-## Failure Modes
-| Failure | Mitigation |
-|---------|------------|
-| PAT missing | Orchestrator fails fast unless fallback is explicitly allowed via repository variables. |
-| Requested agent unavailable | Readiness probe flags missing accounts; set `require_all: 'true'` to make the run fail. |
-| Watchdog timeout | Investigate the summary table emitted by the run and manually follow up on stale issues. |
-
-Retain this document as the single source of truth for Codex bootstrap behaviour. Update it whenever inputs, schedules, or
-security posture change.
+Historical bootstrap wrappers and verification notes remain available under
+the repository archives. They are evidence, not active instructions.
