@@ -11,6 +11,7 @@ from trend_analysis.config import (
     load_trend_config,
     validate_trend_config,
 )
+from trend_analysis.pipeline_helpers import _build_trend_spec
 
 
 def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
@@ -45,6 +46,7 @@ def test_load_trend_config_defaults() -> None:
     assert cfg.data.csv_path.exists()
     assert cfg.data.date_column == "Date"
     assert isinstance(cfg, TrendConfig)
+    assert _build_trend_spec(cfg, cfg.vol_adjust) is None
 
 
 @pytest.mark.parametrize(
@@ -98,8 +100,28 @@ def test_load_trend_config_preserves_canonical_signals(tmp_path: Path) -> None:
 
     cfg, _ = load_trend_config(cfg_path)
 
-    assert cfg.signals == signals
-    assert cfg.model_dump()["signals"] == signals
+    assert cfg.signals.window == 63
+    assert cfg.signals.lag == 1
+    assert cfg.signals.vol_target == pytest.approx(0.10)
+    assert cfg.model_dump(exclude_none=True)["signals"] == {
+        key: value for key, value in signals.items() if value is not None
+    }
+    spec = _build_trend_spec(cfg, cfg.vol_adjust)
+    assert spec is not None
+    assert spec.window == 63
+
+
+@pytest.mark.parametrize("signals", [{"trend": {"window": 20}}, {"windw": 20}])
+def test_load_trend_config_rejects_unknown_signal_shapes(
+    tmp_path: Path,
+    signals: dict[str, object],
+) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_path = _write_config(tmp_path, csv_file, signals=signals)
+
+    with pytest.raises(ValueError, match="signals"):
+        load_trend_config(cfg_path)
 
 
 def test_trend_config_rejects_invalid_frequency(tmp_path: Path) -> None:

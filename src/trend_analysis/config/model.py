@@ -10,6 +10,7 @@ entry points and the Streamlit UI before the heavy pipeline code is invoked.
 from __future__ import annotations
 
 import glob
+import math
 import os
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping
@@ -622,13 +623,36 @@ class RiskSettings(BaseModel):
         return warmup
 
 
+class SignalSettings(BaseModel):
+    """Closed canonical trend-signal controls preserved by startup loading."""
+
+    window: int | None = Field(default=None, ge=5, le=252)
+    lag: int | None = Field(default=None, ge=1, le=10)
+    min_periods: int | None = Field(default=None, ge=0, le=252)
+    zscore: bool | float | None = None
+    vol_adjust: bool | None = None
+    vol_target: float | None = Field(default=None, ge=0.01, le=0.5)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("zscore")
+    @classmethod
+    def _validate_zscore(cls, value: bool | float | None) -> bool | float | None:
+        if value is None or isinstance(value, bool):
+            return value
+        parsed = float(value)
+        if not math.isfinite(parsed) or parsed <= 0:
+            raise ValueError("signals.zscore must be true, false, or a positive number.")
+        return parsed
+
+
 class TrendConfig(BaseModel):
     """Subset of configuration validated at application startup."""
 
     data: DataSettings
     portfolio: PortfolioSettings
     vol_adjust: RiskSettings
-    signals: dict[str, Any] = Field(default_factory=dict)
+    signals: SignalSettings = Field(default_factory=SignalSettings)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -712,4 +736,5 @@ __all__ = [
     "DataSettings",
     "PortfolioSettings",
     "RiskSettings",
+    "SignalSettings",
 ]

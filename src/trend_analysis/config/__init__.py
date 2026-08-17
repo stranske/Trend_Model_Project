@@ -1,7 +1,7 @@
 """Configuration package initialization."""
 
 # Re-export commonly used configuration models and helpers
-from .model import TrendConfig, load_trend_config, validate_trend_config
+from .model import SignalSettings, TrendConfig, load_trend_config, validate_trend_config
 from .models import (
     DEFAULTS,
     ColumnMapping,
@@ -45,6 +45,7 @@ __all__ = [
     "ConfigType",
     "DEFAULTS",
     "TrendConfig",
+    "SignalSettings",
     "ConfigPatch",
     "PatchOperation",
     "RiskFlag",
