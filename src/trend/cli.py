@@ -586,13 +586,18 @@ def _ensure_dataframe(
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
         return frame.reset_index()
 
-    df = load_csv(
-        str(path),
-        errors="raise",
-        date_column=str(date_column),
-        missing_policy=missing_policy,
-        missing_limit=missing_limit,
-    )
+    try:
+        df = load_csv(
+            str(path),
+            errors="raise",
+            date_column=str(date_column),
+            missing_policy=missing_policy,
+            missing_limit=missing_limit,
+        )
+    except MarketDataValidationError as exc:
+        details = "\n".join(f"- {issue}" for issue in exc.issues)
+        suffix = f"\n{details}" if details else ""
+        raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
     if df is None:
         raise FileNotFoundError(str(path))
     return df

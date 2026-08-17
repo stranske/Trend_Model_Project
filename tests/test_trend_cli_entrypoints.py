@@ -84,6 +84,23 @@ def test_ensure_dataframe_validates_load(monkeypatch: pytest.MonkeyPatch) -> Non
         trend_cli._ensure_dataframe(Path("missing.csv"))
 
 
+def test_ensure_dataframe_formats_market_data_validation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_validation_error(_path: str, **_kwargs: object) -> pd.DataFrame:
+        raise trend_cli.MarketDataValidationError(
+            "Unable to validate market data", issues=["Date contains malformed values"]
+        )
+
+    monkeypatch.setattr(trend_cli, "load_csv", raise_validation_error)
+
+    with pytest.raises(
+        trend_cli.TrendCLIError,
+        match="Unable to validate market data\\n- Date contains malformed values",
+    ):
+        trend_cli._ensure_dataframe(Path("invalid.csv"))
+
+
 def test_ensure_dataframe_forwards_configured_ingestion_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
