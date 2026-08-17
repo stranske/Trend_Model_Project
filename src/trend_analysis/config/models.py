@@ -414,27 +414,28 @@ if _HAS_PYDANTIC:
                     raise ValueError("lambda_tc must be <= 1")
                 v["lambda_tc"] = lam
             cost_cfg = v.get("cost_model")
-            if isinstance(cost_cfg, dict):
-                missing_cost_keys = {
-                    "per_trade_bps",
-                    "half_spread_bps",
-                } - set(cost_cfg)
-                if missing_cost_keys:
-                    missing = ", ".join(sorted(missing_cost_keys))
-                    raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
-                for key in ("bps_per_trade", "slippage_bps"):
-                    if key in cost_cfg:
-                        raise ValueError(f"portfolio.cost_model.{key} was removed")
-                for key in ("per_trade_bps", "half_spread_bps"):
-                    if key not in cost_cfg:
-                        continue
-                    try:
-                        parsed = float(cost_cfg[key])
-                    except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError(f"cost_model.{key} must be numeric") from exc
-                    if parsed < 0:
-                        raise ValueError(f"cost_model.{key} must be >= 0")
-                    cost_cfg[key] = parsed
+            if not isinstance(cost_cfg, Mapping):
+                raise ValueError("portfolio.cost_model is required and must be a mapping")
+            cost_cfg = dict(cost_cfg)
+            v["cost_model"] = cost_cfg
+            missing_cost_keys = {
+                "per_trade_bps",
+                "half_spread_bps",
+            } - set(cost_cfg)
+            if missing_cost_keys:
+                missing = ", ".join(sorted(missing_cost_keys))
+                raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
+            for key in ("bps_per_trade", "slippage_bps"):
+                if key in cost_cfg:
+                    raise ValueError(f"portfolio.cost_model.{key} was removed")
+            for key in ("per_trade_bps", "half_spread_bps"):
+                try:
+                    parsed = float(cost_cfg[key])
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError(f"cost_model.{key} must be numeric") from exc
+                if parsed < 0:
+                    raise ValueError(f"cost_model.{key} must be >= 0")
+                cost_cfg[key] = parsed
             constraints = v.get("constraints")
             if isinstance(constraints, Mapping) and "max_active" in constraints:
                 raise ValueError(
@@ -655,29 +656,28 @@ else:  # Fallback mode for tests without pydantic
                         raise ValueError("lambda_tc must be <= 1")
                     port["lambda_tc"] = lam
                 cost_cfg = port.get("cost_model")
-                if isinstance(cost_cfg, dict):
-                    missing_cost_keys = {
-                        "per_trade_bps",
-                        "half_spread_bps",
-                    } - set(cost_cfg)
-                    if missing_cost_keys:
-                        missing = ", ".join(sorted(missing_cost_keys))
-                        raise ValueError(
-                            f"portfolio.cost_model missing required field(s): {missing}"
-                        )
-                    for key in ("bps_per_trade", "slippage_bps"):
-                        if key in cost_cfg:
-                            raise ValueError(f"portfolio.cost_model.{key} was removed")
-                    for key in ("per_trade_bps", "half_spread_bps"):
-                        if key not in cost_cfg:
-                            continue
-                        try:
-                            parsed = float(cost_cfg[key])
-                        except Exception as exc:  # pragma: no cover - defensive
-                            raise ValueError(f"cost_model.{key} must be numeric") from exc
-                        if parsed < 0:
-                            raise ValueError(f"cost_model.{key} must be >= 0")
-                        cost_cfg[key] = parsed
+                if not isinstance(cost_cfg, Mapping):
+                    raise ValueError("portfolio.cost_model is required and must be a mapping")
+                cost_cfg = dict(cost_cfg)
+                port["cost_model"] = cost_cfg
+                missing_cost_keys = {
+                    "per_trade_bps",
+                    "half_spread_bps",
+                } - set(cost_cfg)
+                if missing_cost_keys:
+                    missing = ", ".join(sorted(missing_cost_keys))
+                    raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
+                for key in ("bps_per_trade", "slippage_bps"):
+                    if key in cost_cfg:
+                        raise ValueError(f"portfolio.cost_model.{key} was removed")
+                for key in ("per_trade_bps", "half_spread_bps"):
+                    try:
+                        parsed = float(cost_cfg[key])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError(f"cost_model.{key} must be numeric") from exc
+                    if parsed < 0:
+                        raise ValueError(f"cost_model.{key} must be >= 0")
+                    cost_cfg[key] = parsed
                 constraints = port.get("constraints")
                 if isinstance(constraints, Mapping) and "max_active" in constraints:
                     raise ValueError(

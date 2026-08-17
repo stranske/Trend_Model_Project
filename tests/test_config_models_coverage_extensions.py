@@ -52,7 +52,7 @@ def _base_config_mapping() -> dict[str, Any]:
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -292,7 +292,15 @@ def test_fallback_config_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
-        fallback.Config(**{**kwargs, "portfolio": {"max_turnover": 3}})
+        fallback.Config(
+            **{
+                **kwargs,
+                "portfolio": {
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "max_turnover": 3,
+                },
+            }
+        )
 
 
 def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,7 +310,7 @@ def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None
         fallback.load({"version": 123})
 
     data = _base_config_mapping()
-    fallback.validate_trend_config = lambda *_args, **_kwargs: {"version": data["version"]}
+    fallback.validate_trend_config = lambda *_args, **_kwargs: data
     cfg = fallback.load(dict(data))
     assert isinstance(cfg, fallback.Config)
 
@@ -316,7 +324,12 @@ def test_fallback_load_respects_validator_outputs(
 
     class DummyModel:
         def model_dump(self) -> dict[str, Any]:
-            return {"portfolio": {"weights": [0.5, 0.5]}}
+            return {
+                "portfolio": {
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "weights": [0.5, 0.5],
+                }
+            }
 
     fallback.validate_trend_config = lambda *_args, **_kwargs: DummyModel()
     cfg = fallback.load(dict(data))
@@ -324,6 +337,7 @@ def test_fallback_load_respects_validator_outputs(
 
     fallback.validate_trend_config = lambda *_args, **_kwargs: {
         "version": data["version"],
+        "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
         "metrics": {"beta": 2},
     }
     cfg = fallback.load(dict(data))

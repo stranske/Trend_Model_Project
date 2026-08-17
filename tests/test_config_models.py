@@ -69,6 +69,18 @@ def test_missing_required_key_raises():
         models.Config(**cfg_dict)
 
 
+@pytest.mark.parametrize("cost_model", [None, 5])
+def test_config_requires_canonical_cost_model(cost_model):
+    cfg_dict = _sample_config()
+    if cost_model is None:
+        cfg_dict["portfolio"].pop("cost_model")
+    else:
+        cfg_dict["portfolio"]["cost_model"] = cost_model
+
+    with pytest.raises(ValueError, match="cost_model is required and must be a mapping"):
+        models.Config(**cfg_dict)
+
+
 def test_invalid_version_type_raises():
     cfg_dict = _sample_config()
     cfg_dict["version"] = 123  # type: ignore[assignment]

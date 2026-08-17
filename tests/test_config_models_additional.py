@@ -208,7 +208,11 @@ def test_load_accepts_config_instance(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_load_merges_model_dump(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _base_config()
-    cfg["portfolio"] = {"rebalance_calendar": "NYSE", "max_turnover": 0.5}
+    cfg["portfolio"] = {
+        "rebalance_calendar": "NYSE",
+        "max_turnover": 0.5,
+        "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+    }
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
 
     class DummyModel:
@@ -219,7 +223,14 @@ def test_load_merges_model_dump(monkeypatch: pytest.MonkeyPatch) -> None:
             return self._payload
 
     def return_model(data: dict[str, object], *, base_path: Path) -> DummyModel:
-        return DummyModel({"portfolio": {"max_turnover": 0.9}})
+        return DummyModel(
+            {
+                "portfolio": {
+                    "max_turnover": 0.9,
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                }
+            }
+        )
 
     return_model.__module__ = "trend_analysis.config.tests"
     monkeypatch.setattr(models, "validate_trend_config", return_model)

@@ -64,7 +64,11 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
     """``Config`` in fallback mode should surface sensible defaults."""
 
     Config = fallback_models.Config  # type: ignore[attr-defined]
-    cfg = Config(version="1.2.3")
+    with pytest.raises(ValueError, match="cost_model is required and must be a mapping"):
+        Config(version="1.2.3")
+
+    cost_model = {"per_trade_bps": 0, "half_spread_bps": 0}
+    cfg = Config(version="1.2.3", portfolio={"cost_model": cost_model})
 
     assert cfg.version == "1.2.3"
     # Defaults from SimpleBaseModel should populate the dictionary sections.
@@ -73,13 +77,13 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
         "preprocessing",
         "vol_adjust",
         "sample_split",
-        "portfolio",
         "metrics",
         "export",
         "performance",
         "run",
     ]:
         assert getattr(cfg, field) == {}
+    assert cfg.portfolio == {"cost_model": cost_model}
     # Optional/nullable defaults
     assert cfg.robustness == {}
     assert cfg.model_dump()["robustness"] == {}
@@ -97,7 +101,15 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
             {"portfolio": {"cost_model": {"per_trade_bps": -0.1, "half_spread_bps": 0}}},
             "cost_model.per_trade_bps must be >= 0",
         ),
-        ({"portfolio": {"max_turnover": 3.5}}, "max_turnover must be <= 2.0"),
+        (
+            {
+                "portfolio": {
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "max_turnover": 3.5,
+                }
+            },
+            "max_turnover must be <= 2.0",
+        ),
     ],
 )
 def test_fallback_config_validation_errors(
@@ -176,7 +188,7 @@ def test_load_merges_output_settings(monkeypatch: pytest.MonkeyPatch) -> None:
             "preprocessing": {},
             "vol_adjust": {},
             "sample_split": {},
-            "portfolio": {},
+            "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
             "benchmarks": {},
             "metrics": {},
             "export": {"formats": "csv"},
@@ -213,7 +225,7 @@ def test_load_without_pydantic_when_model_cached(
             "preprocessing": {},
             "vol_adjust": {},
             "sample_split": {},
-            "portfolio": {},
+            "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
             "benchmarks": {},
             "metrics": {},
             "export": {},
