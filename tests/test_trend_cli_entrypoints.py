@@ -73,11 +73,70 @@ def test_resolve_returns_path_requires_csv(tmp_path: Path) -> None:
 
 def test_ensure_dataframe_validates_load(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = pd.DataFrame({"a": [1]})
-    monkeypatch.setattr(trend_cli, "load_csv", lambda path: frame if "ok" in path else None)
+    monkeypatch.setattr(
+        trend_cli,
+        "load_csv",
+        lambda path, **_kwargs: frame if "ok" in path else None,
+    )
     assert trend_cli._ensure_dataframe(Path("ok.csv")).equals(frame)
 
     with pytest.raises(FileNotFoundError):
         trend_cli._ensure_dataframe(Path("missing.csv"))
+
+
+def test_ensure_dataframe_forwards_configured_ingestion_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    frame = pd.DataFrame({"Timestamp": ["2020-01-31"], "Fund": [0.01]})
+
+    def fake_load_csv(path: str, **kwargs: object) -> pd.DataFrame:
+        captured["path"] = path
+        captured.update(kwargs)
+        return frame
+
+    monkeypatch.setattr(trend_cli, "load_csv", fake_load_csv)
+    config = types.SimpleNamespace(
+        data={
+            "date_column": "Timestamp",
+            "missing_policy": {"default": "ffill", "Fund": "zero"},
+            "missing_limit": {"default": 2},
+        }
+    )
+
+    result = trend_cli._ensure_dataframe(Path("configured.csv"), config=config)
+
+    assert result is frame
+    assert captured == {
+        "path": "configured.csv",
+        "errors": "raise",
+        "date_column": "Timestamp",
+        "missing_policy": {"default": "ffill", "Fund": "zero"},
+        "missing_limit": {"default": 2},
+    }
+
+
+def test_prepare_command_inputs_passes_loaded_config_to_ingestion() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(path: Path, *, config: object) -> pd.DataFrame:
+        seen["path"] = path
+        seen["config"] = config
+        return pd.DataFrame({"Fund": [0.01]})
+
+    prepared = trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(config="config.yml", returns=None, seed=None),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert prepared.returns_df.equals(pd.DataFrame({"Fund": [0.01]}))
+    assert seen == {"path": Path("returns.csv"), "config": config}
 
 
 def test_determine_seed_prefers_override_and_env(

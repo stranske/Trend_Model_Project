@@ -547,11 +547,23 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     return _resolve_relative(Path(csv_path), include_config_roots=True)
 
 
-def _ensure_dataframe(path: Path) -> pd.DataFrame:
-    try:
-        df = load_csv(str(path), errors="raise")
-    except TypeError:
-        df = load_csv(str(path))
+def _ensure_dataframe(path: Path, *, config: Any | None = None) -> pd.DataFrame:
+    data_settings = getattr(config, "data", {}) if config is not None else {}
+    if isinstance(data_settings, Mapping):
+        missing_policy = data_settings.get("missing_policy")
+        missing_limit = data_settings.get("missing_limit")
+        date_column = data_settings.get("date_column", "Date") or "Date"
+    else:
+        missing_policy = getattr(data_settings, "missing_policy", None)
+        missing_limit = getattr(data_settings, "missing_limit", None)
+        date_column = getattr(data_settings, "date_column", "Date") or "Date"
+    df = load_csv(
+        str(path),
+        errors="raise",
+        date_column=str(date_column),
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+    )
     if df is None:
         raise FileNotFoundError(str(path))
     return df

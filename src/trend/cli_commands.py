@@ -9,6 +9,7 @@ the parser front door.
 from __future__ import annotations
 
 import argparse
+import inspect
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ def prepare_command_inputs(
     prepare_config: Callable[[Any], None],
     ensure_run_spec: Callable[..., Any],
     resolve_returns_path: Callable[..., Path],
-    ensure_dataframe: Callable[[Path], Any],
+    ensure_dataframe: Callable[..., Any],
     determine_seed: Callable[[Any, int | None], int],
 ) -> PreparedCommandInputs:
     """Load the shared run/report inputs outside the parser front door."""
@@ -45,7 +46,15 @@ def prepare_command_inputs(
     prepare_config(cfg)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     returns_path = resolve_returns_path(cfg_path, cfg, getattr(args, "returns", None))
-    returns_df = ensure_dataframe(returns_path)
+    try:
+        inspect.signature(ensure_dataframe).bind(returns_path, config=cfg)
+    except (TypeError, ValueError):
+        # Keep injected path-only test/extension loaders compatible. The
+        # canonical CLI loader accepts ``config`` and applies its ingestion
+        # contract before the pipeline sees the frame.
+        returns_df = ensure_dataframe(returns_path)
+    else:
+        returns_df = ensure_dataframe(returns_path, config=cfg)
     seed = determine_seed(cfg, getattr(args, "seed", None))
     return PreparedCommandInputs(
         cfg_path=cfg_path,
