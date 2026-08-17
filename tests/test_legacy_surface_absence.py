@@ -123,11 +123,22 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
     if path.suffix.lower() == ".ipynb":
         try:
             notebook = json.loads(text)
-            code_units = [
-                NOTEBOOK_TRANSFORMER.transform_cell("".join(cell.get("source", [])))
-                for cell in notebook.get("cells", [])
-                if cell.get("cell_type") == "code"
-            ]
+            code_units = []
+            for cell in notebook.get("cells", []):
+                if cell.get("cell_type") != "code":
+                    continue
+                source = "".join(cell.get("source", []))
+                code_units.append(NOTEBOOK_TRANSFORMER.transform_cell(source))
+                # IPython wraps a ``%%`` cell-magic body in a string passed to
+                # ``run_cell_magic``. Parse that body too, otherwise executable
+                # imports inside it are invisible to the AST scan.
+                lines = source.splitlines(keepends=True)
+                first_content = next(
+                    (index for index, line in enumerate(lines) if line.strip()),
+                    None,
+                )
+                if first_content is not None and lines[first_content].lstrip().startswith("%%"):
+                    code_units.append("".join(lines[first_content + 1 :]))
         except (AttributeError, TypeError, ValueError):
             return []
     elif path.suffix.lower() != ".py" and not is_extensionless_launcher:
@@ -349,6 +360,31 @@ def test_notebook_assignment_and_help_escapes_cannot_hide_later_import(
                         "source": [
                             "files = !ls\n",
                             "value?\n",
+                            "from trend_analysis import cli\n",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_cell_magic_body_cannot_hide_retired_import(tmp_path: Path) -> None:
+    """Cell-magic bodies remain executable Python after IPython wrapping."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "%%time\n",
                             "from trend_analysis import cli\n",
                         ],
                     }
