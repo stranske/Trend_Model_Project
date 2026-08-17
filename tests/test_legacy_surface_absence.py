@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import subprocess
 import sys
@@ -117,7 +118,17 @@ def _text_files(root: Path) -> list[Path]:
 
 def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
     is_extensionless_launcher = path.suffix == "" and path.parent.name == "scripts"
-    if path.suffix.lower() != ".py" and not is_extensionless_launcher:
+    if path.suffix.lower() == ".ipynb":
+        try:
+            notebook = json.loads(text)
+            text = "\n".join(
+                "".join(cell.get("source", []))
+                for cell in notebook.get("cells", [])
+                if cell.get("cell_type") == "code"
+            )
+        except (AttributeError, TypeError, ValueError):
+            return []
+    elif path.suffix.lower() != ".py" and not is_extensionless_launcher:
         return []
     try:
         tree = ast.parse(text, filename=str(path))
@@ -266,6 +277,28 @@ def test_active_notebooks_remain_in_text_scan() -> None:
     assert active_notebooks
     assert active_notebooks <= scanned_notebooks
     assert not any(_is_archived(path) for path in scanned_notebooks)
+
+
+def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
+    """Executable notebook cells must receive the same import gate as Python."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": ["from trend_analysis import cli\n"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
 def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
