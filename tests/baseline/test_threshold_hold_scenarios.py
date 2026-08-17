@@ -623,17 +623,35 @@ def test_zscore_threshold_selects_shallowest_drawdown_magnitudes_golden(
 
 
 @pytest.mark.parametrize(
-    ("metric", "metric_values"),
+    ("metric", "metric_values", "expected_funds"),
     [
-        ("MaxDrawdown", {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0}),
-        ("MaxDrawdown", {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0}),
-        ("Volatility", {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0}),
+        (
+            "MaxDrawdown",
+            {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0},
+            ["A", "D"],
+        ),
+        (
+            "MaxDrawdown",
+            {"A": 0.0, "B": -5.0, "C": -4.0, "D": -1.0, "E": -2.0},
+            ["A", "D"],
+        ),
+        (
+            "Volatility",
+            {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0},
+            ["A", "D"],
+        ),
+        (
+            "Sharpe",
+            {"A": 0.0, "B": 5.0, "C": 4.0, "D": 1.0, "E": 2.0},
+            ["B", "C"],
+        ),
     ],
 )
-def test_order_based_lower_is_better_raw_and_zscore_agree(
+def test_order_based_metric_transforms_preserve_direction(
     monkeypatch: pytest.MonkeyPatch,
     metric: str,
     metric_values: dict[str, float],
+    expected_funds: list[str],
 ) -> None:
     fallback = {fund: 0.0 for fund in metric_values}
     _patch_scenario(
@@ -644,7 +662,7 @@ def test_order_based_lower_is_better_raw_and_zscore_agree(
     )
 
     selections: dict[str, list[str]] = {}
-    for transform in ("raw", "zscore"):
+    for transform in ("raw", "zscore", "rank"):
         cfg = ThresholdScenarioConfig()
         cfg.portfolio["rank"].update(
             {
@@ -658,7 +676,7 @@ def test_order_based_lower_is_better_raw_and_zscore_agree(
         result = engine.run(cfg, df=_returns_frame())[0]
         selections[transform] = result["selected_funds"]
 
-    assert selections == {"raw": ["A", "D"], "zscore": ["A", "D"]}
+    assert selections == {transform: expected_funds for transform in ("raw", "zscore", "rank")}
 
 
 def test_top_percent_seed_golden(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -414,6 +414,7 @@ def _apply_transform(
     series: pd.Series,
     *,
     mode: str = "raw",
+    ascending: bool = False,
     window: int | None = None,
     rank_pct: float | None = None,
     ddof: int = 0,
@@ -423,6 +424,7 @@ def _apply_transform(
     Parameters
     ----------
     mode      : 'raw' | 'rank' | 'percentile' | 'zscore'
+    ascending : whether smaller raw metric values are better
     window    : trailing periods for z‑score (ignored otherwise)
     rank_pct  : top‑X% mask when mode == 'percentile'
     ddof      : degrees of freedom for std in z‑score
@@ -431,13 +433,13 @@ def _apply_transform(
         return series
 
     if mode == "rank":
-        return series.rank(ascending=False, pct=False)
+        return series.rank(ascending=ascending, pct=False)
 
     if mode == "percentile":
         if rank_pct is None:
             raise ValueError("rank_pct must be set for percentile transform")
         k = max(int(round(len(series) * rank_pct)), 1)
-        mask = series.rank(ascending=False, pct=False) <= k
+        mask = series.rank(ascending=ascending, pct=False) <= k
         return series.where(mask, np.nan)
 
     if mode == "zscore":
@@ -594,6 +596,7 @@ def rank_select_funds(
     scores = _apply_transform(
         scores,
         mode=transform,
+        ascending=ranking_sort_ascending(metric_name),
         window=zscore_window,
         ddof=zscore_ddof,
         rank_pct=rank_pct,

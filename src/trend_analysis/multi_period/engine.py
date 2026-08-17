@@ -2555,7 +2555,12 @@ def _run_threshold_hold_multi_periods(
                 score_col = str(score_frame.columns[0])
             scores = normalize_metric_scores(score_frame[score_col], score_by)
 
-        if transform == "zscore":
+        if transform == "rank":
+            scores = scores.rank(
+                ascending=ranking_sort_ascending(score_by),
+                pct=False,
+            )
+        elif transform == "zscore":
             mu, sigma = scores.mean(), scores.std(ddof=0)
             if sigma > 0:
                 scores = (scores - mu) / sigma
@@ -3120,7 +3125,12 @@ def _run_threshold_hold_multi_periods(
                             scores = normalize_metric_scores(score_frame[score_col], rank_score_by)
 
                         # Apply transform if zscore
-                        if rank_transform == "zscore":
+                        if rank_transform == "rank":
+                            scores = scores.rank(
+                                ascending=ranking_sort_ascending(rank_score_by),
+                                pct=False,
+                            )
+                        elif rank_transform == "zscore":
                             mu, sigma = scores.mean(), scores.std(ddof=0)
                             if sigma > 0:
                                 scores = (scores - mu) / sigma
