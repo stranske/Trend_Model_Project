@@ -7,6 +7,7 @@ from trend.diagnostics import DiagnosticResult
 from trend_analysis import pipeline_entrypoints
 from trend_analysis.data import load_csv
 from trend_analysis.io.market_data import MarketDataValidationError
+from trend_analysis.io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from trend_analysis.multi_period import engine as multi_period_engine
 from trend_analysis.multi_period import loaders as multi_period_loaders
 
@@ -95,6 +96,25 @@ def test_load_csv_rejects_missing_configured_date_column(tmp_path):
 
     with pytest.raises(MarketDataValidationError, match="Timestamp"):
         load_csv(str(csv_path), errors="raise", date_column="Timestamp")
+
+
+def test_ui_date_repair_honors_configured_date_column(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Timestamp,ManagerA\n" "2024-01-31,0.01\n" "2024-02-30,0.02\n" "2024-03-31,0.03\n"
+    )
+
+    issues = inspect_ui_date_issues(csv_path, date_column="Timestamp")
+    frame, _, summary = load_ui_dataset(
+        csv_path,
+        auto_fix_dates=True,
+        date_column="Timestamp",
+    )
+
+    assert len(issues.corrections) == 1
+    assert summary.corrected_dates == 1
+    assert frame.index.name == "Timestamp"
+    assert frame.index[1] == pd.Timestamp("2024-02-29")
 
 
 def test_accepts_keyword_is_conservative_when_signature_fails():

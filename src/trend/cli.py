@@ -564,11 +564,12 @@ def _ensure_dataframe(
         missing_limit = getattr(data_settings, "missing_limit", None)
         date_column = getattr(data_settings, "date_column", "Date") or "Date"
     if auto_fix_dates:
-        _confirm_ui_date_fixes(path, yes=yes)
+        _confirm_ui_date_fixes(path, yes=yes, date_column=str(date_column))
         try:
             frame, _, summary = load_ui_dataset(
                 path,
                 auto_fix_dates=True,
+                date_column=str(date_column),
                 missing_policy=missing_policy or "drop",
                 missing_limit=missing_limit,
             )
@@ -668,9 +669,14 @@ def _should_handle_as_ui_config(path: Path) -> bool:
     return "model_state" in payload_any or _looks_like_model_state(payload_any)
 
 
-def _confirm_ui_date_fixes(data_path: Path, *, yes: bool) -> None:
+def _confirm_ui_date_fixes(
+    data_path: Path,
+    *,
+    yes: bool,
+    date_column: str = "Date",
+) -> None:
     try:
-        issues = inspect_ui_date_issues(data_path)
+        issues = inspect_ui_date_issues(data_path, date_column=date_column)
     except MarketDataValidationError as exc:
         details = "\n".join(f"- {issue}" for issue in exc.issues)
         suffix = f"\n{details}" if details else ""

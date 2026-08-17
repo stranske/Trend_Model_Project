@@ -17,7 +17,22 @@ ARCHIVE_ROOTS = (
     REPO_ROOT / "docs" / "keepalive",
     REPO_ROOT / "notebooks" / "old",
 )
-TEXT_SUFFIXES = {".cfg", ".ini", ".md", ".py", ".rst", ".sh", ".toml", ".txt", ".yaml", ".yml"}
+TEXT_SUFFIXES = {
+    ".cfg",
+    ".cjs",
+    ".ini",
+    ".js",
+    ".md",
+    ".mjs",
+    ".py",
+    ".rst",
+    ".sh",
+    ".toml",
+    ".ts",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
 ROOT_EXTENSIONLESS_RUNTIME_FILES = {"Dockerfile", "Makefile"}
 # This is preserved review evidence, not an operator, build, or runtime surface.
 ROOT_HISTORY_TEXT_FILES = {REPO_ROOT / "review-suggested-issues.md"}
@@ -75,7 +90,12 @@ def _is_archived(path: Path) -> bool:
 
 
 def _include_text_file(path: Path) -> bool:
-    if not path.is_file() or "__pycache__" in path.parts or _is_archived(path):
+    if (
+        not path.is_file()
+        or "__pycache__" in path.parts
+        or "node_modules" in path.parts
+        or _is_archived(path)
+    ):
         return False
     if path.suffix.lower() in TEXT_SUFFIXES:
         return True
@@ -199,11 +219,14 @@ def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -
     helper = tmp_path / ".github" / "scripts" / "issue_format.py"
     helper.parent.mkdir(parents=True)
     helper.write_text("from trend import cli\n", encoding="utf-8")
+    action_helper = tmp_path / ".github" / "actions" / "path-classifier" / "classify.js"
+    action_helper.write_text("const { execFile } = require('child_process');\n", encoding="utf-8")
 
     assert workflow in _text_files(tmp_path / ".github" / "workflows")
     assert tool in _text_files(tmp_path / "tools")
     assert action in _text_files(tmp_path / ".github" / "actions")
     assert helper in _text_files(tmp_path / ".github" / "scripts")
+    assert action_helper in _text_files(tmp_path / ".github" / "actions")
 
 
 def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:

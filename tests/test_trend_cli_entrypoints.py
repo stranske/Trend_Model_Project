@@ -181,10 +181,16 @@ def test_prepare_command_inputs_forwards_schema_date_fix_flags() -> None:
 def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = types.SimpleNamespace(data={"missing_policy": "ffill", "missing_limit": 2})
+    config = types.SimpleNamespace(
+        data={
+            "date_column": "Timestamp",
+            "missing_policy": "ffill",
+            "missing_limit": 2,
+        }
+    )
     fixed = pd.DataFrame(
         {"Fund": [0.01]},
-        index=pd.DatetimeIndex(["2020-01-31"], name="Date"),
+        index=pd.DatetimeIndex(["2020-01-31"], name="Timestamp"),
     )
     confirmed: dict[str, object] = {}
     loaded: dict[str, object] = {}
@@ -192,7 +198,11 @@ def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
     monkeypatch.setattr(
         trend_cli,
         "_confirm_ui_date_fixes",
-        lambda path, *, yes: confirmed.update(path=path, yes=yes),
+        lambda path, *, yes, date_column: confirmed.update(
+            path=path,
+            yes=yes,
+            date_column=date_column,
+        ),
     )
 
     def fake_load_ui_dataset(path: Path, **kwargs: object):
@@ -212,11 +222,16 @@ def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
         yes=True,
     )
 
-    assert result.columns.tolist() == ["Date", "Fund"]
-    assert confirmed == {"path": Path("returns.csv"), "yes": True}
+    assert result.columns.tolist() == ["Timestamp", "Fund"]
+    assert confirmed == {
+        "path": Path("returns.csv"),
+        "yes": True,
+        "date_column": "Timestamp",
+    }
     assert loaded == {
         "path": Path("returns.csv"),
         "auto_fix_dates": True,
+        "date_column": "Timestamp",
         "missing_policy": "ffill",
         "missing_limit": 2,
     }
