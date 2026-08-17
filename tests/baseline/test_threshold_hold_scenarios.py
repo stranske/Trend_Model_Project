@@ -480,7 +480,7 @@ def test_threshold_liquidation_to_cash_charges_full_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
-    cfg.portfolio["transaction_cost_bps"] = 100.0
+    cfg.portfolio["cost_model"]["per_trade_bps"] = 100.0
     cfg.portfolio["rank"].update(
         {
             "inclusion_approach": "threshold",

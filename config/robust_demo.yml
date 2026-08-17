@@ -78,11 +78,6 @@ portfolio:
       threshold: 0.5
   weighting:
     name: robust_mv  # Use robust engine
-    params:
-      shrinkage_method: "ledoit_wolf"
-      condition_threshold: 1.0e10
-      safe_mode: "hrp"
-      diagonal_loading_factor: 1.0e-5
   constraints:
     long_only: true
     max_weight: 0.50
