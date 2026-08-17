@@ -1536,6 +1536,8 @@ def _build_rebalance_frame(
     periods_per_year: int,
     metric: str,
     weighting: BaseWeighting,
+    use_risk_weighting: bool,
+    risk_weight_engine: Any | None,
     min_w_bound: float,
     max_w_bound: float,
     max_active_positions: int | None,
@@ -1561,16 +1563,6 @@ def _build_rebalance_frame(
         in_len_years = int((getattr(cfg, "multi_period", {}) or {}).get("in_sample_len", 3) or 3)
         in_months = max(1, in_len_years * 12)
 
-        try:
-            from ..plugins import create_weight_engine
-
-            weighting_scheme = resolve_portfolio_weighting_name(cfg.portfolio)
-            risk_engine = create_weight_engine(weighting_scheme)
-            use_risk_engine = weighting_scheme not in {"equal", "ew"}
-        except Exception:  # pragma: no cover - best-effort only
-            risk_engine = None
-            use_risk_engine = False
-
         rebalance_rows: list[dict[str, float]] = []
         prev_reb_w = effective_w.copy()
         for reb_date in pd.DatetimeIndex(schedule):
@@ -1584,10 +1576,10 @@ def _build_rebalance_frame(
                 w_row = prev_reb_w
             else:
                 try:
-                    if use_risk_engine and risk_engine is not None:
+                    if use_risk_weighting and risk_weight_engine is not None:
                         prepared = _prepare_returns_frame(window)
                         cov = prepared.cov()
-                        w_series = risk_engine.weight(cov)
+                        w_series = risk_weight_engine.weight(cov)
                     else:
                         rf_aligned = rf_override
                         if isinstance(rf_override, pd.Series) and not window.empty:
@@ -4374,6 +4366,8 @@ def _run_threshold_hold_multi_periods(
             periods_per_year=int(periods_per_year),
             metric=metric,
             weighting=weighting,
+            use_risk_weighting=use_risk_weighting,
+            risk_weight_engine=risk_weight_engine,
             min_w_bound=min_w_bound,
             max_w_bound=max_w_bound,
             max_active_positions=max_active_positions,

@@ -84,3 +84,31 @@ def test_single_period_api_passes_nested_weighting_name_to_pipeline(
         "column": "Sortino",
         "shrink_tau": 0.5,
     }
+
+
+def test_single_period_api_forwards_registered_engine_params(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Constructor parameters are not limited to built-in score engines."""
+    cfg = _make_single_period_cfg(0.0)
+    cfg.portfolio = {
+        "weighting": {
+            "name": "third_party_weight_engine",
+            "params": {"scale": 2.5},
+        }
+    }
+    captured: dict[str, object] = {}
+
+    def fake_run_analysis(*args: object, **kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {
+            "out_sample_stats": {},
+            "benchmark_ir": {},
+            "score_frame": pd.DataFrame(),
+        }
+
+    monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
+    api.run_simulation(cfg, _make_df())
+
+    assert captured["weighting_scheme"] == "third_party_weight_engine"
+    assert captured["weight_engine_params"] == {"scale": 2.5}
