@@ -100,6 +100,7 @@ portfolio:
     group_caps: {}
   sticky_add_x: 1
   sticky_drop_y: 1
+  min_tenure_n: 0 # minimum number of periods a fund must remain held
   # Robustness settings for covariance matrix handling
   robustness:
     # Covariance shrinkage options

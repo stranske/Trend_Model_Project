@@ -141,6 +141,16 @@ def test_schema_validation_accepts_canonical_threshold_controls() -> None:
     assert validate_config_data(payload, schema) == []
 
 
+def test_schema_validation_accepts_canonical_minimum_tenure() -> None:
+    schema = generate_schema()
+    tenure_schema = schema["properties"]["portfolio"]["properties"]["min_tenure_n"]
+
+    assert tenure_schema["type"] == "integer"
+    assert tenure_schema["minimum"] == 0
+    assert tenure_schema["default"] == 0
+    assert validate_config_data({"portfolio": {"min_tenure_n": 2}}, schema) == []
+
+
 def test_schema_validation_rejects_misspelled_rf_override_enabled() -> None:
     schema = generate_schema()
     errors = validate_config_data({"metrics": {"rf_override_enbaled": True}}, schema)

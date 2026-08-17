@@ -98,6 +98,7 @@
       "leverage_cap": 2.0,
       "manual_list": [],
       "max_turnover": 1.0,
+      "min_tenure_n": 0,
       "random_n": 10,
       "rank": {
         "blended_weights": {
@@ -873,6 +874,7 @@
         "leverage_cap": 2.0,
         "manual_list": [],
         "max_turnover": 1.0,
+        "min_tenure_n": 0,
         "random_n": 10,
         "rank": {
           "blended_weights": {
@@ -1135,6 +1137,12 @@
             "null",
             "number"
           ]
+        },
+        "min_tenure_n": {
+          "default": 0,
+          "description": "minimum number of periods a fund must remain held",
+          "nl_editable": true,
+          "type": "integer"
         },
         "policy": {
           "default": null,
