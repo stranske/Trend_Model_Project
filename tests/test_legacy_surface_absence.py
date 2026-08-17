@@ -36,6 +36,8 @@ RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "tests",
     REPO_ROOT / "docs",
     REPO_ROOT / ".github" / "workflows",
+    REPO_ROOT / ".github" / "actions",
+    REPO_ROOT / ".github" / "scripts",
     REPO_ROOT / "tools",
     *ROOT_RUNTIME_TEXT_FILES,
 )
@@ -191,9 +193,17 @@ def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -
     tool = tmp_path / "tools" / "coverage_guard.py"
     tool.parent.mkdir()
     tool.write_text("from trend import cli\n", encoding="utf-8")
+    action = tmp_path / ".github" / "actions" / "path-classifier" / "action.yml"
+    action.parent.mkdir(parents=True)
+    action.write_text("runs:\n  using: composite\n", encoding="utf-8")
+    helper = tmp_path / ".github" / "scripts" / "issue_format.py"
+    helper.parent.mkdir(parents=True)
+    helper.write_text("from trend import cli\n", encoding="utf-8")
 
     assert workflow in _text_files(tmp_path / ".github" / "workflows")
     assert tool in _text_files(tmp_path / "tools")
+    assert action in _text_files(tmp_path / ".github" / "actions")
+    assert helper in _text_files(tmp_path / ".github" / "scripts")
 
 
 def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:
