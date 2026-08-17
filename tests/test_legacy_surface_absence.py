@@ -21,6 +21,7 @@ TEXT_SUFFIXES = {
     ".cfg",
     ".cjs",
     ".ini",
+    ".ipynb",
     ".js",
     ".json",
     ".md",
@@ -51,6 +52,7 @@ RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "streamlit_app",
     REPO_ROOT / "scripts",
     REPO_ROOT / "examples",
+    REPO_ROOT / "notebooks",
     REPO_ROOT / "tests",
     REPO_ROOT / "docs",
     REPO_ROOT / ".github" / "workflows",
@@ -251,6 +253,19 @@ def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:
 
     assert expected_launchers <= root_runtime_files
     assert expected_active_docs <= root_runtime_files
+
+
+def test_active_notebooks_remain_in_text_scan() -> None:
+    """Executable notebooks are active surfaces unless they live below ``old/``."""
+
+    active_notebooks = {
+        path for path in (REPO_ROOT / "notebooks").rglob("*.ipynb") if not _is_archived(path)
+    }
+    scanned_notebooks = set(_text_files(REPO_ROOT / "notebooks"))
+
+    assert active_notebooks
+    assert active_notebooks <= scanned_notebooks
+    assert not any(_is_archived(path) for path in scanned_notebooks)
 
 
 def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
