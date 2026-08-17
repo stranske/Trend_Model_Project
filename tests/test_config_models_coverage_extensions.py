@@ -231,7 +231,11 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
 
     class DummyModel:
         def model_dump(self) -> dict[str, Any]:
-            return {"export": {"formats": ["csv"]}, "extra": {"enabled": True}}
+            return {
+                "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
+                "export": {"formats": ["csv"]},
+                "extra": {"enabled": True},
+            }
 
     monkeypatch.setattr(models, "validate_trend_config", lambda *_args, **_kwargs: DummyModel())
     cfg = models.load(dict(data))
@@ -242,7 +246,7 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         models,
         "validate_trend_config",
-        lambda *_args, **_kwargs: {"version": data["version"], "metrics": {"alpha": 1}},
+        lambda *_args, **_kwargs: {**data, "metrics": {"alpha": 1}},
     )
     cfg = models.load(dict(data))
     assert cfg.metrics["alpha"] == 1
