@@ -97,7 +97,9 @@ portfolio:
   top_n: 8                    # Number of assets to select
   lookback: 12                # Months for trend calculation
   rebalance_frequency: M      # M=monthly, Q=quarterly
-  weighting: equal            # equal, score_prop, vol_adjusted
+  weighting:
+    name: equal               # equal, score_prop, score_prop_bayes, risk_parity, hrp
+    params: {}
   ci_level: 0.0               # Reporting-only confidence interval level (0 disables)
   
   # Selection options

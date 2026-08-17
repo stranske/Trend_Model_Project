@@ -289,7 +289,7 @@ curated:
         rank:
           n: 12
           metric: Sharpe
-        weighting_scheme: equal
+        weighting: {name: equal, params: {}}
         max_turnover: 0.08
         
   - name: ThresholdHold_16_Bayes_ModerateTurnover
@@ -300,7 +300,10 @@ curated:
           inclusion_approach: threshold
           threshold: 0.3
           n: 16
-        weighting_scheme: shrinkage
+        weighting:
+          name: score_prop_bayes
+          params:
+            shrink_tau: 0.25
         max_turnover: 0.15
 ```
 
@@ -605,7 +608,7 @@ strategy_set:
           rank:
             n: 12
             metric: Sharpe
-          weighting_scheme: equal
+          weighting: {name: equal, params: {}}
           max_turnover: 0.12
 
     - name: ThresholdHold_Bayes_ModerateTurnover
@@ -615,7 +618,10 @@ strategy_set:
           rank:
             inclusion_approach: threshold
             threshold: 0.3
-          weighting_scheme: shrinkage
+          weighting:
+            name: score_prop_bayes
+            params:
+              shrink_tau: 0.25
           max_turnover: 0.18
 
   sampled:

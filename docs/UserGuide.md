@@ -116,15 +116,15 @@ When the GUI is used, the state of AdaptiveBayesWeighting is saved alongside the
 
 ### 6.1 Weighting engine reference
 
-| Engine (`portfolio.weighting.method`) | Class / Plugin Name        | Core Idea / Formula (informal)                            | Strengths                                      | Caveats / When to Avoid                     | Minimal YAML Snippet |
+| Engine (`portfolio.weighting.name`) | Class / Plugin Name        | Core Idea / Formula (informal)                            | Strengths                                      | Caveats / When to Avoid                     | Minimal YAML Snippet |
 |--------------------------------------|----------------------------|-----------------------------------------------------------|------------------------------------------------|----------------------------------------------|----------------------|
-| `equal`                              | `EqualWeight`              | w_i = 1 / N                                               | Stable, transparent, zero parameter risk       | Ignores differences in risk / edge           | `portfolio:\n  weighting:\n    method: equal` |
-| `score_prop`                         | `ScorePropSimple`          | w_i ∝ max(score_i, 0); normalised                         | Directly reflects relative strength            | Sensitive to extreme outliers               | `method: score_prop` |
-| `score_prop_bayes`                   | `ScorePropBayesian`        | Shrunk scores: score'_i = μ + (1-τ)(score_i-μ)            | Dampens noise / overfitting                     | Choose τ (`shrink_tau`) sensibly (0–1)       | `method: score_prop_bayes\n    params:\n      shrink_tau: 0.25` |
-| `adaptive_bayes`                     | `AdaptiveBayesWeighting`   | Online Bayesian update of score distribution              | Learns over periods; path‑aware                | Needs state persistence for best effect      | `method: adaptive_bayes` |
-| `risk_parity`                        | `RiskParity`               | Target equal marginal risk contribution                   | Balances vol; diversification                  | Can overweight low‑vol/low‑return assets     | `method: risk_parity` |
-| `hrp`                                | `HierarchicalRiskParity`   | Tree clustering → recursive bisection risk allocation     | Robust to collinearity; hierarchical structure | Slightly heavier compute; cluster instability| `method: hrp` |
-| `erc`                                | `EqualRiskContribution`    | Solve for RC_i = TotalRisk / N                            | Formal equal risk targeting                    | Optimisation may fail on degenerate matrices | `method: erc` |
+| `equal`                              | `EqualWeight`              | w_i = 1 / N                                               | Stable, transparent, zero parameter risk       | Ignores differences in risk / edge           | `portfolio:\n  weighting:\n    name: equal\n    params: {}` |
+| `score_prop`                         | `ScorePropSimple`          | w_i ∝ max(score_i, 0); normalised                         | Directly reflects relative strength            | Sensitive to extreme outliers               | `name: score_prop\n    params: {}` |
+| `score_prop_bayes`                   | `ScorePropBayesian`        | Shrunk scores: score'_i = μ + (1-τ)(score_i-μ)            | Dampens noise / overfitting                     | Choose τ (`shrink_tau`) sensibly (0–1)       | `name: score_prop_bayes\n    params:\n      shrink_tau: 0.25` |
+| `adaptive_bayes`                     | `AdaptiveBayesWeighting`   | Online Bayesian update of score distribution              | Learns over periods; path‑aware                | Needs state persistence for best effect      | `name: adaptive_bayes\n    params: {}` |
+| `risk_parity`                        | `RiskParity`               | Target equal marginal risk contribution                   | Balances vol; diversification                  | Can overweight low‑vol/low‑return assets     | `name: risk_parity\n    params: {}` |
+| `hrp`                                | `HierarchicalRiskParity`   | Tree clustering → recursive bisection risk allocation     | Robust to collinearity; hierarchical structure | Slightly heavier compute; cluster instability| `name: hrp\n    params: {}` |
+| `erc`                                | `EqualRiskContribution`    | Solve for RC_i = TotalRisk / N                            | Formal equal risk targeting                    | Optimisation may fail on degenerate matrices | `name: erc\n    params: {}` |
 
 Notes:
 1. All engines normalise final weights to sum to 1.0 (100%).
