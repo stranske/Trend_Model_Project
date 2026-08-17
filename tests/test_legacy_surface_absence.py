@@ -138,7 +138,8 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
                     None,
                 )
                 if first_content is not None and lines[first_content].lstrip().startswith("%%"):
-                    code_units.append("".join(lines[first_content + 1 :]))
+                    raw_body = "".join(lines[first_content + 1 :])
+                    code_units.append(NOTEBOOK_TRANSFORMER.transform_cell(raw_body))
         except (AttributeError, TypeError, ValueError):
             return []
     elif path.suffix.lower() != ".py" and not is_extensionless_launcher:
@@ -384,7 +385,8 @@ def test_notebook_cell_magic_body_cannot_hide_retired_import(tmp_path: Path) -> 
                     {
                         "cell_type": "code",
                         "source": [
-                            "%%time\n",
+                            "%%capture\n",
+                            "files = !ls\n",
                             "from trend_analysis import cli\n",
                         ],
                     }

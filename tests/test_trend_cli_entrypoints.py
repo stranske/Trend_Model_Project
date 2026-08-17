@@ -239,7 +239,7 @@ def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
         yes=True,
     )
 
-    assert result.columns.tolist() == ["Timestamp", "Fund"]
+    assert result.columns.tolist() == ["Date", "Fund"]
     assert confirmed == {
         "path": Path("returns.csv"),
         "yes": True,

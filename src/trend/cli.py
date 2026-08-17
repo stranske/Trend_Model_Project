@@ -584,7 +584,7 @@ def _ensure_dataframe(
             changes.append(f"{summary.dropped_rows} row(s) dropped")
         if changes:
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
-        return frame.reset_index()
+        return frame.rename_axis("Date").reset_index()
 
     try:
         df = load_csv(
