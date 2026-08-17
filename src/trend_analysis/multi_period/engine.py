@@ -215,7 +215,9 @@ def _resolve_portfolio_weighting(
     weighting_name = resolve_portfolio_weighting_name(portfolio_cfg)
 
     w_column = cast(str, w_params.get("column", "Sharpe"))
-    if weighting_name == "equal":
+    # ``custom`` is a non-plugin mode: the explicit ``portfolio.custom_weights``
+    # mapping is passed to the pipeline separately and takes precedence there.
+    if weighting_name in {"equal", "custom"}:
         return EqualWeight(), False, None, None, weighting_name
     if weighting_name in _SCORE_WEIGHTING_NAMES:
         return ScorePropSimple(column=w_column), False, None, None, weighting_name

@@ -26,6 +26,18 @@ def test_weighting_name_risk_parity_uses_risk_engine() -> None:
     assert isinstance(weighting, EqualWeight)
 
 
+def test_custom_weighting_is_a_non_plugin_mode() -> None:
+    weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
+        {"weighting": {"name": "custom"}, "custom_weights": {"FundA": 60, "FundB": 40}}
+    )
+
+    assert scheme == "custom"
+    assert use_risk is False
+    assert risk_engine is None
+    assert fallback is None
+    assert isinstance(weighting, EqualWeight)
+
+
 def test_weighting_name_score_prop_is_reachable() -> None:
     weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
         {"weighting": {"name": "score_prop", "params": {"column": "Sortino"}}}

@@ -551,3 +551,28 @@ def test_validate_strategy_pack_rejects_invalid_weighting_name(
     errors = validate_strategy_pack(pack_path)
 
     assert any("portfolio.weighting.name" in error for error in errors)
+
+
+def test_validate_strategy_pack_accepts_custom_weighting(
+    tmp_path: Path,
+) -> None:
+    base_config = yaml.safe_load(Path("config/defaults.yml").read_text(encoding="utf-8"))
+    base_config["portfolio"]["custom_weights"] = {"FundA": 60.0, "FundB": 40.0}
+    base_config_path = tmp_path / "base.yml"
+    base_config_path.write_text(yaml.safe_dump(base_config), encoding="utf-8")
+    pack_path = tmp_path / "custom_weighting.yml"
+    pack_path.write_text(
+        yaml.safe_dump(
+            {
+                "curated": [
+                    {
+                        "name": "CustomWeighting",
+                        "overrides": {"portfolio": {"weighting": {"name": "custom"}}},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert validate_strategy_pack(pack_path, base_config_path=base_config_path) == []

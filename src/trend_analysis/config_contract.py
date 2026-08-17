@@ -28,6 +28,7 @@ SUPPORTED_PORTFOLIO_WEIGHTING_NAMES = frozenset(
         "adaptive_bayes",
         "bayes",
         "convex_constrained",
+        "custom",
         "equal",
         "erc",
         "ew",
