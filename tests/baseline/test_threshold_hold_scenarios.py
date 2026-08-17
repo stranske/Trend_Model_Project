@@ -351,7 +351,7 @@ def test_single_fund_golden(monkeypatch: pytest.MonkeyPatch) -> None:
     }
 
 
-def test_all_funds_below_threshold_are_backfilled_characterization(
+def test_all_funds_below_threshold_produces_empty_portfolio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
@@ -371,19 +371,25 @@ def test_all_funds_below_threshold_are_backfilled_characterization(
 
     results = engine.run(cfg, df=_returns_frame())
 
-    # CHARACTERIZATION: threshold semantics should leave the portfolio empty;
-    # the current target-size refill silently admits the two best ineligible funds.
     assert _snapshot(results[0]) == {
-        "funds": ["A", "B"],
-        "weights": {"A": 0.5, "B": 0.5},
-        "turnover": 1.0,
+        "funds": [],
+        "weights": {},
+        "turnover": 0.0,
         "cost": 0.0,
-        "events": [("added", "A", "seed"), ("added", "B", "seed")],
-        "tenure": {"A": 1, "B": 1},
+        "events": [],
+        "tenure": {},
+    }
+    assert results[0]["selection_shortfall"] == {
+        "reason": "threshold_hard_gate",
+        "threshold": 100.0,
+        "eligible_funds": 0,
+        "selected_funds": 0,
+        "target_funds": 2,
+        "min_funds": 0,
     }
 
 
-def test_ties_at_threshold_are_backfilled_to_max_funds_characterization(
+def test_threshold_qualifiers_are_not_backfilled_to_minimum_funds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
@@ -398,6 +404,7 @@ def test_ties_at_threshold_are_backfilled_to_max_funds_characterization(
     )
     cfg.portfolio["rank"].pop("n")
     cfg.portfolio["constraints"]["max_funds"] = 5
+    cfg.portfolio["constraints"]["min_funds"] = 5
     _patch_scenario(
         monkeypatch,
         period_count=1,
@@ -406,21 +413,101 @@ def test_ties_at_threshold_are_backfilled_to_max_funds_characterization(
 
     results = engine.run(cfg, df=_returns_frame())
 
-    # CHARACTERIZATION: A/B/C meet the inclusive threshold and should be the
-    # complete selection; current refill also admits below-threshold D and E.
     assert _snapshot(results[0]) == {
-        "funds": ["A", "B", "C", "D", "E"],
-        "weights": {"A": 0.2, "B": 0.2, "C": 0.2, "D": 0.2, "E": 0.2},
+        "funds": ["A", "B", "C"],
+        "weights": {"A": 1 / 3, "B": 1 / 3, "C": 1 / 3},
         "turnover": 1.0,
         "cost": 0.0,
         "events": [
             ("added", "A", "seed"),
             ("added", "B", "seed"),
             ("added", "C", "seed"),
-            ("added", "D", "seed"),
-            ("added", "E", "seed"),
         ],
-        "tenure": {"A": 1, "B": 1, "C": 1, "D": 1, "E": 1},
+        "tenure": {"A": 1, "B": 1, "C": 1},
+    }
+    assert results[0]["selection_shortfall"] == {
+        "reason": "threshold_hard_gate",
+        "threshold": 2.0,
+        "eligible_funds": 3,
+        "selected_funds": 3,
+        "target_funds": None,
+        "min_funds": 5,
+    }
+
+
+def test_threshold_seed_applies_bottom_k_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    class TrackingEqualWeight:
+        def __init__(self) -> None:
+            self.calls: list[list[str]] = []
+
+        def weight(self, selected: pd.DataFrame, _date: pd.Timestamp | None = None) -> pd.DataFrame:
+            self.calls.append([str(fund) for fund in selected.index])
+            if selected.empty:
+                return pd.DataFrame(columns=["weight"])
+            return pd.DataFrame(
+                {"weight": [1.0 / len(selected)] * len(selected)},
+                index=selected.index,
+            )
+
+    weighting = TrackingEqualWeight()
+    monkeypatch.setattr(engine, "EqualWeight", lambda: weighting)
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "threshold",
+            "threshold": -10.0,
+            "score_by": "Sharpe",
+            "transform": "raw",
+            "bottom_k": 1,
+            "n": 4,
+        }
+    )
+    cfg.portfolio["threshold_hold"]["target_n"] = 4
+    cfg.portfolio["constraints"]["max_funds"] = 4
+    _patch_scenario(
+        monkeypatch,
+        period_count=1,
+        metric_by_in_end={"2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0}},
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    assert results[0]["selected_funds"] == ["A", "B", "C", "D"]
+    assert weighting.calls[0] == ["A", "B", "C", "D"]
+
+
+def test_threshold_liquidation_to_cash_charges_full_turnover(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = ThresholdScenarioConfig()
+    cfg.portfolio["transaction_cost_bps"] = 100.0
+    cfg.portfolio["rank"].update(
+        {
+            "inclusion_approach": "threshold",
+            "threshold": 2.0,
+            "score_by": "Sharpe",
+            "transform": "raw",
+        }
+    )
+    cfg.portfolio["threshold_hold"]["z_exit_hard"] = 0.0
+    _patch_scenario(
+        monkeypatch,
+        period_count=2,
+        metric_by_in_end={
+            "2020-02": {"A": 3.0, "B": 2.0, "C": 1.0, "D": 0.0, "E": -1.0},
+            "2020-03": {"A": 1.0, "B": 1.0, "C": 1.0, "D": 1.0, "E": 1.0},
+        },
+    )
+
+    results = engine.run(cfg, df=_returns_frame())
+
+    assert _snapshot(results[1]) == {
+        "funds": [],
+        "weights": {},
+        "turnover": 1.0,
+        "cost": 0.01,
+        "events": [("dropped", "A", "z_exit_hard"), ("dropped", "B", "z_exit_hard")],
+        "tenure": {},
     }
 
 
