@@ -1566,6 +1566,7 @@ def _build_rebalance_frame(
     periods_per_year: int,
     metric: str,
     weighting: BaseWeighting,
+    weighting_scheme: str,
     use_risk_weighting: bool,
     risk_weight_engine: Any | None,
     min_w_bound: float,
@@ -1606,7 +1607,9 @@ def _build_rebalance_frame(
                 w_row = prev_reb_w
             else:
                 try:
-                    if use_risk_weighting and risk_weight_engine is not None:
+                    if weighting_scheme == "custom":
+                        w_series = effective_w.reindex(realised_holdings).fillna(0.0)
+                    elif use_risk_weighting and risk_weight_engine is not None:
                         prepared = _prepare_returns_frame(window)
                         cov = prepared.cov()
                         w_series = risk_weight_engine.weight(cov)
@@ -4398,6 +4401,7 @@ def _run_threshold_hold_multi_periods(
             periods_per_year=int(periods_per_year),
             metric=metric,
             weighting=weighting,
+            weighting_scheme=weighting_scheme,
             use_risk_weighting=use_risk_weighting,
             risk_weight_engine=risk_weight_engine,
             min_w_bound=min_w_bound,

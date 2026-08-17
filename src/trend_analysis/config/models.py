@@ -415,6 +415,13 @@ if _HAS_PYDANTIC:
                 v["lambda_tc"] = lam
             cost_cfg = v.get("cost_model")
             if isinstance(cost_cfg, dict):
+                missing_cost_keys = {
+                    "per_trade_bps",
+                    "half_spread_bps",
+                } - set(cost_cfg)
+                if missing_cost_keys:
+                    missing = ", ".join(sorted(missing_cost_keys))
+                    raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
                 for key in ("bps_per_trade", "slippage_bps"):
                     if key in cost_cfg:
                         raise ValueError(f"portfolio.cost_model.{key} was removed")
@@ -649,6 +656,15 @@ else:  # Fallback mode for tests without pydantic
                     port["lambda_tc"] = lam
                 cost_cfg = port.get("cost_model")
                 if isinstance(cost_cfg, dict):
+                    missing_cost_keys = {
+                        "per_trade_bps",
+                        "half_spread_bps",
+                    } - set(cost_cfg)
+                    if missing_cost_keys:
+                        missing = ", ".join(sorted(missing_cost_keys))
+                        raise ValueError(
+                            f"portfolio.cost_model missing required field(s): {missing}"
+                        )
                     for key in ("bps_per_trade", "slippage_bps"):
                         if key in cost_cfg:
                             raise ValueError(f"portfolio.cost_model.{key} was removed")

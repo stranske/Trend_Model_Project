@@ -47,6 +47,31 @@ def test_load_trend_config_defaults() -> None:
     assert isinstance(cfg, TrendConfig)
 
 
+@pytest.mark.parametrize(
+    "cost_model",
+    [
+        {},
+        {"per_trade_bps": 1.0},
+        {"half_spread_bps": 0.5},
+    ],
+)
+def test_public_load_config_requires_complete_cost_model(
+    tmp_path: Path,
+    cost_model: dict[str, float],
+) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_path = _write_config(
+        tmp_path,
+        csv_file,
+        portfolio={"cost_model": cost_model},
+    )
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+
+    with pytest.raises(ValueError, match="per_trade_bps|half_spread_bps"):
+        load_config(payload)
+
+
 def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     csv_file = tmp_path / "returns.csv"
     csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")

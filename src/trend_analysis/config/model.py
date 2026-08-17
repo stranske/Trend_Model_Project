@@ -339,8 +339,8 @@ class DataSettings(BaseModel):
 class CostModelSettings(BaseModel):
     """Linear cost and slippage parameters."""
 
-    per_trade_bps: float = Field(default=0.0)
-    half_spread_bps: float = Field(default=0.0)
+    per_trade_bps: float
+    half_spread_bps: float
 
     model_config = ConfigDict(extra="forbid")
 

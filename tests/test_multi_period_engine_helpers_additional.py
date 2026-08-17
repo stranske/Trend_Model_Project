@@ -72,6 +72,7 @@ def test_rebalance_frame_reuses_parameterized_risk_engine() -> None:
         periods_per_year=12,
         metric="Sharpe",
         weighting=EqualWeight(),
+        weighting_scheme="risk_parity",
         use_risk_weighting=True,
         risk_weight_engine=risk_engine,
         min_w_bound=0.0,
@@ -86,6 +87,42 @@ def test_rebalance_frame_reuses_parameterized_risk_engine() -> None:
     assert frame is not None
     assert risk_engine.calls == len(frame)
     assert frame.iloc[-1].to_dict() == pytest.approx({"A": 0.75, "B": 0.25})
+
+
+def test_rebalance_frame_preserves_custom_effective_weights() -> None:
+    dates = pd.date_range("2021-01-31", periods=3, freq="ME")
+    returns = pd.DataFrame(
+        {"A": [0.01, 0.02, 0.03], "B": [0.03, 0.01, 0.02]},
+        index=dates,
+    )
+
+    frame = mp_engine._build_rebalance_frame(
+        SimpleNamespace(
+            portfolio={"rebalance_freq": "ME"},
+            multi_period={"in_sample_len": 1},
+        ),
+        out_df=returns,
+        df_indexed=returns,
+        realised_holdings=["A", "B"],
+        effective_w=pd.Series({"A": 0.7, "B": 0.3}),
+        rf_override=None,
+        periods_per_year=12,
+        metric="Sharpe",
+        weighting=EqualWeight(),
+        weighting_scheme="custom",
+        use_risk_weighting=False,
+        risk_weight_engine=None,
+        min_w_bound=0.0,
+        max_w_bound=1.0,
+        max_active_positions=None,
+        min_tenure_guard=set(),
+        score_frame_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+        ensure_zscore_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+        apply_policy_to_weights_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+    )
+
+    assert frame is not None
+    assert all(row == pytest.approx({"A": 0.7, "B": 0.3}) for row in frame.to_dict("records"))
 
 
 def test_compute_turnover_state_handles_fresh_and_existing_weights() -> None:
