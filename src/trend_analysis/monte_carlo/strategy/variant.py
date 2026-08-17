@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from trend_analysis.config.model import TrendConfig, validate_trend_config
+from trend_analysis.config_contract import (
+    SUPPORTED_PORTFOLIO_WEIGHTING_NAMES,
+    normalise_weighting_name,
+)
+from trend_analysis.plugins import weight_engine_registry
 
 
 def _require_non_empty_str(value: Any, field_name: str) -> str:
@@ -62,26 +67,6 @@ def _format_path(path: tuple[str, ...]) -> str:
 
 _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
     ("portfolio", "weighting", "params"),
-}
-
-_ALLOWED_WEIGHTING_NAMES = {
-    "adaptive",
-    "adaptive_bayes",
-    "bayes",
-    "equal",
-    "ew",
-    "risk_parity",
-    "hrp",
-    "erc",
-    "robust",
-    "robust_mean_variance",
-    "robust_mv",
-    "robust_risk_parity",
-    "score",
-    "score_bayes",
-    "score_prop",
-    "score_prop_bayes",
-    "score_prop_simple",
 }
 
 
@@ -264,9 +249,12 @@ class StrategyVariant:
             weighting = portfolio.get("weighting")
             if isinstance(weighting, Mapping):
                 name = weighting.get("name")
-                name_value = str(name).strip().lower()
-                if name_value not in _ALLOWED_WEIGHTING_NAMES:
-                    allowed = ", ".join(sorted(_ALLOWED_WEIGHTING_NAMES))
+                name_value = normalise_weighting_name(name)
+                allowed_weighting_names = set(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES) | set(
+                    weight_engine_registry.available()
+                )
+                if name_value not in allowed_weighting_names:
+                    allowed = ", ".join(sorted(allowed_weighting_names))
                     raise ValueError(
                         "Strategy '{name}' config invalid: portfolio.weighting.name must be one of: {allowed}".format(
                             name=self.name,

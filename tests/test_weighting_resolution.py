@@ -70,6 +70,9 @@ def test_unknown_weighting_raises() -> None:
 
 def test_registered_third_party_weighting_is_reachable(monkeypatch: pytest.MonkeyPatch) -> None:
     class ThirdPartyWeighting(WeightEngine):
+        def __init__(self, scale: float) -> None:
+            self.scale = scale
+
         def weight(self, cov: pd.DataFrame) -> pd.Series:
             return pd.Series(1.0 / len(cov), index=cov.index)
 
@@ -80,12 +83,18 @@ def test_registered_third_party_weighting_is_reachable(monkeypatch: pytest.Monke
     )
 
     weighting, use_risk, risk_engine, fallback, scheme = _resolve_portfolio_weighting(
-        {"weighting": {"name": "third_party_weight_engine"}}
+        {
+            "weighting": {
+                "name": "third_party_weight_engine",
+                "params": {"scale": 2.5},
+            }
+        }
     )
 
     assert scheme == "third_party_weight_engine"
     assert use_risk is True
     assert isinstance(risk_engine, ThirdPartyWeighting)
+    assert risk_engine.scale == pytest.approx(2.5)
     assert fallback is None
     assert isinstance(weighting, EqualWeight)
 

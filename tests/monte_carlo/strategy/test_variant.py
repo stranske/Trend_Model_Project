@@ -3,11 +3,13 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
 
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+from trend_analysis.plugins import WeightEngine, weight_engine_registry
 
 
 def _base_config(tmp_path: Path) -> dict[str, object]:
@@ -169,6 +171,28 @@ def test_to_trend_config_rejects_invalid_weighting_name(tmp_path: Path, bad_name
 
     with pytest.raises(ValueError, match="portfolio.weighting.name"):
         variant.to_trend_config(_base_config(tmp_path), base_path=tmp_path)
+
+
+def test_to_trend_config_accepts_registered_weighting_engine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class MonteCarloWeighting(WeightEngine):
+        def weight(self, cov: pd.DataFrame) -> pd.Series:
+            return cov.iloc[:, 0]
+
+    monkeypatch.setitem(
+        weight_engine_registry._plugins,
+        "monte_carlo_weight_engine",
+        MonteCarloWeighting,
+    )
+    variant = StrategyVariant(
+        name="RegisteredWeighting",
+        overrides={"portfolio": {"weighting": {"name": "monte_carlo_weight_engine"}}},
+    )
+
+    config = variant.to_trend_config(_base_config(tmp_path), base_path=tmp_path)
+
+    assert config.portfolio.weighting["name"] == "monte_carlo_weight_engine"
 
 
 def test_apply_to_curated_rejects_unknown_path_outside_freeform(tmp_path: Path) -> None:

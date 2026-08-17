@@ -261,6 +261,7 @@ def _resolve_portfolio_weighting(
             weighting_name,
             robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
         )
+        weight_engine_params.update(w_params)
         return (
             EqualWeight(),
             True,

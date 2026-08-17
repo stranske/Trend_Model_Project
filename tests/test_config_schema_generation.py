@@ -64,6 +64,12 @@ def test_defaults_declare_portfolio_weighting_once() -> None:
     assert portfolio_defaults["constraints"]["properties"]["min_weight_strikes"]["default"] == 2
 
 
+def test_robust_demo_declares_portfolio_weighting_once() -> None:
+    source = Path("config/robust_demo.yml").read_text(encoding="utf-8")
+
+    assert source.count("\n  weighting:\n") == 1
+
+
 def test_checked_in_schemas_match_generator() -> None:
     generated = generate_schema()
 

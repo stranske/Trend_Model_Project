@@ -44,9 +44,6 @@ sample_split:
 
 portfolio:
   selection_mode: "all"
-  weighting:
-    name: "robust_mv"  # Use robust mean-variance optimization
-    params: {}
   rebalance_freq: "M"
   leverage_cap: 1.0
   cost_model:
