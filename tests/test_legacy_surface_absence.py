@@ -22,6 +22,7 @@ TEXT_SUFFIXES = {
     ".cjs",
     ".ini",
     ".js",
+    ".json",
     ".md",
     ".mjs",
     ".py",

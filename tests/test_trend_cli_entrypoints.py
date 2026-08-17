@@ -788,6 +788,67 @@ def test_main_run_command_uses_extracted_shared_preparation(
     assert received["returns_df"].equals(prepared.returns_df)
 
 
+def test_skip_if_exists_emits_complete_structured_log(tmp_path: Path) -> None:
+    log_path = tmp_path / "skip.jsonl"
+    manifest_path = tmp_path / "manifest.json"
+    events: list[tuple[str, dict[str, object]]] = []
+    initialized: list[tuple[str, Path]] = []
+    finished: list[tuple[bool, str, Path | None, object]] = []
+    coverage_finalized: list[bool] = []
+    args = SimpleNamespace(
+        no_cache=False,
+        preset=None,
+        universe=None,
+        skip_if_exists=True,
+        no_structured_log=False,
+        log_file=str(log_path),
+        bundle=None,
+    )
+
+    def unexpected_pipeline(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("existing runs must not execute the pipeline")
+
+    exit_code = trend_cli.run_analysis_command(
+        args,
+        tmp_path / "config.yml",
+        _make_config(),
+        tmp_path / "returns.csv",
+        pd.DataFrame({"x": [1]}),
+        error=trend_cli.TrendCLIError,
+        set_cache=lambda _enabled: None,
+        get_spec_preset=lambda _name: None,
+        list_spec_presets=lambda: [],
+        apply_spec_preset=lambda _cfg, _preset: None,
+        get_portfolio_preset=lambda _name: None,
+        list_portfolio_presets=lambda: [],
+        apply_portfolio_preset=lambda _cfg, _preset: None,
+        load_universe=lambda *_args, **_kwargs: (None, None),
+        apply_universe_mask=lambda frame, *_args, **_kwargs: frame,
+        attach_universe_paths=lambda *_args, **_kwargs: None,
+        find_existing_run=lambda _cfg, _run_id: manifest_path,
+        calculate_run_id=lambda _cfg, _path: "existing123",
+        get_default_log_path=lambda _run_id: tmp_path / "default.jsonl",
+        init_run_logger=lambda run_id, path: initialized.append((run_id, path)),
+        log_step=lambda _enabled, _run_id, step, _message, **fields: events.append((step, fields)),
+        run_pipeline=unexpected_pipeline,
+        write_artifacts=lambda **_kwargs: None,
+        print_summary=lambda *_args: None,
+        finish_structured_log=lambda enabled, run_id, path, result: finished.append(
+            (enabled, run_id, path, result)
+        ),
+        finalize_coverage=lambda: coverage_finalized.append(True),
+    )
+
+    assert exit_code == 0
+    assert initialized == [("existing123", log_path)]
+    assert events == [
+        ("start", {}),
+        ("already_done", {"manifest": str(manifest_path)}),
+    ]
+    assert finished == [(True, "existing123", log_path, None)]
+    assert coverage_finalized == [True]
+
+
 def test_main_run_replays_streamlit_json_through_canonical_mapping(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

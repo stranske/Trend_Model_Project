@@ -115,6 +115,9 @@ def run_analysis_command(
     attach_universe_paths: Callable[..., None],
     find_existing_run: Callable[..., Path | None],
     calculate_run_id: Callable[..., str],
+    get_default_log_path: Callable[[str], Path],
+    init_run_logger: Callable[[str, Path], Any],
+    log_step: Callable[..., None],
     run_pipeline: Callable[..., tuple[Any, str, Path | None]],
     write_artifacts: Callable[..., Path | None],
     print_summary: Callable[[Any, Any], None],
@@ -145,8 +148,33 @@ def run_analysis_command(
         candidate_run_id = calculate_run_id(cfg, returns_path)
         existing_manifest = find_existing_run(cfg, candidate_run_id)
         if existing_manifest is not None:
+            structured_log = not getattr(args, "no_structured_log", False)
+            log_path = None
+            if structured_log:
+                log_path = (
+                    Path(args.log_file)
+                    if getattr(args, "log_file", None)
+                    else get_default_log_path(candidate_run_id)
+                )
+                init_run_logger(candidate_run_id, log_path)
+            log_step(
+                structured_log,
+                candidate_run_id,
+                "start",
+                "trend CLI execution started",
+            )
+            log_step(
+                structured_log,
+                candidate_run_id,
+                "already_done",
+                f"already-done: run_id={candidate_run_id}",
+                manifest=str(existing_manifest),
+            )
             print(f"already-done: run_id={candidate_run_id}")
             print(f"Existing manifest: {existing_manifest}")
+            finish_structured_log(structured_log, candidate_run_id, log_path, None)
+            if log_path:
+                print(f"Structured log: {log_path}")
             finalize_coverage()
             return 0
     result, run_id, log_path = run_pipeline(

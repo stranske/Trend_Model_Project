@@ -886,11 +886,11 @@ def _finish_structured_log(
     enabled: bool,
     run_id: str,
     log_path: Path | None,
-    result: RunResult,
+    result: RunResult | None,
 ) -> None:
     """Record the terminal event after every run artifact has been written."""
 
-    cache_stats = extract_cache_stats(result.details)
+    cache_stats = extract_cache_stats(result.details) if result is not None else {}
     if cache_stats:
         maybe_log_step(
             enabled,
@@ -2421,6 +2421,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 attach_universe_paths=_attach_universe_paths,
                 find_existing_run=find_prior_run,
                 calculate_run_id=working_run_id,
+                get_default_log_path=run_logging.get_default_log_path,
+                init_run_logger=run_logging.init_run_logger,
+                log_step=maybe_log_step,
                 run_pipeline=_run_pipeline,
                 write_artifacts=_write_trend_run_artifacts,
                 print_summary=_print_summary,
