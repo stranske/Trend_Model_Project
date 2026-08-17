@@ -373,6 +373,22 @@ def test_build_param_summary_exposes_optional_fields():
     assert params["Benchmarks"] == "2"
 
 
+def test_build_param_summary_reports_effective_flat_monthly_cost() -> None:
+    config = SimpleNamespace(
+        sample_split={},
+        vol_adjust={},
+        portfolio={
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+        },
+        run={"monthly_cost": 0.0025},
+        benchmarks={},
+    )
+
+    params = dict(unified._build_param_summary(config))
+
+    assert params["Transaction cost"] == "0.2500% per period"
+
+
 def test_build_param_summary_handles_missing_sections():
     config = SimpleNamespace(
         sample_split=None, vol_adjust=None, portfolio=None, run=None, benchmarks=None

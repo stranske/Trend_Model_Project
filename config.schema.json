@@ -530,11 +530,12 @@
     "identity": {
       "additionalProperties": false,
       "constraints": {},
-      "default": null,
+      "default": {},
       "description": "Deterministic entity identity aliases for run manifest selected_entities.",
       "nl_editable": true,
       "properties": {
         "entities": {
+          "constraints": {},
           "default": [],
           "description": "Explicit canonical entities and aliases.",
           "items": {
@@ -562,10 +563,14 @@
             ],
             "type": "object"
           },
+          "nl_editable": true,
           "type": "array"
         },
         "universe": {
+          "constraints": {},
+          "default": null,
           "description": "Universe file path or paths, resolved relative to the config file.",
+          "nl_editable": false,
           "type": [
             "string",
             "array",
@@ -573,7 +578,10 @@
           ]
         },
         "universes": {
+          "constraints": {},
+          "default": null,
           "description": "Universe file path or paths, resolved relative to the config file.",
+          "nl_editable": false,
           "type": [
             "string",
             "array",
@@ -581,10 +589,7 @@
           ]
         }
       },
-      "type": [
-        "object",
-        "null"
-      ]
+      "type": "object"
     },
     "metrics": {
       "additionalProperties": false,

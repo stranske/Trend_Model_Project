@@ -86,6 +86,15 @@ def test_checked_in_schemas_match_generator() -> None:
     )
 
 
+def test_identity_schema_matches_non_null_runtime_model() -> None:
+    schema = generate_schema()
+
+    assert validate_config_data({"identity": {}}, schema) == []
+    errors = validate_config_data({"identity": None}, schema)
+    assert errors
+    assert any("identity" in error for error in errors)
+
+
 def test_schema_validation_flags_unknown_keys() -> None:
     schema = generate_schema()
     errors = validate_config_data({"unknown_key": 1}, schema)

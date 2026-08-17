@@ -212,9 +212,9 @@ _MODEL_SCHEMA_KEYS = {
 }
 
 _IDENTITY_SCHEMA: dict[str, Any] = {
-    "type": ["object", "null"],
+    "type": "object",
     "description": "Deterministic entity identity aliases for run manifest selected_entities.",
-    "default": None,
+    "default": {},
     "nl_editable": True,
     "constraints": {},
     "additionalProperties": False,
@@ -223,6 +223,8 @@ _IDENTITY_SCHEMA: dict[str, Any] = {
             "type": "array",
             "description": "Explicit canonical entities and aliases.",
             "default": [],
+            "nl_editable": True,
+            "constraints": {},
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -242,10 +244,16 @@ _IDENTITY_SCHEMA: dict[str, Any] = {
         "universe": {
             "type": ["string", "array", "null"],
             "description": "Universe file path or paths, resolved relative to the config file.",
+            "default": None,
+            "nl_editable": False,
+            "constraints": {},
         },
         "universes": {
             "type": ["string", "array", "null"],
             "description": "Universe file path or paths, resolved relative to the config file.",
+            "default": None,
+            "nl_editable": False,
+            "constraints": {},
         },
     },
 }

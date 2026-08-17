@@ -17,6 +17,10 @@ import pandas as pd
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting._matplotlib import init_matplotlib
 from trend_analysis.backtesting import BacktestResult, CostModel
+from trend_analysis.config_contract import (
+    resolve_pipeline_monthly_cost,
+    resolve_portfolio_cost_bps,
+)
 from trend_analysis.reporting.narrative import (
     STANDARD_NARRATIVE_DISCLAIMER,
     narrative_generation_enabled,
@@ -485,15 +489,17 @@ def _build_param_summary(
     max_turnover = _get(portfolio, "max_turnover")
     if isinstance(max_turnover, (int, float)):
         params.append(("Turnover cap", _format_percent(float(max_turnover))))
-    cost_model_cfg = _get(portfolio, "cost_model", {})
-    tx_cost = _get(cost_model_cfg, "per_trade_bps")
-    if tx_cost is None:
-        tx_cost = _get(run_cfg, "monthly_cost")
-    if isinstance(tx_cost, (int, float)):
-        params.append(("Transaction cost", f"{float(tx_cost):.2f} bps"))
-    slippage = _get(cost_model_cfg, "half_spread_bps")
-    if isinstance(slippage, (int, float)) and float(slippage):
-        params.append(("Slippage assumption", f"{float(slippage):.2f} bps"))
+    cost_model_cfg = _get(portfolio, "cost_model")
+    configured_monthly_cost = _get(run_cfg, "monthly_cost")
+    if cost_model_cfg is not None or configured_monthly_cost is not None:
+        per_trade_bps, half_spread_bps = resolve_portfolio_cost_bps(portfolio)
+        if per_trade_bps > 0.0 or half_spread_bps > 0.0:
+            params.append(("Transaction cost", f"{per_trade_bps:.2f} bps"))
+            if half_spread_bps:
+                params.append(("Slippage assumption", f"{half_spread_bps:.2f} bps"))
+        else:
+            monthly_cost = resolve_pipeline_monthly_cost(run_cfg, portfolio)
+            params.append(("Transaction cost", f"{monthly_cost:.4%} per period"))
     rebalance = _get(portfolio, "rebalance_calendar")
     if rebalance:
         params.append(("Rebalance calendar", str(rebalance)))
