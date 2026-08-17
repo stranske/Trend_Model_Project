@@ -31,7 +31,7 @@ class MinimalConfig:
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {
                 "target_n": 3,
@@ -194,7 +194,9 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         },
     }
 
-    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        _frame: pd.DataFrame, metric: str, _stats_cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 
@@ -319,7 +321,9 @@ def test_threshold_hold_max_active_positions(monkeypatch: pytest.MonkeyPatch) ->
         },
     }
 
-    def fake_metric_series(_frame: pd.DataFrame, metric: str, _stats_cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        _frame: pd.DataFrame, metric: str, _stats_cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series(values, dtype=float)
 

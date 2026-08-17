@@ -6,7 +6,6 @@
       "spx": "SPX",
       "tsx": "TSX"
     },
-    "checkpoint_dir": "outputs/checkpoints/",
     "data": {
       "allow_risk_free_fallback": false,
       "currency": "USD",
@@ -91,15 +90,17 @@
         "group_caps": {},
         "long_only": true,
         "max_active_positions": 0,
-        "max_weight": 0.25
+        "max_weight": 0.25,
+        "min_weight_strikes": 2
       },
       "cost_model": {
-        "bps_per_trade": 0,
-        "slippage_bps": 0
+        "half_spread_bps": 0,
+        "per_trade_bps": 0
       },
       "leverage_cap": 2.0,
       "manual_list": [],
       "max_turnover": 1.0,
+      "min_tenure_n": 0,
       "random_n": 10,
       "rank": {
         "blended_weights": {
@@ -141,14 +142,12 @@
           "threshold": 1.0
         }
       },
-      "transaction_cost_bps": 0,
+      "sticky_add_x": 1,
+      "sticky_drop_y": 1,
       "weighting": {
-        "name": "score_prop_bayes",
-        "params": {
-          "shrink_tau": 0.25
-        }
-      },
-      "weighting_scheme": "equal"
+        "name": "equal",
+        "params": {}
+      }
     },
     "preprocessing": {
       "de_duplicate": true,
@@ -191,6 +190,7 @@
       "threshold": 0.0
     },
     "run": {
+      "checkpoint_dir": "outputs/checkpoints/",
       "jobs": -1,
       "monthly_cost": 0.0
     },
@@ -202,6 +202,7 @@
       "rolling_walk": false
     },
     "seed": 42,
+    "signals": {},
     "version": "0.1.0",
     "vol_adjust": {
       "enabled": true,
@@ -245,16 +246,6 @@
         }
       },
       "type": "object"
-    },
-    "checkpoint_dir": {
-      "constraints": {},
-      "default": "outputs/checkpoints/",
-      "description": "Legacy top-level checkpoint directory override.",
-      "nl_editable": true,
-      "type": [
-        "string",
-        "null"
-      ]
     },
     "data": {
       "additionalProperties": false,
@@ -540,11 +531,12 @@
     "identity": {
       "additionalProperties": false,
       "constraints": {},
-      "default": null,
+      "default": {},
       "description": "Deterministic entity identity aliases for run manifest selected_entities.",
       "nl_editable": true,
       "properties": {
         "entities": {
+          "constraints": {},
           "default": [],
           "description": "Explicit canonical entities and aliases.",
           "items": {
@@ -572,10 +564,14 @@
             ],
             "type": "object"
           },
+          "nl_editable": true,
           "type": "array"
         },
         "universe": {
+          "constraints": {},
+          "default": null,
           "description": "Universe file path or paths, resolved relative to the config file.",
+          "nl_editable": false,
           "type": [
             "string",
             "array",
@@ -583,7 +579,10 @@
           ]
         },
         "universes": {
+          "constraints": {},
+          "default": null,
           "description": "Universe file path or paths, resolved relative to the config file.",
+          "nl_editable": false,
           "type": [
             "string",
             "array",
@@ -591,20 +590,7 @@
           ]
         }
       },
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "jobs": {
-      "constraints": {},
-      "default": null,
-      "description": "Deprecated top-level alias for run.jobs; ignored when run.jobs is set.",
-      "nl_editable": true,
-      "type": [
-        "integer",
-        "null"
-      ]
+      "type": "object"
     },
     "metrics": {
       "additionalProperties": false,
@@ -993,15 +979,17 @@
           "group_caps": {},
           "long_only": true,
           "max_active_positions": 0,
-          "max_weight": 0.25
+          "max_weight": 0.25,
+          "min_weight_strikes": 2
         },
         "cost_model": {
-          "bps_per_trade": 0,
-          "slippage_bps": 0
+          "half_spread_bps": 0,
+          "per_trade_bps": 0
         },
         "leverage_cap": 2.0,
         "manual_list": [],
         "max_turnover": 1.0,
+        "min_tenure_n": 0,
         "random_n": 10,
         "rank": {
           "blended_weights": {
@@ -1043,14 +1031,12 @@
             "threshold": 1.0
           }
         },
-        "transaction_cost_bps": 0,
+        "sticky_add_x": 1,
+        "sticky_drop_y": 1,
         "weighting": {
-          "name": "score_prop_bayes",
-          "params": {
-            "shrink_tau": 0.25
-          }
-        },
-        "weighting_scheme": "equal"
+          "name": "equal",
+          "params": {}
+        }
       },
       "description": "Portfolio controls validated before running analyses.",
       "nl_editable": true,
@@ -1069,7 +1055,8 @@
             "group_caps": {},
             "long_only": true,
             "max_active_positions": 0,
-            "max_weight": 0.25
+            "max_weight": 0.25,
+            "min_weight_strikes": 2
           },
           "description": "Portfolio constraint settings.",
           "nl_editable": true,
@@ -1182,14 +1169,21 @@
               "minimum": 0,
               "nl_editable": true,
               "type": "number"
+            },
+            "min_weight_strikes": {
+              "constraints": {},
+              "default": 2,
+              "description": "Config option for portfolio.constraints.min_weight_strikes.",
+              "nl_editable": true,
+              "type": "integer"
             }
           },
           "type": "object"
         },
-        "cooldown_months": {
+        "cooldown_periods": {
           "constraints": {},
           "default": null,
-          "description": "Config option for portfolio.cooldown_months.",
+          "description": "Config option for portfolio.cooldown_periods.",
           "nl_editable": true,
           "type": [
             "integer",
@@ -1200,23 +1194,13 @@
           "additionalProperties": false,
           "constraints": {},
           "default": {
-            "bps_per_trade": 0,
-            "slippage_bps": 0
+            "half_spread_bps": 0,
+            "per_trade_bps": 0
           },
           "description": "Transaction cost model settings.",
           "nl_editable": true,
           "properties": {
-            "bps_per_trade": {
-              "constraints": {
-                "minimum": 0
-              },
-              "default": 0,
-              "description": "overrides transaction_cost_bps when provided",
-              "minimum": 0,
-              "nl_editable": true,
-              "type": "number"
-            },
-            "slippage_bps": {
+            "half_spread_bps": {
               "constraints": {
                 "minimum": 0
               },
@@ -1225,8 +1209,22 @@
               "minimum": 0,
               "nl_editable": true,
               "type": "number"
+            },
+            "per_trade_bps": {
+              "constraints": {
+                "minimum": 0
+              },
+              "default": 0,
+              "description": "linear cost per unit turnover",
+              "minimum": 0,
+              "nl_editable": true,
+              "type": "number"
             }
           },
+          "required": [
+            "half_spread_bps",
+            "per_trade_bps"
+          ],
           "type": "object"
         },
         "custom_weights": {
@@ -1256,26 +1254,6 @@
           "type": [
             "null",
             "object"
-          ]
-        },
-        "entry_eligible_strikes": {
-          "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.entry_eligible_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "entry_soft_strikes": {
-          "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.entry_soft_strikes.",
-          "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
           ]
         },
         "indices_list": {
@@ -1338,6 +1316,16 @@
             "null",
             "number"
           ]
+        },
+        "min_tenure_n": {
+          "constraints": {
+            "minimum": 0
+          },
+          "default": 0,
+          "description": "minimum number of periods a fund must remain held",
+          "minimum": 0,
+          "nl_editable": true,
+          "type": "integer"
         },
         "policy": {
           "constraints": {},
@@ -1743,15 +1731,19 @@
           },
           "type": "object"
         },
-        "target_n": {
+        "sticky_add_x": {
           "constraints": {},
-          "default": null,
-          "description": "Config option for portfolio.target_n.",
+          "default": 1,
+          "description": "Config option for portfolio.sticky_add_x.",
           "nl_editable": true,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "type": "integer"
+        },
+        "sticky_drop_y": {
+          "constraints": {},
+          "default": 1,
+          "description": "Config option for portfolio.sticky_drop_y.",
+          "nl_editable": true,
+          "type": "integer"
         },
         "threshold_hold": {
           "additionalProperties": false,
@@ -1760,6 +1752,20 @@
           "description": "Config option for portfolio.threshold_hold.",
           "nl_editable": true,
           "properties": {
+            "entry_eligible_strikes": {
+              "constraints": {},
+              "default": 2,
+              "description": "Config option for portfolio.threshold_hold.entry_eligible_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
+            "entry_soft_strikes": {
+              "constraints": {},
+              "default": 3,
+              "description": "Config option for portfolio.threshold_hold.entry_soft_strikes.",
+              "nl_editable": true,
+              "type": "integer"
+            },
             "metric": {
               "constraints": {},
               "default": "Sharpe",
@@ -1822,32 +1828,20 @@
             "object"
           ]
         },
-        "transaction_cost_bps": {
-          "constraints": {
-            "minimum": 0
-          },
-          "default": 0,
-          "description": "linear cost per unit turnover",
-          "minimum": 0,
-          "nl_editable": true,
-          "type": "integer"
-        },
         "weighting": {
           "additionalProperties": false,
           "constraints": {},
           "default": {
-            "name": "score_prop_bayes",
-            "params": {
-              "shrink_tau": 0.25
-            }
+            "name": "equal",
+            "params": {}
           },
           "description": "Weighting plugin settings.",
           "nl_editable": true,
           "properties": {
             "name": {
               "constraints": {},
-              "default": "score_prop_bayes",
-              "description": "Weighting plugin name.",
+              "default": "equal",
+              "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity",
               "nl_editable": true,
               "type": "string"
             },
@@ -1863,57 +1857,18 @@
                 ]
               },
               "constraints": {},
-              "default": {
-                "shrink_tau": 0.25
-              },
+              "default": {},
               "description": "Parameters for weighting plugin.",
               "nl_editable": true,
               "properties": {
-                "condition_threshold": {
+                "shrink_tau": {
                   "constraints": {},
                   "default": null,
-                  "description": "Config option for portfolio.weighting.params.condition_threshold.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "diagonal_loading_factor": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.diagonal_loading_factor.",
+                  "description": "Shrinkage tau for Bayesian weighting.",
                   "nl_editable": true,
                   "type": [
                     "null",
                     "number"
-                  ]
-                },
-                "safe_mode": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.safe_mode.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "shrink_tau": {
-                  "constraints": {},
-                  "default": 0.25,
-                  "description": "Shrinkage tau for Bayesian weighting.",
-                  "nl_editable": true,
-                  "type": "number"
-                },
-                "shrinkage_method": {
-                  "constraints": {},
-                  "default": null,
-                  "description": "Config option for portfolio.weighting.params.shrinkage_method.",
-                  "nl_editable": true,
-                  "type": [
-                    "null",
-                    "string"
                   ]
                 }
               },
@@ -1921,34 +1876,11 @@
             }
           },
           "type": "object"
-        },
-        "weighting_scheme": {
-          "constraints": {
-            "enum": [
-              "equal",
-              "risk_parity",
-              "hrp",
-              "erc",
-              "robust_mv",
-              "robust_risk_parity",
-              "custom"
-            ]
-          },
-          "default": "equal",
-          "description": "equal | risk_parity | hrp | erc | robust_mv | robust_risk_parity | custom",
-          "enum": [
-            "equal",
-            "risk_parity",
-            "hrp",
-            "erc",
-            "robust_mv",
-            "robust_risk_parity",
-            "custom"
-          ],
-          "nl_editable": true,
-          "type": "string"
         }
       },
+      "required": [
+        "cost_model"
+      ],
       "type": "object"
     },
     "preprocessing": {
@@ -2197,7 +2129,7 @@
         "annualise_volatility": {
           "constraints": {},
           "default": true,
-          "description": "applies when method: volatility",
+          "description": "only for method: volatility; rescales signal and boundaries together",
           "nl_editable": true,
           "type": "boolean"
         },
@@ -2246,7 +2178,7 @@
         "neutral_band": {
           "constraints": {},
           "default": 0.001,
-          "description": "Neutral band threshold around zero.",
+          "description": "rolling-return neutral buffer in compounded-signal units",
           "nl_editable": true,
           "type": "number"
         },
@@ -2295,7 +2227,7 @@
         "threshold": {
           "constraints": {},
           "default": 0.0,
-          "description": "Threshold for regime classification.",
+          "description": "rolling-return boundary in compounded-signal units",
           "nl_editable": true,
           "type": "number"
         }
@@ -2306,6 +2238,7 @@
       "additionalProperties": false,
       "constraints": {},
       "default": {
+        "checkpoint_dir": "outputs/checkpoints/",
         "jobs": -1,
         "monthly_cost": 0.0
       },
@@ -2314,12 +2247,12 @@
       "properties": {
         "checkpoint_dir": {
           "constraints": {},
-          "default": null,
+          "default": "outputs/checkpoints/",
           "description": "Directory for saving checkpoints.",
           "nl_editable": true,
           "type": [
-            "null",
-            "string"
+            "string",
+            "null"
           ]
         },
         "jobs": {
@@ -2327,7 +2260,10 @@
           "default": -1,
           "description": "-1 => all CPUs",
           "nl_editable": true,
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "monthly_cost": {
           "constraints": {},
@@ -2481,6 +2417,111 @@
       "nl_editable": true,
       "type": "integer"
     },
+    "signals": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {},
+      "description": "Canonical time-series momentum signal settings.",
+      "nl_editable": true,
+      "properties": {
+        "kind": {
+          "constraints": {
+            "enum": [
+              "tsmom",
+              null
+            ]
+          },
+          "default": null,
+          "description": "Canonical signal family. Only time-series momentum is supported.",
+          "enum": [
+            "tsmom",
+            null
+          ],
+          "nl_editable": true,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lag": {
+          "constraints": {
+            "minimum": 1
+          },
+          "default": null,
+          "description": "Periods to lag signals for causal execution.",
+          "minimum": 1,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min_periods": {
+          "constraints": {
+            "minimum": 1
+          },
+          "default": null,
+          "description": "Minimum observations required for a valid signal.",
+          "minimum": 1,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "vol_adjust": {
+          "constraints": {},
+          "default": null,
+          "description": "Scale signals by volatility when enabled.",
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "vol_target": {
+          "constraints": {
+            "exclusiveMinimum": 0
+          },
+          "default": null,
+          "description": "Target volatility for volatility-adjusted signals.",
+          "exclusiveMinimum": 0,
+          "nl_editable": true,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "window": {
+          "constraints": {
+            "minimum": 1
+          },
+          "default": null,
+          "description": "Rolling window used to compute trend signals.",
+          "minimum": 1,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "zscore": {
+          "constraints": {
+            "exclusiveMinimum": 0
+          },
+          "default": null,
+          "description": "Cross-sectional z-score normalization control.",
+          "exclusiveMinimum": 0,
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "version": {
       "constraints": {},
       "default": "0.1.0",
@@ -2589,6 +2630,9 @@
       "type": "object"
     }
   },
+  "required": [
+    "portfolio"
+  ],
   "title": "Trend Model configuration",
   "type": "object"
 }

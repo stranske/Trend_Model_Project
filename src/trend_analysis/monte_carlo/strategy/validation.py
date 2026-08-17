@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from trend_analysis.config.model import TrendConfig, validate_trend_config
+from trend_analysis.config.model import TrendConfig
 from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.monte_carlo.strategy.variant import StrategyVariant
 
@@ -99,7 +99,10 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
             errors.append(f"strategy_pack.curated[{idx}] invalid: {issue}")
 
         try:
-            validated = validate_trend_config(merged, base_path=base_path.parent)
+            # Reuse the variant's canonical registered-engine validation rather
+            # than accepting any arbitrary string that happens to fit the
+            # open-ended plugin schema.
+            validated = variant.to_trend_config(deepcopy(base_config), base_path=base_path.parent)
         except ValueError as exc:
             errors.append(f"strategy_pack.curated[{idx}] invalid: {exc}")
             continue

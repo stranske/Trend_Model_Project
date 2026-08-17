@@ -30,7 +30,7 @@ class ThresholdConfig:
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
-            "transaction_cost_bps": 25.0,
+            "cost_model": {"per_trade_bps": 25.0, "half_spread_bps": 0},
             "max_turnover": 0.05,
             "threshold_hold": {
                 "target_n": 4,
@@ -83,7 +83,7 @@ class ShortConfig:
     portfolio: Dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {
                 "target_n": 2,
@@ -251,7 +251,14 @@ def _patch_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
         },
     }
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        _cfg: Any,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del risk_free_override
         series = pd.Series(metric_maps[metric], dtype=float)
         return series.reindex(frame.columns).astype(float)
 
@@ -395,7 +402,9 @@ def test_threshold_hold_event_log_and_replacements(
     assert "Gamma One" not in manual_funds
 
     assert second_period["turnover"] == pytest.approx(0.25)
-    expected_cost = second_period["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000.0)
+    expected_cost = second_period["turnover"] * (
+        cfg.portfolio["cost_model"]["per_trade_bps"] / 10000.0
+    )
     assert second_period["transaction_cost"] == pytest.approx(expected_cost)
 
 

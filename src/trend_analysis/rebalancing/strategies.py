@@ -18,9 +18,6 @@ from ..cash_policy import CashPolicy
 from ..metrics.turnover import linear_turnover_cost
 from ..plugins import Rebalancer, create_rebalancer, rebalancer_registry
 
-# Backwards compatibility name
-RebalancingStrategy = Rebalancer
-
 # Small epsilon value for turnover comparisons to handle numerical precision
 TURNOVER_EPSILON = 1e-10
 
@@ -441,7 +438,6 @@ def apply_rebalancing_strategies(
 
 __all__ = [
     "CashPolicy",
-    "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
     "DriftBandStrategy",

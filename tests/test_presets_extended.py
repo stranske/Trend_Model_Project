@@ -82,7 +82,7 @@ def test_trend_preset_helpers_cover_defaults() -> None:
     assert defaults["risk_target"] == pytest.approx(0.35)
     assert defaults["metrics"] == {"sharpe": 2.0, "vol": 0.5}
     # Non-mapping portfolio inputs should be normalised to defaults
-    assert defaults["weighting_scheme"] == "equal"
+    assert defaults["weighting_name"] == "equal"
 
     signals = preset.signals_mapping()
     assert signals["min_periods"] == 10
@@ -92,7 +92,10 @@ def test_trend_preset_helpers_cover_defaults() -> None:
 def test_trend_preset_portfolio_mapping_branch() -> None:
     spec = TrendSpec()
     preset_cfg = {
-        "portfolio": {"weighting_scheme": "custom", "cooldown_months": 4},
+        "portfolio": {
+            "weighting": {"name": "custom", "params": {}},
+            "cooldown_periods": 4,
+        },
     }
     preset = presets.TrendPreset(
         slug="portfolio",
@@ -102,8 +105,8 @@ def test_trend_preset_portfolio_mapping_branch() -> None:
         _config=presets._freeze_mapping(preset_cfg),
     )
     defaults = preset.form_defaults()
-    assert defaults["weighting_scheme"] == "custom"
-    assert defaults["cooldown_months"] == 4
+    assert defaults["weighting_name"] == "custom"
+    assert defaults["cooldown_periods"] == 4
 
 
 def test_apply_trend_preset_updates_namespace() -> None:

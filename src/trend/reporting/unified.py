@@ -17,6 +17,10 @@ import pandas as pd
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.reporting._matplotlib import init_matplotlib
 from trend_analysis.backtesting import BacktestResult, CostModel
+from trend_analysis.config_contract import (
+    resolve_pipeline_monthly_cost,
+    resolve_portfolio_cost_bps,
+)
 from trend_analysis.reporting.narrative import (
     STANDARD_NARRATIVE_DISCLAIMER,
     narrative_generation_enabled,
@@ -431,11 +435,13 @@ def _backtest_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
         entries.append(("Multi-period frequency", freq))
     model = getattr(spec, "cost_model", None)
     if model is not None:
-        desc = f"{float(getattr(model, 'bps_per_trade', 0.0)):.2f} bps"
+        bps_per_trade = float(getattr(model, "bps_per_trade", 0.0))
         slip = float(getattr(model, "slippage_bps", 0.0))
-        if slip:
-            desc = f"{desc} + {slip:.2f} bps slippage"
-        entries.append(("Cost model", desc))
+        if bps_per_trade or slip:
+            desc = f"{bps_per_trade:.2f} bps"
+            if slip:
+                desc = f"{desc} + {slip:.2f} bps slippage"
+            entries.append(("Cost model", desc))
     return entries
 
 
@@ -478,19 +484,24 @@ def _build_param_summary(
     selection_mode = _get(portfolio, "selection_mode")
     if selection_mode:
         params.append(("Selection mode", str(selection_mode)))
-    weighting = _get(portfolio, "weighting_scheme")
+    weighting_cfg = _get(portfolio, "weighting", {})
+    weighting = _get(weighting_cfg, "name")
     if weighting:
         params.append(("Weighting scheme", str(weighting)))
     max_turnover = _get(portfolio, "max_turnover")
     if isinstance(max_turnover, (int, float)):
         params.append(("Turnover cap", _format_percent(float(max_turnover))))
-    tx_cost = _get(portfolio, "transaction_cost_bps") or _get(run_cfg, "monthly_cost")
-    if isinstance(tx_cost, (int, float)):
-        params.append(("Transaction cost", f"{float(tx_cost):.2f} bps"))
-    cost_model_cfg = _get(portfolio, "cost_model", {})
-    slippage = _get(cost_model_cfg, "slippage_bps")
-    if isinstance(slippage, (int, float)) and float(slippage):
-        params.append(("Slippage assumption", f"{float(slippage):.2f} bps"))
+    cost_model_cfg = _get(portfolio, "cost_model")
+    configured_monthly_cost = _get(run_cfg, "monthly_cost")
+    if cost_model_cfg is not None or configured_monthly_cost is not None:
+        per_trade_bps, half_spread_bps = resolve_portfolio_cost_bps(portfolio)
+        if per_trade_bps > 0.0 or half_spread_bps > 0.0:
+            params.append(("Transaction cost", f"{per_trade_bps:.2f} bps"))
+            if half_spread_bps:
+                params.append(("Slippage assumption", f"{half_spread_bps:.2f} bps"))
+        else:
+            monthly_cost = resolve_pipeline_monthly_cost(run_cfg, portfolio)
+            params.append(("Transaction cost", f"{monthly_cost:.4%} per period"))
     rebalance = _get(portfolio, "rebalance_calendar")
     if rebalance:
         params.append(("Rebalance calendar", str(rebalance)))

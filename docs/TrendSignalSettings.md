@@ -23,7 +23,7 @@ The Trend Signal Settings control how time-series momentum (TSMOM) signals are c
 - **Description**: Rolling window size for computing trend signals
 - **Default**: 63 (approximately 3 months of trading days)
 - **Range**: 5-252 periods
-- **Config key**: `trend_window`
+- **Config key**: `signals.window`
 
 With daily data:
 - 21 periods ≈ 1 month
@@ -35,7 +35,7 @@ With daily data:
 - **Description**: Number of periods to lag the signal for causality
 - **Default**: 1
 - **Range**: 1-10 periods
-- **Config key**: `trend_lag`
+- **Config key**: `signals.lag`
 
 A lag of at least 1 is required to avoid look-ahead bias.
 
@@ -43,21 +43,21 @@ A lag of at least 1 is required to avoid look-ahead bias.
 - **Description**: Minimum observations required before computing a valid signal
 - **Default**: None (uses full window)
 - **Range**: 0-252
-- **Config key**: `trend_min_periods`
+- **Config key**: `signals.min_periods`
 
 Set to 0 or leave blank to require the full window before producing signals.
 
 ### Cross-sectional Z-score
 - **Description**: Standardize signals across all funds at each time step
 - **Default**: False
-- **Config key**: `trend_zscore`
+- **Config key**: `signals.zscore`
 
 When enabled, signals are converted to z-scores relative to the cross-section of all funds, making them comparable across different volatility regimes.
 
 ### Volatility Adjust Signals
 - **Description**: Scale signals by volatility to normalize across assets
 - **Default**: False
-- **Config key**: `trend_vol_adjust`
+- **Config key**: `signals.vol_adjust`
 
 When enabled, high-volatility funds have their signals scaled down to be comparable with low-volatility funds.
 
@@ -65,7 +65,7 @@ When enabled, high-volatility funds have their signals scaled down to be compara
 - **Description**: Target volatility for vol-adjusted signals
 - **Default**: 0.10 (10%)
 - **Range**: 0.01-0.50
-- **Config key**: `trend_vol_target`
+- **Config key**: `signals.vol_target`
 
 Only applicable when volatility adjustment is enabled.
 
@@ -73,13 +73,12 @@ Only applicable when volatility adjustment is enabled.
 
 ```yaml
 signals:
-  trend:
-    window: 63
-    lag: 1
-    min_periods: null
-    zscore: false
-    vol_adjust: false
-    vol_target: 0.10
+  window: 63
+  lag: 1
+  min_periods: null
+  zscore: false
+  vol_adjust: false
+  vol_target: 0.10
 ```
 
 ## Re-enabling in the UI

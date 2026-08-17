@@ -71,7 +71,7 @@ def _base_config() -> DummyConfig:
         data={"csv_path": "unused.csv"},
         portfolio={
             "policy": "threshold_hold",
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {
                 "target_n": 1,

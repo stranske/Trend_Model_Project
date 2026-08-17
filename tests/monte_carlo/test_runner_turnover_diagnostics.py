@@ -26,7 +26,7 @@ def _base_config(
     *,
     regime_cfg: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    portfolio: dict[str, object] = {}
+    portfolio: dict[str, object] = {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}}
     if max_turnover is not None:
         portfolio["max_turnover"] = max_turnover
     regime_payload = regime_cfg if regime_cfg is not None else {}
@@ -851,7 +851,7 @@ def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch)
         {
             "policy": "threshold_hold",
             "selection_mode": "all",
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
         }
     )
     base_config["data"]["allow_risk_free_fallback"] = False

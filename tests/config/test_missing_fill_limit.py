@@ -65,7 +65,7 @@ def _config_payload(tmp_path: Path, data_overrides: dict[str, object]) -> dict[s
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
         },
         "metrics": {},
         "export": {},

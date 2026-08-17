@@ -29,8 +29,8 @@ def build_config_payload(
     frequency: str,
     rebalance_calendar: str,
     max_turnover: float,
-    transaction_cost_bps: float,
-    slippage_bps: float = 0.0,
+    per_trade_bps: float,
+    half_spread_bps: float = 0.0,
     target_vol: float,
 ) -> Dict[str, Any]:
     """Build a raw configuration mapping for minimal validation.
@@ -56,12 +56,9 @@ def build_config_payload(
         "portfolio": {
             "rebalance_calendar": rebalance_calendar,
             "max_turnover": max_turnover,
-            "transaction_cost_bps": transaction_cost_bps,
             "cost_model": {
-                "bps_per_trade": transaction_cost_bps,
-                "slippage_bps": slippage_bps,
-                "per_trade_bps": transaction_cost_bps,
-                "half_spread_bps": slippage_bps,
+                "per_trade_bps": per_trade_bps,
+                "half_spread_bps": half_spread_bps,
             },
         },
         "vol_adjust": {"target_vol": target_vol},
@@ -85,7 +82,10 @@ def validate_payload(
         for key, value in dict(payload.get("portfolio") or {}).items()
         if key != "cost_model"
     }
-    semantic_portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
+    semantic_portfolio["cost_model"] = {
+        "per_trade_bps": core.costs.per_trade_bps,
+        "half_spread_bps": core.costs.half_spread_bps,
+    }
     semantic_portfolio["max_turnover"] = trend_config.portfolio.max_turnover
     semantic_data = dict(payload.get("data") or {})
     semantic_data["csv_path"] = str(core.data.csv_path) if core.data.csv_path is not None else None
@@ -126,11 +126,8 @@ def validate_payload(
     validated["data"] = data_section
 
     portfolio = dict(validated.get("portfolio") or {})
-    portfolio["transaction_cost_bps"] = core.costs.transaction_cost_bps
     portfolio["max_turnover"] = trend_config.portfolio.max_turnover
     cost_model = dict(portfolio.get("cost_model") or {})
-    cost_model["bps_per_trade"] = core.costs.bps_per_trade
-    cost_model["slippage_bps"] = core.costs.slippage_bps
     cost_model["per_trade_bps"] = core.costs.per_trade_bps
     cost_model["half_spread_bps"] = core.costs.half_spread_bps
     portfolio["cost_model"] = cost_model

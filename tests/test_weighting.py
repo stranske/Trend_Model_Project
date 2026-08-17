@@ -5,12 +5,77 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from trend_analysis.stages.portfolio import _score_weighting_percentages
 from trend_analysis.weighting import (
     AdaptiveBayesWeighting,
     EqualWeight,
     ScorePropBayesian,
     ScorePropSimple,
 )
+
+
+@pytest.mark.parametrize(
+    "scheme",
+    ["score", "score_prop", "bayes", "score_prop_bayes", "adaptive", "adaptive_bayes"],
+)
+def test_single_period_score_weighting_names_use_score_frame(scheme: str) -> None:
+    scores = pd.DataFrame(
+        {"Sortino": [3.0, 1.0]},
+        index=["FundA", "FundB"],
+    )
+
+    weights = _score_weighting_percentages(
+        scheme,
+        scores,
+        ["FundA", "FundB"],
+        {"column": "Sortino", "max_w": None},
+    )
+
+    assert weights is not None
+    assert sum(weights.values()) == pytest.approx(100.0)
+    assert weights["FundA"] > weights["FundB"]
+
+
+def test_single_period_risk_weighting_stays_on_plugin_path() -> None:
+    scores = pd.DataFrame({"Sharpe": [2.0, 1.0]}, index=["FundA", "FundB"])
+
+    assert _score_weighting_percentages("risk_parity", scores, list(scores.index), {}) is None
+
+
+def test_single_period_adaptive_weighting_respects_feasible_configured_cap() -> None:
+    scores = pd.DataFrame(
+        {"Sharpe": [5.0, 2.4, 2.4, 0.1, 0.1]},
+        index=["FundA", "FundB", "FundC", "FundD", "FundE"],
+    )
+
+    weights = _score_weighting_percentages(
+        "adaptive_bayes",
+        scores,
+        list(scores.index),
+        {"max_w": 0.25},
+    )
+
+    assert weights is not None
+    assert sum(weights.values()) == pytest.approx(100.0)
+    assert max(weights.values()) <= 25.0 + 1e-10
+
+
+def test_single_period_adaptive_weighting_preserves_default_cap() -> None:
+    scores = pd.DataFrame(
+        {"Sharpe": [8.0, 2.0, 1.0, 0.5, 0.1]},
+        index=["FundA", "FundB", "FundC", "FundD", "FundE"],
+    )
+
+    weights = _score_weighting_percentages(
+        "adaptive_bayes",
+        scores,
+        list(scores.index),
+        {},
+    )
+
+    assert weights is not None
+    assert sum(weights.values()) == pytest.approx(100.0)
+    assert max(weights.values()) <= 20.0 + 1e-10
 
 
 def test_score_prop_simple_basic_proportional_weights() -> None:

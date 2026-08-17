@@ -989,30 +989,19 @@ def _portfolio_settings(cfg: Any) -> Mapping[str, Any]:
 
 def _require_transaction_cost_controls(cfg: Any) -> None:
     portfolio = _portfolio_settings(cfg)
-    cost_value = portfolio.get("transaction_cost_bps")
     cost_model = portfolio.get("cost_model")
-    if isinstance(cost_model, Mapping):
-        override = cost_model.get("bps_per_trade")
-        if override is not None:
-            cost_value = override
-        slippage = cost_model.get("slippage_bps")
-        if slippage is not None:
-            try:
-                slip_value = float(slippage)
-            except (TypeError, ValueError) as exc:
-                raise TrendCLIError("portfolio.cost_model.slippage_bps must be numeric") from exc
-            if slip_value < 0:
-                raise TrendCLIError("portfolio.cost_model.slippage_bps cannot be negative")
-    if cost_value is None:
-        raise TrendCLIError(
-            "Configuration must define portfolio.transaction_cost_bps for honest costs."
-        )
-    try:
-        cost = float(cost_value)
-    except (TypeError, ValueError) as exc:
-        raise TrendCLIError("portfolio.transaction_cost_bps must be numeric") from exc
-    if cost < 0:
-        raise TrendCLIError("portfolio.transaction_cost_bps cannot be negative")
+    if not isinstance(cost_model, Mapping):
+        raise TrendCLIError("Configuration must define portfolio.cost_model for honest costs.")
+    for key in ("per_trade_bps", "half_spread_bps"):
+        value = cost_model.get(key)
+        if value is None:
+            raise TrendCLIError(f"Configuration must define portfolio.cost_model.{key}.")
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError) as exc:
+            raise TrendCLIError(f"portfolio.cost_model.{key} must be numeric") from exc
+        if parsed < 0:
+            raise TrendCLIError(f"portfolio.cost_model.{key} cannot be negative")
 
 
 def _persist_turnover_ledger(run_id: str, details: Any) -> DiagnosticResult[Path]:

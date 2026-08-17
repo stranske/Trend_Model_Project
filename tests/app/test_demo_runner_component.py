@@ -132,7 +132,7 @@ def test_build_policy_uses_metric_weights() -> None:
     preset = {
         "selection_count": 8,
         "min_track_months": 18,
-        "portfolio": {"cooldown_months": 2, "max_weight": 0.2},
+        "portfolio": {"cooldown_periods": 2, "max_weight": 0.2},
     }
 
     policy = demo_runner._build_policy({"sharpe": 0.6, "return_ann": 0.4}, preset)
@@ -153,7 +153,7 @@ def test_build_pipeline_config_translates_weights() -> None:
         "end": "2020-06-30",
         "lookback_periods": 3,
         "policy": {"top_k": 5},
-        "portfolio": {"weighting_scheme": "equal"},
+        "portfolio": {"weighting": {"name": "equal", "params": {}}},
         "risk_target": 0.12,
     }
     weights = {"sharpe": 0.5, "return_ann": 0.3, "drawdown": 0.2}
@@ -166,6 +166,10 @@ def test_build_pipeline_config_translates_weights() -> None:
         "Sharpe": 0.5,
         "AnnualReturn": 0.3,
         "MaxDrawdown": 0.2,
+    }
+    assert dumped["portfolio"]["cost_model"] == {
+        "per_trade_bps": 0.0,
+        "half_spread_bps": 0.0,
     }
     assert dumped["benchmarks"] == {"SPX": "SPX"}
     assert dumped["vol_adjust"] == {
@@ -329,7 +333,12 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
             "out_start": "2020-01",
             "out_end": "2020-03",
         },
-        portfolio={"selection_mode": "rank", "rank": {}, "weighting_scheme": "equal"},
+        portfolio={
+            "selection_mode": "rank",
+            "rank": {},
+            "weighting": {"name": "equal", "params": {}},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+        },
         benchmarks={},
         metrics={"registry": []},
         export={},
@@ -515,7 +524,12 @@ def test_run_one_click_demo_imports_streamlit(monkeypatch: pytest.MonkeyPatch) -
             "out_start": "2020-01",
             "out_end": "2020-02",
         },
-        portfolio={"selection_mode": "rank", "rank": {}, "weighting_scheme": "equal"},
+        portfolio={
+            "selection_mode": "rank",
+            "rank": {},
+            "weighting": {"name": "equal", "params": {}},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+        },
         benchmarks={},
         metrics={"registry": []},
         export={},

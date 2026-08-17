@@ -69,8 +69,14 @@ def _patch_metric_series(
 ) -> None:
     import trend_analysis.core.rank_selection as rank_selection
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
-        del metric, stats_cfg
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        stats_cfg: object,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del metric, stats_cfg, risk_free_override
         if frame.empty:
             return pd.Series(dtype=float)
         end_key = pd.Timestamp(frame.index.max()).strftime("%Y-%m")
@@ -85,7 +91,11 @@ def _patch_metric_series(
 
 
 def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {}))
+    monkeypatch.setattr(
+        engine,
+        "apply_missing_policy",
+        lambda frame, *, policy, limit, enforce_completeness: (frame, {}),
+    )
     monkeypatch.setattr(engine, "_run_analysis", lambda *args, **kwargs: {})
 
 
@@ -109,7 +119,11 @@ def _patch_pipeline_capture(
         }
         return DiagnosticResult(value=payload, diagnostic=None)
 
-    monkeypatch.setattr(engine, "apply_missing_policy", lambda frame, *, policy, limit: (frame, {}))
+    monkeypatch.setattr(
+        engine,
+        "apply_missing_policy",
+        lambda frame, *, policy, limit, enforce_completeness: (frame, {}),
+    )
     monkeypatch.setattr(engine, "_call_pipeline_with_diag", fake_pipeline)
 
 

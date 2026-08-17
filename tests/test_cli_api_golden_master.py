@@ -47,7 +47,7 @@ def make_test_config(csv_path: str) -> Config:
             "out_start": "2021-01",
             "out_end": "2021-12",
         },
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         benchmarks={"spx": "SPX"},
         metrics={},
         export={},

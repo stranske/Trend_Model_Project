@@ -61,7 +61,11 @@ def _base_config() -> dict[str, Any]:
         "preprocessing": {},
         "vol_adjust": {"enabled": False, "target_vol": 0.1, "window": {"length": 3}},
         "sample_split": {"method": "ratio", "ratio": 0.6},
-        "portfolio": {"selection_mode": "all", "weighting_scheme": "equal"},
+        "portfolio": {
+            "selection_mode": "all",
+            "weighting": {"name": "equal"},
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+        },
         "benchmarks": {},
         "metrics": {"registry": ["annual_return", "volatility", "sharpe_ratio"]},
         "regime": {},
@@ -1288,6 +1292,15 @@ def test_guard_turnover_distribution_rejects_non_numeric_sample() -> None:
 
     with pytest.raises(ValueError, match="distribution must sample numeric values"):
         runner._build_strategy_config(strategy, seed)
+
+
+def test_strategy_config_rejects_unknown_signal_shapes() -> None:
+    base_config = _base_config()
+    base_config["signals"] = {"trend": {"window": 20}}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=base_config)
+
+    with pytest.raises(ValueError, match="signals"):
+        runner._build_strategy_config(StrategyVariant(name="trend_basic"), seed=1)
 
 
 def test_run_two_layer_deterministic() -> None:

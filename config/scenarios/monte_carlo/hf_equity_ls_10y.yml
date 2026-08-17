@@ -37,7 +37,9 @@ strategy_set:
           rank:
             n: 12
             metric: Sharpe
-          weighting_scheme: equal
+          weighting:
+            name: equal
+            params: {}
 
 outputs:
   directory: outputs/monte_carlo/{scenario_name}/{timestamp}

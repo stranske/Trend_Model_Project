@@ -28,7 +28,7 @@ def _base_config(tmp_path: Path) -> dict[str, Any]:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
         },
         "metrics": {},
         "export": {},

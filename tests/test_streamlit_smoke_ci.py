@@ -89,7 +89,10 @@ def demo_config():
             "out_start": "2020-07",
             "out_end": "2021-12",
         },
-        portfolio={"selection_mode": "all"},
+        portfolio={
+            "selection_mode": "all",
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+        },
         benchmarks={},
         metrics={"registry": ["sharpe", "max_drawdown"]},
         export={},

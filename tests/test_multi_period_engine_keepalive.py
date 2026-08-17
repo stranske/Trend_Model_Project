@@ -137,8 +137,13 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
     captured: dict[str, Any] = {}
 
     def fake_missing_policy(
-        frame: pd.DataFrame, *, policy: str, limit: Any
+        frame: pd.DataFrame,
+        *,
+        policy: str,
+        limit: Any,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        assert enforce_completeness is True
         captured["policy"] = policy
         captured["limit"] = limit
         return frame, {"applied": True}

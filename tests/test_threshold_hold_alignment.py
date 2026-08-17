@@ -97,7 +97,10 @@ def test_threshold_hold_results_align_with_periods():
         },
     }
 
-    def fake_metric_series(_frame, metric, _stats_cfg):  # pragma: no cover - trivial
+    def fake_metric_series(
+        _frame, metric, _stats_cfg, *, risk_free_override=None
+    ):  # pragma: no cover - trivial
+        del risk_free_override
         return pd.Series(metric_maps[metric], dtype=float)
 
     monkeypatch_ctx = pytest.MonkeyPatch()

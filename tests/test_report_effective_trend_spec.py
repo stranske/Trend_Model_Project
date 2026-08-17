@@ -30,7 +30,7 @@ def test_report_uses_runtime_numeric_zscore_spec() -> None:
 
 def test_shared_parser_agrees_across_entrypoints() -> None:
     payload = {
-        "signals": {"trend_window": 42, "trend_lag": 2, "trend_zscore": 2.0},
+        "signals": {"window": 42, "lag": 2, "zscore": 2.0},
         "vol_adjust": {"enabled": True, "target_vol": 0.15},
     }
 
@@ -62,7 +62,7 @@ def test_report_disables_invalid_numeric_zscore_scales() -> None:
     ("signals", "expected_window", "expected_lag", "expected_vol_target"),
     [
         ({"window": float("inf")}, 63, 1, None),
-        ({"trend_window": float("nan")}, 63, 1, None),
+        ({"window": float("nan")}, 63, 1, None),
         ({"lag": float("inf")}, 63, 1, None),
         ({"vol_target": float("nan")}, 63, 1, None),
         ({"vol_target": float("inf")}, 63, 1, None),

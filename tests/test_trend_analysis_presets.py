@@ -24,8 +24,8 @@ def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
           lag: 2
           vol_adjust: false
         portfolio:
-          weighting_scheme: equal
-          cooldown_months: 3
+          weighting: {name: equal, params: {}}
+          cooldown_periods: 3
         metrics:
           sharpe: 1.4
         vol_adjust:
@@ -155,7 +155,10 @@ def test_trend_preset_helpers_expose_expected_defaults() -> None:
                 "risk_target": 0.2,
                 "rebalance_frequency": "weekly",
                 "metrics": {"sharpe": "1.5", "drawdown": 0.4},
-                "portfolio": {"weighting_scheme": "equal", "cooldown_months": 2},
+                "portfolio": {
+                    "weighting": {"name": "equal", "params": {}},
+                    "cooldown_periods": 2,
+                },
                 "vol_adjust": {"enabled": False, "window": {"slow": 63}},
             }
         ),
@@ -168,8 +171,8 @@ def test_trend_preset_helpers_expose_expected_defaults() -> None:
         "min_track_months": 6,
         "selection_count": 7,
         "risk_target": 0.2,
-        "weighting_scheme": "equal",
-        "cooldown_months": 2,
+        "weighting_name": "equal",
+        "cooldown_periods": 2,
         "metrics": {"sharpe": 1.5, "drawdown": 0.4},
     }
 
@@ -283,8 +286,8 @@ def test_apply_trend_preset_merges_config(tmp_path: Path, monkeypatch: pytest.Mo
     )
 
     defaults = preset.form_defaults()
-    assert defaults["weighting_scheme"] == "equal"
-    assert defaults["cooldown_months"] == 3
+    assert defaults["weighting_name"] == "equal"
+    assert defaults["cooldown_periods"] == 3
 
     vol_defaults = preset.vol_adjust_defaults()
     assert vol_defaults["enabled"] is False
@@ -373,8 +376,8 @@ metrics:
   sharpe: "1.5"
   max_drawdown: "0.3"
 portfolio:
-  weighting_scheme: equal
-  cooldown_months: 2
+  weighting: {name: equal, params: {}}
+  cooldown_periods: 2
 vol_adjust:
   enabled: false
   window:

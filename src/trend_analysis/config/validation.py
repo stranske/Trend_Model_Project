@@ -522,13 +522,33 @@ def _check_portfolio_required_fields(
         expected="number",
         suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
     )
+    cost_model = portfolio.get("cost_model")
+    if not isinstance(cost_model, Mapping):
+        errors.append(
+            ValidationError(
+                path="portfolio.cost_model",
+                message="Required field is missing or is not a mapping.",
+                expected="mapping",
+                actual=cost_model,
+                suggestion="Set portfolio.cost_model.per_trade_bps and half_spread_bps.",
+            )
+        )
+        return
     _require_field(
         errors,
-        portfolio,
-        "portfolio",
-        "transaction_cost_bps",
+        cost_model,
+        "portfolio.cost_model",
+        "per_trade_bps",
         expected="number",
-        suggestion="Set portfolio.transaction_cost_bps to a numeric value (e.g., 0).",
+        suggestion="Set portfolio.cost_model.per_trade_bps to a numeric value (e.g., 0).",
+    )
+    _require_field(
+        errors,
+        cost_model,
+        "portfolio.cost_model",
+        "half_spread_bps",
+        expected="number",
+        suggestion="Set portfolio.cost_model.half_spread_bps to a numeric value (e.g., 0).",
     )
 
 

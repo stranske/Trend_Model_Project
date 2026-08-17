@@ -35,7 +35,7 @@ class MinimalConfig:
         default_factory=lambda: {
             "policy": "threshold_hold",
             "random_n": 4,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {"target_n": 3, "metric": "Sharpe"},
             "constraints": {

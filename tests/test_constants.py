@@ -51,7 +51,7 @@ def _write_cfg(path: Path, csv: Path) -> None:
                 "vol_adjust: {target_vol: 1.0}",
                 "sample_split: {in_start: '2020-01', in_end: '2020-03', "
                 "out_start: '2020-04', out_end: '2020-06'}",
-                "portfolio: {selection_mode: all, rebalance_calendar: NYSE, max_turnover: 0.5, transaction_cost_bps: 10, cost_model: {bps_per_trade: 0, slippage_bps: 0}}",
+                "portfolio: {selection_mode: all, rebalance_calendar: NYSE, max_turnover: 0.5, cost_model: {per_trade_bps: 10, half_spread_bps: 0}}",
                 "metrics: {}",
                 "export: {}",  # Empty export config to trigger defaults
                 "run: {}",

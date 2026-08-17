@@ -313,20 +313,28 @@ def test_portfolio_settings_validation(tmp_path: Path) -> None:
     payload = {
         "rebalance_calendar": "NYSE",
         "max_turnover": "0.5",
-        "transaction_cost_bps": "15",
+        "cost_model": {"per_trade_bps": "15", "half_spread_bps": 0},
     }
 
     result = config_model.PortfolioSettings.model_validate(payload)
 
     assert result.max_turnover == pytest.approx(0.5)
-    assert result.transaction_cost_bps == pytest.approx(15.0)
+    assert result.cost_model is not None
+    assert result.cost_model.per_trade_bps == pytest.approx(15.0)
+
+
+def test_portfolio_settings_requires_canonical_cost_model() -> None:
+    with pytest.raises(ValueError, match="cost_model"):
+        config_model.PortfolioSettings.model_validate(
+            {"rebalance_calendar": "NYSE", "max_turnover": 0.5}
+        )
 
 
 def test_portfolio_settings_ci_level_reporting_only() -> None:
     payload = {
         "rebalance_calendar": "NYSE",
         "max_turnover": 0.5,
-        "transaction_cost_bps": 15,
+        "cost_model": {"per_trade_bps": 15, "half_spread_bps": 0},
         "ci_level": "0.9",
     }
 
@@ -339,19 +347,19 @@ def test_portfolio_settings_ci_level_reporting_only() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 15,
+                "cost_model": {"per_trade_bps": 15, "half_spread_bps": 0},
                 "ci_level": 1.5,
             }
         )
 
 
-def test_portfolio_settings_accepts_min_tenure_alias() -> None:
+def test_portfolio_settings_accepts_canonical_min_tenure() -> None:
     result = config_model.PortfolioSettings.model_validate(
         {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 15,
-            "min_tenure_periods": 3,
+            "cost_model": {"per_trade_bps": 15, "half_spread_bps": 0},
+            "min_tenure_n": 3,
         }
     )
 
@@ -364,7 +372,7 @@ def test_portfolio_settings_rejects_negative_min_tenure() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 15,
+                "cost_model": {"per_trade_bps": 15, "half_spread_bps": 0},
                 "min_tenure_n": -2,
             }
         )
@@ -376,7 +384,7 @@ def test_portfolio_settings_rejects_out_of_range_values() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": -0.1,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
     with pytest.raises(ValueError, match="must be between 0 and 1.0"):
@@ -384,7 +392,7 @@ def test_portfolio_settings_rejects_out_of_range_values() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.5,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
     with pytest.raises(ValueError, match="cannot be negative"):
@@ -392,7 +400,7 @@ def test_portfolio_settings_rejects_out_of_range_values() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.4,
-                "transaction_cost_bps": -1,
+                "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
             }
         )
 
@@ -403,7 +411,7 @@ def test_portfolio_settings_requires_calendar() -> None:
             {
                 "rebalance_calendar": " ",
                 "max_turnover": 0.1,
-                "transaction_cost_bps": 5,
+                "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
 
@@ -493,7 +501,7 @@ def _valid_config_payload(tmp_path: Path) -> dict[str, object]:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {
             "target_vol": 0.2,

@@ -8,6 +8,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from collections.abc import Mapping
@@ -44,6 +45,14 @@ except Exception:  # pragma: no cover - fallback when model unavailable
 
     validate_trend_config = _fallback_validate_trend_config
 
+_SignalSettings: Any
+try:  # pragma: no cover - normal path
+    from trend_analysis.config.model import SignalSettings
+
+    _SignalSettings = SignalSettings
+except Exception:  # pragma: no cover - pydantic-free fallback and loader tests
+    _SignalSettings = None
+
 
 class _ValidateConfigFn(Protocol):
     def __call__(self, data: dict[str, Any], *, base_path: Path) -> Any:
@@ -69,14 +78,13 @@ class ConfigProtocol(Protocol):
     metrics: dict[str, Any]
     regime: dict[str, Any]
     robustness: dict[str, Any]
+    signals: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
     strategy: dict[str, Any]
     walk_forward: dict[str, Any]
     multi_period: dict[str, Any] | None
-    jobs: int | None
-    checkpoint_dir: str | None
     seed: int
 
     def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]: ...
@@ -180,6 +188,72 @@ def _validate_version_value(v: Any) -> str:
     if not v.strip():
         raise ValueError("Version field cannot be empty")
     return v
+
+
+def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
+    """Validate canonical signal settings while preserving the runtime dict API."""
+
+    if not isinstance(value, Mapping):
+        raise ValueError("signals must be a dictionary")
+    if _SignalSettings is not None:
+        validated = _SignalSettings.model_validate(dict(value))
+        return dict(validated.model_dump(exclude_none=True))
+
+    cleaned = dict(value)
+    allowed = {"kind", "window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
+    unknown = sorted(set(cleaned) - allowed)
+    if unknown:
+        raise ValueError(f"signals contains unknown field(s): {', '.join(unknown)}")
+
+    kind = cleaned.get("kind")
+    if kind is not None and kind != "tsmom":
+        raise ValueError("signals.kind must be 'tsmom'")
+    if kind is None:
+        cleaned.pop("kind", None)
+
+    for key in ("window", "lag", "min_periods"):
+        raw = cleaned.get(key)
+        if raw is None:
+            cleaned.pop(key, None)
+            continue
+        if isinstance(raw, bool):
+            raise ValueError(f"signals.{key} must be an integer")
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"signals.{key} must be an integer") from exc
+        if parsed < 1:
+            raise ValueError(f"signals.{key} must be at least 1")
+        cleaned[key] = parsed
+
+    raw_zscore = cleaned.get("zscore")
+    if raw_zscore is None:
+        cleaned.pop("zscore", None)
+    elif not isinstance(raw_zscore, bool):
+        try:
+            parsed_zscore = float(raw_zscore)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("signals.zscore must be true, false, or a positive number") from exc
+        if not math.isfinite(parsed_zscore) or parsed_zscore <= 0:
+            raise ValueError("signals.zscore must be true, false, or a positive number")
+        cleaned["zscore"] = parsed_zscore
+
+    raw_target = cleaned.get("vol_target")
+    if raw_target is None:
+        cleaned.pop("vol_target", None)
+    else:
+        try:
+            parsed_target = float(raw_target)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("signals.vol_target must be numeric") from exc
+        if not math.isfinite(parsed_target) or parsed_target <= 0:
+            raise ValueError("signals.vol_target must be greater than zero")
+        cleaned["vol_target"] = parsed_target
+
+    if cleaned.get("min_periods") is not None and cleaned.get("window") is not None:
+        if int(cleaned["min_periods"]) > int(cleaned["window"]):
+            raise ValueError("signals.min_periods cannot exceed signals.window")
+    return cleaned
 
 
 if _HAS_PYDANTIC:
@@ -301,7 +375,7 @@ if _HAS_PYDANTIC:
         preprocessing: dict[str, Any] = Field(default_factory=dict)
         vol_adjust: dict[str, Any] = Field(default_factory=dict)
         sample_split: dict[str, Any] = Field(default_factory=dict)
-        portfolio: dict[str, Any] = Field(default_factory=dict)
+        portfolio: dict[str, Any] = Field(default_factory=dict, validate_default=True)
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
         regime: dict[str, Any] = Field(default_factory=dict)
@@ -316,8 +390,6 @@ if _HAS_PYDANTIC:
         multi_period: dict[str, Any] | None = None
         strategy: dict[str, Any] = Field(default_factory=dict)
         walk_forward: dict[str, Any] = Field(default_factory=dict)
-        jobs: int | None = None
-        checkpoint_dir: str | None = None
         seed: int = 42
 
         @_fv_typed("version", mode="before")
@@ -350,23 +422,30 @@ if _HAS_PYDANTIC:
         def _validate_portfolio_controls(
             cls, v: dict[str, Any]
         ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
-            """Validate and normalise turnover / transaction cost controls.
-
-            Backwards compatible: silently coerces numeric strings and ignores
-            missing keys. Only raises when values are present but invalid.
-            """
+            """Validate canonical turnover and transaction-cost controls."""
             if not isinstance(v, dict):  # defensive (already checked above)
                 return v
-            # Transaction cost (basis points per 1 unit turnover)
-            if "transaction_cost_bps" in v:
-                raw = v["transaction_cost_bps"]
-                try:
-                    tc = float(raw)
-                except Exception as exc:  # pragma: no cover - defensive
-                    raise ValueError("transaction_cost_bps must be numeric") from exc
-                if tc < 0:
-                    raise ValueError("transaction_cost_bps must be >= 0")
-                v["transaction_cost_bps"] = tc
+            for key in (
+                "weighting_scheme",
+                "transaction_cost_bps",
+                "slippage_bps",
+                "cooldown_months",
+                "sticky_add_periods",
+                "sticky_drop_periods",
+                "min_tenure_periods",
+                "metric",
+                "z_exit_soft",
+                "z_exit_hard",
+                "z_entry_soft",
+                "z_entry_hard",
+                "soft_strikes",
+                "entry_soft_strikes",
+                "entry_eligible_strikes",
+                "target_n",
+                "blended_weights",
+            ):
+                if key in v:
+                    raise ValueError(f"portfolio.{key} was removed")
             # Max turnover cap (fraction of portfolio; 1.0 = effectively uncapped)
             if "max_turnover" in v:
                 raw = v["max_turnover"]
@@ -411,18 +490,57 @@ if _HAS_PYDANTIC:
                     raise ValueError("lambda_tc must be <= 1")
                 v["lambda_tc"] = lam
             cost_cfg = v.get("cost_model")
-            if isinstance(cost_cfg, dict):
-                for key in ("bps_per_trade", "slippage_bps"):
-                    if key not in cost_cfg:
-                        continue
-                    try:
-                        parsed = float(cost_cfg[key])
-                    except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError(f"cost_model.{key} must be numeric") from exc
-                    if parsed < 0:
-                        raise ValueError(f"cost_model.{key} must be >= 0")
-                    cost_cfg[key] = parsed
+            if not isinstance(cost_cfg, Mapping):
+                raise ValueError("portfolio.cost_model is required and must be a mapping")
+            cost_cfg = dict(cost_cfg)
+            v["cost_model"] = cost_cfg
+            missing_cost_keys = {
+                "per_trade_bps",
+                "half_spread_bps",
+            } - set(cost_cfg)
+            if missing_cost_keys:
+                missing = ", ".join(sorted(missing_cost_keys))
+                raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
+            for key in ("bps_per_trade", "slippage_bps"):
+                if key in cost_cfg:
+                    raise ValueError(f"portfolio.cost_model.{key} was removed")
+            for key in ("per_trade_bps", "half_spread_bps"):
+                try:
+                    parsed = float(cost_cfg[key])
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise ValueError(f"cost_model.{key} must be numeric") from exc
+                if parsed < 0:
+                    raise ValueError(f"cost_model.{key} must be >= 0")
+                cost_cfg[key] = parsed
+            constraints = v.get("constraints")
+            if isinstance(constraints, Mapping) and "max_active" in constraints:
+                raise ValueError(
+                    "portfolio.constraints.max_active was removed; use "
+                    "portfolio.constraints.max_active_positions"
+                )
+            threshold_hold = v.get("threshold_hold")
+            if isinstance(threshold_hold, Mapping):
+                for key, replacement in {
+                    "min_weight_strikes": "constraints.min_weight_strikes",
+                    "min_tenure_n": "min_tenure_n",
+                    "min_tenure_periods": "min_tenure_n",
+                    "sticky_add_x": "sticky_add_x",
+                    "sticky_add_periods": "sticky_add_x",
+                    "sticky_drop_y": "sticky_drop_y",
+                    "sticky_drop_periods": "sticky_drop_y",
+                }.items():
+                    if key in threshold_hold:
+                        raise ValueError(
+                            f"portfolio.threshold_hold.{key} was removed; "
+                            f"use portfolio.{replacement}"
+                        )
             return v
+
+        @_fv_typed("signals", mode="after")
+        def _validate_signal_controls(
+            cls, v: dict[str, Any]
+        ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
+            return _validate_signal_settings_mapping(v)
 
     # Field constants are already defined as class variables above
 
@@ -481,8 +599,6 @@ else:  # Fallback mode for tests without pydantic
             "multi_period",
             "strategy",
             "walk_forward",
-            "jobs",
-            "checkpoint_dir",
             "seed",
         ]
 
@@ -518,8 +634,6 @@ else:  # Fallback mode for tests without pydantic
         multi_period: Dict[str, Any] | None
         strategy: Dict[str, Any]
         walk_forward: Dict[str, Any]
-        jobs: int | None
-        checkpoint_dir: str | None
         seed: int
 
         def _get_defaults(self) -> Dict[str, Any]:
@@ -543,8 +657,6 @@ else:  # Fallback mode for tests without pydantic
                 "multi_period": None,
                 "strategy": {},
                 "walk_forward": {},
-                "jobs": None,
-                "checkpoint_dir": None,
                 "seed": 42,
             }
 
@@ -581,17 +693,31 @@ else:  # Fallback mode for tests without pydantic
                     continue
                 if not isinstance(value, dict):
                     raise ValueError(f"{optional_field} must be a dictionary")
+            self.signals = _validate_signal_settings_mapping(self.signals)
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})
             if isinstance(port, dict):
-                if "transaction_cost_bps" in port:
-                    try:
-                        tc = float(port["transaction_cost_bps"])
-                    except Exception as exc:  # pragma: no cover - defensive
-                        raise ValueError("transaction_cost_bps must be numeric") from exc
-                    if tc < 0:
-                        raise ValueError("transaction_cost_bps must be >= 0")
-                    port["transaction_cost_bps"] = tc
+                for key in (
+                    "weighting_scheme",
+                    "transaction_cost_bps",
+                    "slippage_bps",
+                    "cooldown_months",
+                    "sticky_add_periods",
+                    "sticky_drop_periods",
+                    "min_tenure_periods",
+                    "metric",
+                    "z_exit_soft",
+                    "z_exit_hard",
+                    "z_entry_soft",
+                    "z_entry_hard",
+                    "soft_strikes",
+                    "entry_soft_strikes",
+                    "entry_eligible_strikes",
+                    "target_n",
+                    "blended_weights",
+                ):
+                    if key in port:
+                        raise ValueError(f"portfolio.{key} was removed")
                 if "max_turnover" in port:
                     try:
                         mt = float(port["max_turnover"])
@@ -613,17 +739,50 @@ else:  # Fallback mode for tests without pydantic
                         raise ValueError("lambda_tc must be <= 1")
                     port["lambda_tc"] = lam
                 cost_cfg = port.get("cost_model")
-                if isinstance(cost_cfg, dict):
-                    for key in ("bps_per_trade", "slippage_bps"):
-                        if key not in cost_cfg:
-                            continue
-                        try:
-                            parsed = float(cost_cfg[key])
-                        except Exception as exc:  # pragma: no cover - defensive
-                            raise ValueError(f"cost_model.{key} must be numeric") from exc
-                        if parsed < 0:
-                            raise ValueError(f"cost_model.{key} must be >= 0")
-                        cost_cfg[key] = parsed
+                if not isinstance(cost_cfg, Mapping):
+                    raise ValueError("portfolio.cost_model is required and must be a mapping")
+                cost_cfg = dict(cost_cfg)
+                port["cost_model"] = cost_cfg
+                missing_cost_keys = {
+                    "per_trade_bps",
+                    "half_spread_bps",
+                } - set(cost_cfg)
+                if missing_cost_keys:
+                    missing = ", ".join(sorted(missing_cost_keys))
+                    raise ValueError(f"portfolio.cost_model missing required field(s): {missing}")
+                for key in ("bps_per_trade", "slippage_bps"):
+                    if key in cost_cfg:
+                        raise ValueError(f"portfolio.cost_model.{key} was removed")
+                for key in ("per_trade_bps", "half_spread_bps"):
+                    try:
+                        parsed = float(cost_cfg[key])
+                    except Exception as exc:  # pragma: no cover - defensive
+                        raise ValueError(f"cost_model.{key} must be numeric") from exc
+                    if parsed < 0:
+                        raise ValueError(f"cost_model.{key} must be >= 0")
+                    cost_cfg[key] = parsed
+                constraints = port.get("constraints")
+                if isinstance(constraints, Mapping) and "max_active" in constraints:
+                    raise ValueError(
+                        "portfolio.constraints.max_active was removed; use "
+                        "portfolio.constraints.max_active_positions"
+                    )
+                threshold_hold = port.get("threshold_hold")
+                if isinstance(threshold_hold, Mapping):
+                    for key, replacement in {
+                        "min_weight_strikes": "constraints.min_weight_strikes",
+                        "min_tenure_n": "min_tenure_n",
+                        "min_tenure_periods": "min_tenure_n",
+                        "sticky_add_x": "sticky_add_x",
+                        "sticky_add_periods": "sticky_add_x",
+                        "sticky_drop_y": "sticky_drop_y",
+                        "sticky_drop_periods": "sticky_drop_y",
+                    }.items():
+                        if key in threshold_hold:
+                            raise ValueError(
+                                f"portfolio.threshold_hold.{key} was removed; "
+                                f"use portfolio.{replacement}"
+                            )
 
         # Provide a similar API surface to pydantic for callers
         def model_dump(self) -> Dict[str, Any]:

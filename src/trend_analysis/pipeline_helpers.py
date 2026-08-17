@@ -399,6 +399,11 @@ def _build_trend_spec(
     the in-sample risk window).
     """
     signals_cfg = _cfg_section(cfg, "signals")
+    model_dump = getattr(signals_cfg, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(exclude_none=True)
+        if isinstance(dumped, Mapping):
+            signals_cfg = dumped
 
     # Return None when no signals config is present - this preserves the old
     # default behaviour where signal_spec=None causes the pipeline to derive

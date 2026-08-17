@@ -10,6 +10,7 @@ entry points and the Streamlit UI before the heavy pipeline code is invoked.
 from __future__ import annotations
 
 import glob
+import math
 import os
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping
@@ -339,14 +340,12 @@ class DataSettings(BaseModel):
 class CostModelSettings(BaseModel):
     """Linear cost and slippage parameters."""
 
-    bps_per_trade: float = Field(default=0.0)
-    slippage_bps: float = Field(default=0.0)
-    per_trade_bps: float | None = Field(default=None)
-    half_spread_bps: float | None = Field(default=None)
+    per_trade_bps: float
+    half_spread_bps: float
 
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("bps_per_trade", "slippage_bps", mode="before")
+    @field_validator("per_trade_bps", "half_spread_bps", mode="before")
     @classmethod
     def _validate_cost(cls, value: Any, info: ValidationInfo[Any]) -> float:
         try:
@@ -357,13 +356,6 @@ class CostModelSettings(BaseModel):
             raise ValueError(f"portfolio.cost_model.{info.field_name} cannot be negative.")
         return parsed
 
-    @field_validator("per_trade_bps", "half_spread_bps", mode="before")
-    @classmethod
-    def _validate_optional_cost(cls, value: Any, info: ValidationInfo[Any]) -> float | None:
-        if value in (None, "", "null"):
-            return None
-        return cls._validate_cost(value, info)
-
 
 class PortfolioSettings(BaseModel):
     """Portfolio controls validated before running analyses."""
@@ -371,7 +363,6 @@ class PortfolioSettings(BaseModel):
     rebalance_calendar: str
     rebalance_freq: str | None = Field(default=None)
     max_turnover: float | dict[str, float]
-    transaction_cost_bps: float
     lambda_tc: float = Field(default=0.0)
     min_tenure_n: int = Field(
         default=0,
@@ -381,15 +372,14 @@ class PortfolioSettings(BaseModel):
         default=0.0,
         description="Reporting-only confidence interval level (0 disables CI annotations).",
     )
-    cost_model: CostModelSettings | None = None
+    cost_model: CostModelSettings
     turnover_cap: float | None = None
     weight_policy: dict[str, Any] | None = None
     cooldown_periods: int | None = None
-    cooldown_months: int | None = None
 
     # extra="allow" (not "ignore"): the engine reads many portfolio sub-keys that
     # are not declared as fields here -- selection_mode, rank, selector,
-    # custom_weights, weighting, weighting_scheme, constraints, robustness,
+    # custom_weights, weighting, constraints, robustness,
     # manual_list, etc. With "ignore" those were SILENTLY DROPPED on load, so
     # YAML-configured selection/weighting/constraints never reached the engine
     # (it fell back to selection_mode="all"). "allow" preserves them.
@@ -397,12 +387,64 @@ class PortfolioSettings(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalise_min_tenure(cls, data: Any) -> Any:
+    def _reject_removed_shapes(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        if "min_tenure_n" not in data and "min_tenure_periods" in data:
-            data = dict(data)
-            data["min_tenure_n"] = data.get("min_tenure_periods")
+        removed = {
+            "weighting_scheme": "weighting.name",
+            "transaction_cost_bps": "cost_model.per_trade_bps",
+            "slippage_bps": "cost_model.half_spread_bps",
+            "cooldown_months": "cooldown_periods",
+            "sticky_add_periods": "sticky_add_x",
+            "sticky_drop_periods": "sticky_drop_y",
+            "min_tenure_periods": "min_tenure_n",
+            "metric": "threshold_hold.metric",
+            "z_exit_soft": "threshold_hold.z_exit_soft",
+            "z_exit_hard": "threshold_hold.z_exit_hard",
+            "z_entry_soft": "threshold_hold.z_entry_soft",
+            "z_entry_hard": "threshold_hold.z_entry_hard",
+            "soft_strikes": "threshold_hold.soft_strikes",
+            "entry_soft_strikes": "threshold_hold.entry_soft_strikes",
+            "entry_eligible_strikes": "threshold_hold.entry_eligible_strikes",
+            "target_n": "threshold_hold.target_n",
+            "blended_weights": "threshold_hold.blended_weights",
+        }
+        for key, replacement in removed.items():
+            if key in data:
+                raise ValueError(f"portfolio.{key} was removed; use portfolio.{replacement}")
+        cost_model = data.get("cost_model")
+        if isinstance(cost_model, Mapping):
+            for key, replacement in {
+                "bps_per_trade": "per_trade_bps",
+                "slippage_bps": "half_spread_bps",
+            }.items():
+                if key in cost_model:
+                    raise ValueError(
+                        f"portfolio.cost_model.{key} was removed; use "
+                        f"portfolio.cost_model.{replacement}"
+                    )
+        constraints = data.get("constraints")
+        if isinstance(constraints, Mapping) and "max_active" in constraints:
+            raise ValueError(
+                "portfolio.constraints.max_active was removed; use "
+                "portfolio.constraints.max_active_positions"
+            )
+        threshold_hold = data.get("threshold_hold")
+        if isinstance(threshold_hold, Mapping):
+            for key, replacement in {
+                "min_weight_strikes": "constraints.min_weight_strikes",
+                "min_tenure_n": "min_tenure_n",
+                "min_tenure_periods": "min_tenure_n",
+                "sticky_add_x": "sticky_add_x",
+                "sticky_add_periods": "sticky_add_x",
+                "sticky_drop_y": "sticky_drop_y",
+                "sticky_drop_periods": "sticky_drop_y",
+            }.items():
+                if key in threshold_hold:
+                    raise ValueError(
+                        f"portfolio.threshold_hold.{key} was removed; use "
+                        f"portfolio.{replacement}"
+                    )
         return data
 
     @field_validator("rebalance_calendar")
@@ -473,17 +515,6 @@ class PortfolioSettings(BaseModel):
             raise ValueError("portfolio.turnover_cap must be numeric.")
         return validated
 
-    @field_validator("transaction_cost_bps", mode="before")
-    @classmethod
-    def _validate_cost(cls, value: Any) -> float:
-        try:
-            cost = float(value)
-        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-            raise ValueError("portfolio.transaction_cost_bps must be numeric.") from exc
-        if cost < 0:
-            raise ValueError("portfolio.transaction_cost_bps cannot be negative.")
-        return cost
-
     @field_validator("lambda_tc", mode="before")
     @classmethod
     def _validate_lambda_tc(cls, value: Any) -> float:
@@ -497,7 +528,7 @@ class PortfolioSettings(BaseModel):
             raise ValueError("portfolio.lambda_tc must be between 0 and 1 inclusive.")
         return lam
 
-    @field_validator("cooldown_periods", "cooldown_months", mode="before")
+    @field_validator("cooldown_periods", mode="before")
     @classmethod
     def _validate_cooldown(cls, value: Any, info: ValidationInfo[Any]) -> int | None:
         if value in (None, "", "null"):
@@ -592,12 +623,47 @@ class RiskSettings(BaseModel):
         return warmup
 
 
+class SignalSettings(BaseModel):
+    """Closed canonical trend-signal controls preserved by startup loading."""
+
+    kind: Literal["tsmom"] | None = None
+    window: int | None = Field(default=None, ge=1)
+    lag: int | None = Field(default=None, ge=1)
+    min_periods: int | None = Field(default=None, ge=1)
+    zscore: bool | float | None = None
+    vol_adjust: bool | None = None
+    vol_target: float | None = Field(default=None, gt=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("zscore")
+    @classmethod
+    def _validate_zscore(cls, value: bool | float | None) -> bool | float | None:
+        if value is None or isinstance(value, bool):
+            return value
+        parsed = float(value)
+        if not math.isfinite(parsed) or parsed <= 0:
+            raise ValueError("signals.zscore must be true, false, or a positive number.")
+        return parsed
+
+    @model_validator(mode="after")
+    def _validate_min_periods_window(self) -> SignalSettings:
+        if (
+            self.window is not None
+            and self.min_periods is not None
+            and self.min_periods > self.window
+        ):
+            raise ValueError("signals.min_periods cannot exceed signals.window.")
+        return self
+
+
 class TrendConfig(BaseModel):
     """Subset of configuration validated at application startup."""
 
     data: DataSettings
     portfolio: PortfolioSettings
     vol_adjust: RiskSettings
+    signals: SignalSettings = Field(default_factory=SignalSettings)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -681,4 +747,5 @@ __all__ = [
     "DataSettings",
     "PortfolioSettings",
     "RiskSettings",
+    "SignalSettings",
 ]

@@ -28,10 +28,9 @@ def base_config() -> object:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
             "cost_model": {
-                "bps_per_trade": 0,
-                "slippage_bps": 0,
+                "per_trade_bps": 0,
+                "half_spread_bps": 0,
             },
         },
         "metrics": {},

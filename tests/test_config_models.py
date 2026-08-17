@@ -27,7 +27,7 @@ def _sample_config() -> dict[str, Any]:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
         },
         "metrics": {},
         "export": {},
@@ -67,6 +67,24 @@ def test_missing_required_key_raises():
 
     with pytest.raises(err_type):
         models.Config(**cfg_dict)
+
+
+@pytest.mark.parametrize("cost_model", [None, 5])
+def test_config_requires_canonical_cost_model(cost_model):
+    cfg_dict = _sample_config()
+    if cost_model is None:
+        cfg_dict["portfolio"].pop("cost_model")
+    else:
+        cfg_dict["portfolio"]["cost_model"] = cost_model
+
+    with pytest.raises(ValueError, match="cost_model is required and must be a mapping"):
+        models.Config(**cfg_dict)
+
+
+def test_config_validates_defaulted_portfolio_section():
+    """Pydantic must validate the default portfolio just like an explicit one."""
+    with pytest.raises(ValueError, match="cost_model is required and must be a mapping"):
+        models.Config(version="1")
 
 
 def test_invalid_version_type_raises():

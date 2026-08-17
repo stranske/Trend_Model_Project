@@ -34,7 +34,6 @@ def _build_trend_payload(core_cfg: CoreConfig, raw_cfg: dict) -> dict:
 
     payload["data"] = core_payload["data"]
     portfolio = payload.setdefault("portfolio", {})
-    portfolio["transaction_cost_bps"] = core_payload["portfolio"]["transaction_cost_bps"]
     portfolio["cost_model"] = core_payload["portfolio"]["cost_model"]
     return payload
 
@@ -60,14 +59,13 @@ def test_core_config_round_trips_into_trend_config() -> None:
     assert trend_cfg.data.frequency == core_cfg.data.frequency
     assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
 
-    assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
-        core_cfg.costs.transaction_cost_bps
-    )
     assert trend_cfg.portfolio.cost_model is not None
-    assert trend_cfg.portfolio.cost_model.bps_per_trade == pytest.approx(
-        core_cfg.costs.bps_per_trade
+    assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
+        core_cfg.costs.per_trade_bps
     )
-    assert trend_cfg.portfolio.cost_model.slippage_bps == pytest.approx(core_cfg.costs.slippage_bps)
+    assert trend_cfg.portfolio.cost_model.half_spread_bps == pytest.approx(
+        core_cfg.costs.half_spread_bps
+    )
     assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
         core_cfg.costs.per_trade_bps
     )
@@ -99,7 +97,7 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.25,
-            "transaction_cost_bps": 12.5,
+            "cost_model": {"per_trade_bps": 12.5, "half_spread_bps": 0.0},
         },
         "vol_adjust": {"target_vol": 0.1, "floor_vol": 0.0, "warmup_periods": 0},
     }
@@ -112,9 +110,6 @@ def test_core_and_trend_resolve_paths_consistently(tmp_path: Path) -> None:
     assert trend_cfg.data.managers_glob == core_cfg.data.managers_glob
     assert trend_cfg.data.universe_membership_path == core_cfg.data.universe_membership_path
     assert trend_cfg.data.frequency == core_cfg.data.frequency
-    assert trend_cfg.portfolio.transaction_cost_bps == pytest.approx(
-        core_cfg.costs.transaction_cost_bps
-    )
     assert trend_cfg.portfolio.cost_model is not None
     assert trend_cfg.portfolio.cost_model.per_trade_bps == pytest.approx(
         core_cfg.costs.per_trade_bps
@@ -133,7 +128,7 @@ def test_config_coverage_report_flags_read_and_validation_gaps(
             "date_column": "Date",
             "frequency": "M",
         },
-        "portfolio": {"transaction_cost_bps": 0.0},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
     }
 
     tracker = ConfigCoverageTracker()
@@ -150,12 +145,12 @@ def test_config_coverage_report_flags_read_and_validation_gaps(
                     "frequency": "M",
                     "unexpected_key": "unused",
                 },
-                "portfolio": {"transaction_cost_bps": 0.0},
+                "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
             },
         )()
         wrap_config_for_coverage(cfg, tracker)
         _ = cfg.data.get("csv_path")
-        _ = cfg.portfolio.get("transaction_cost_bps")
+        _ = cfg.portfolio.get("cost_model")
         _ = cfg.data.get("unexpected_key")
     finally:
         deactivate_config_coverage()
@@ -163,3 +158,9 @@ def test_config_coverage_report_flags_read_and_validation_gaps(
     report = tracker.generate_report()
     assert "data.date_column" in report.unread_validated
     assert "data.unexpected_key" in report.unvalidated_reads
+    assert {
+        "portfolio.transaction_cost_bps",
+        "portfolio.slippage_bps",
+        "portfolio.cost_model.bps_per_trade",
+        "portfolio.cost_model.slippage_bps",
+    } <= report.validated

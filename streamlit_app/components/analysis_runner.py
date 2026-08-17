@@ -37,7 +37,7 @@ class ModelSettings:
     rebalance_frequency: str
     selection_count: int
     risk_target: float
-    weighting_scheme: str
+    weighting_name: str
     cooldown_periods: int
     min_history_periods: int
     metric_weights: Mapping[str, float]
@@ -263,7 +263,7 @@ def _build_portfolio_config(
     config: Mapping[str, Any], weights: Mapping[str, float]
 ) -> dict[str, Any]:
     selection_count = _coerce_positive_int(config.get("selection_count"), default=10, minimum=1)
-    weighting_scheme = str(config.get("weighting_scheme", "equal") or "equal")
+    weighting_name = str(config.get("weighting_name", "equal") or "equal")
     registry_weights = {
         METRIC_REGISTRY.get(metric, metric): float(weight) for metric, weight in weights.items()
     }
@@ -271,15 +271,11 @@ def _build_portfolio_config(
     # Advanced settings
     max_weight = _coerce_positive_float(config.get("max_weight"), default=0.20)
     max_turnover = _coerce_positive_float(config.get("max_turnover"), default=1.0)
-    transaction_cost_bps = _coerce_positive_int(
-        config.get("transaction_cost_bps"), default=0, minimum=0
-    )
+    per_trade_bps = _coerce_positive_int(config.get("per_trade_bps"), default=0, minimum=0)
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
     # Fund holding rules (Phase 3)
-    min_tenure_periods = _coerce_positive_int(
-        config.get("min_tenure_periods"), default=0, minimum=0
-    )
+    min_tenure_n = _coerce_positive_int(config.get("min_tenure_n"), default=0, minimum=0)
     max_changes_per_period = _coerce_positive_int(
         config.get("max_changes_per_period"), default=0, minimum=0
     )
@@ -298,7 +294,7 @@ def _build_portfolio_config(
     # For buy_and_hold, use the initial method's transform
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    slippage_bps = _coerce_positive_int(config.get("slippage_bps"), default=0, minimum=0)
+    half_spread_bps = _coerce_positive_int(config.get("half_spread_bps"), default=0, minimum=0)
     bottom_k = _coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     # Phase 9: Selection approach parameters
@@ -340,30 +336,26 @@ def _build_portfolio_config(
             "blended_weights": registry_weights,
         },
         "random_n": selection_count,  # Used when selection_mode is "random"
-        "weighting_scheme": weighting_scheme,
+        "weighting": {"name": weighting_name, "params": {}},
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
-        "transaction_cost_bps": transaction_cost_bps,
+        "cost_model": {
+            "per_trade_bps": per_trade_bps,
+            "half_spread_bps": half_spread_bps,
+        },
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,
         },
     }
 
-    # Add slippage_bps to cost_model if specified
-    if slippage_bps > 0:
-        portfolio_cfg["cost_model"] = {
-            "bps_per_trade": transaction_cost_bps,
-            "slippage_bps": slippage_bps,
-        }
-
     # Add bottom_k exclusion if specified
     if bottom_k > 0:
         portfolio_cfg["rank"]["bottom_k"] = bottom_k
 
     # Add fund holding rules if set (0 means unlimited/disabled)
-    if min_tenure_periods > 0:
-        portfolio_cfg["min_tenure_n"] = min_tenure_periods
+    if min_tenure_n > 0:
+        portfolio_cfg["min_tenure_n"] = min_tenure_n
     if max_changes_per_period > 0:
         portfolio_cfg["turnover_budget_max_changes"] = max_changes_per_period
     if max_active_positions > 0:
@@ -429,8 +421,8 @@ def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
     csv_path = _ensure_validation_csv_path(payload.returns)
     rebalance_calendar = "NYSE"
     max_turnover = _coerce_positive_float(state.get("max_turnover"), default=1.0)
-    transaction_cost_bps = _coerce_positive_float(state.get("transaction_cost_bps"), default=0.0)
-    slippage_bps = _coerce_positive_float(state.get("slippage_bps"), default=0.0)
+    per_trade_bps = _coerce_positive_float(state.get("per_trade_bps"), default=0.0)
+    half_spread_bps = _coerce_positive_float(state.get("half_spread_bps"), default=0.0)
     target_vol = _coerce_positive_float(state.get("risk_target"), default=0.1)
 
     payload_dict = build_config_payload(
@@ -441,8 +433,8 @@ def _validate_streamlit_payload(payload: AnalysisPayload) -> None:
         frequency=frequency,
         rebalance_calendar=rebalance_calendar,
         max_turnover=max_turnover,
-        transaction_cost_bps=transaction_cost_bps,
-        slippage_bps=slippage_bps,
+        per_trade_bps=per_trade_bps,
+        half_spread_bps=half_spread_bps,
         target_vol=target_vol,
     )
 

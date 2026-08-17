@@ -27,7 +27,10 @@ def make_cfg():
         "end": "1990-06",
     }
     # Enable simple non-zero controls
-    cfg_data["portfolio"]["transaction_cost_bps"] = 10
+    cfg_data["portfolio"]["cost_model"] = {
+        "per_trade_bps": 10,
+        "half_spread_bps": 0,
+    }
     cfg_data["portfolio"]["max_turnover"] = 0.5
     # Use threshold-hold policy so execution metrics are produced in results
     cfg_data["portfolio"]["policy"] = "threshold_hold"

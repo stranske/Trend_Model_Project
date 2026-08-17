@@ -111,6 +111,7 @@ def _make_buy_and_hold_config(
         },
         sample_split={},
         portfolio={
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "policy": "threshold_hold",
             "selection_mode": "buy_and_hold",
             "buy_and_hold": {
@@ -284,6 +285,7 @@ class TestBuyAndHoldConfigValidation:
             vol_adjust={"target_vol": 0.1},
             sample_split={},
             portfolio={
+                "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
                 "policy": "threshold_hold",
                 "selection_mode": "buy_and_hold",
                 "buy_and_hold": {"n": 5},  # No initial_method specified
@@ -384,7 +386,7 @@ class TestBuyAndHoldIntegration:
             "selection_approach": "buy_and_hold",
             "buy_hold_initial": "top_n",
             "selection_count": 5,
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
             "metric_weights": {"sharpe": 100.0},
             "risk_target": 0.1,
         }
@@ -439,12 +441,13 @@ def test_manual_selection_mode_includes_funds_with_partial_data() -> None:
         },
         sample_split={},
         portfolio={
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "policy": "threshold_hold",
             "selection_mode": "rank",
-            "target_n": 3,  # Want all 3 funds
             "min_funds": 3,
             "max_funds": 3,
             "threshold_hold": {
+                "target_n": 3,  # Want all 3 funds
                 "z_entry_soft": 0.5,
                 "z_exit_soft": -0.5,
             },

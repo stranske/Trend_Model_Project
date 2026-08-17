@@ -43,10 +43,9 @@ portfolio:
     name: equal
     params: {}
   rebalance_calendar: NYSE
-  transaction_cost_bps: 0
   cost_model:
-    bps_per_trade: 0
-    slippage_bps: 0
+    per_trade_bps: 0
+    half_spread_bps: 0
   max_turnover: 1.0
 
 benchmarks:
@@ -81,8 +80,6 @@ run:
   seed: 42                      # makes demo deterministic
   jobs: 1
   checkpoint_dir: demo/checkpoints
-
-checkpoint_dir: demo/checkpoints
 
 multi_period:
   frequency: ME                 # monthly periods

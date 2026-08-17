@@ -52,7 +52,7 @@ def _base_config_mapping() -> dict[str, Any]:
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -135,8 +135,11 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
 
     assert validator(models._PydanticConfigImpl, "skip") == "skip"  # type: ignore[attr-defined]
 
-    with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        validator(models._PydanticConfigImpl, {"transaction_cost_bps": "-1"})  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="cost_model.per_trade_bps must be >= 0"):
+        validator(
+            models._PydanticConfigImpl,
+            {"cost_model": {"per_trade_bps": "-1", "half_spread_bps": 0}},
+        )  # type: ignore[attr-defined]
 
     with pytest.raises(ValueError, match="max_turnover must be >= 0"):
         validator(models._PydanticConfigImpl, {"max_turnover": "-0.5"})  # type: ignore[attr-defined]
@@ -152,9 +155,13 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
 
     validated = validator(
         models._PydanticConfigImpl,
-        {"transaction_cost_bps": "15", "max_turnover": "1.5", "lambda_tc": "0.3"},
+        {
+            "cost_model": {"per_trade_bps": "15", "half_spread_bps": 0},
+            "max_turnover": "1.5",
+            "lambda_tc": "0.3",
+        },
     )  # type: ignore[attr-defined]
-    assert validated["transaction_cost_bps"] == pytest.approx(15.0)
+    assert validated["cost_model"]["per_trade_bps"] == pytest.approx(15.0)
     assert validated["max_turnover"] == pytest.approx(1.5)
     assert validated["lambda_tc"] == pytest.approx(0.3)
 
@@ -224,7 +231,11 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
 
     class DummyModel:
         def model_dump(self) -> dict[str, Any]:
-            return {"export": {"formats": ["csv"]}, "extra": {"enabled": True}}
+            return {
+                "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
+                "export": {"formats": ["csv"]},
+                "extra": {"enabled": True},
+            }
 
     monkeypatch.setattr(models, "validate_trend_config", lambda *_args, **_kwargs: DummyModel())
     cfg = models.load(dict(data))
@@ -235,7 +246,7 @@ def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         models,
         "validate_trend_config",
-        lambda *_args, **_kwargs: {"version": data["version"], "metrics": {"alpha": 1}},
+        lambda *_args, **_kwargs: {**data, "metrics": {"alpha": 1}},
     )
     cfg = models.load(dict(data))
     assert cfg.metrics["alpha"] == 1
@@ -276,11 +287,24 @@ def test_fallback_config_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = fallback.Config(**kwargs)
     assert cfg.model_dump()["seed"] == 42
 
-    with pytest.raises(ValueError, match="transaction_cost_bps must be >= 0"):
-        fallback.Config(**{**kwargs, "portfolio": {"transaction_cost_bps": -1}})
+    with pytest.raises(ValueError, match="cost_model.per_trade_bps must be >= 0"):
+        fallback.Config(
+            **{
+                **kwargs,
+                "portfolio": {"cost_model": {"per_trade_bps": -1, "half_spread_bps": 0}},
+            }
+        )
 
     with pytest.raises(ValueError, match="max_turnover must be <= 2.0"):
-        fallback.Config(**{**kwargs, "portfolio": {"max_turnover": 3}})
+        fallback.Config(
+            **{
+                **kwargs,
+                "portfolio": {
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "max_turnover": 3,
+                },
+            }
+        )
 
 
 def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,7 +314,7 @@ def test_fallback_load_enforces_version(monkeypatch: pytest.MonkeyPatch) -> None
         fallback.load({"version": 123})
 
     data = _base_config_mapping()
-    fallback.validate_trend_config = lambda *_args, **_kwargs: {"version": data["version"]}
+    fallback.validate_trend_config = lambda *_args, **_kwargs: data
     cfg = fallback.load(dict(data))
     assert isinstance(cfg, fallback.Config)
 
@@ -304,7 +328,12 @@ def test_fallback_load_respects_validator_outputs(
 
     class DummyModel:
         def model_dump(self) -> dict[str, Any]:
-            return {"portfolio": {"weights": [0.5, 0.5]}}
+            return {
+                "portfolio": {
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "weights": [0.5, 0.5],
+                }
+            }
 
     fallback.validate_trend_config = lambda *_args, **_kwargs: DummyModel()
     cfg = fallback.load(dict(data))
@@ -312,6 +341,7 @@ def test_fallback_load_respects_validator_outputs(
 
     fallback.validate_trend_config = lambda *_args, **_kwargs: {
         "version": data["version"],
+        "portfolio": {"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
         "metrics": {"beta": 2},
     }
     cfg = fallback.load(dict(data))

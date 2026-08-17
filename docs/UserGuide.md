@@ -116,15 +116,15 @@ When the GUI is used, the state of AdaptiveBayesWeighting is saved alongside the
 
 ### 6.1 Weighting engine reference
 
-| Engine (`portfolio.weighting.method`) | Class / Plugin Name        | Core Idea / Formula (informal)                            | Strengths                                      | Caveats / When to Avoid                     | Minimal YAML Snippet |
+| Engine (`portfolio.weighting.name`) | Class / Plugin Name        | Core Idea / Formula (informal)                            | Strengths                                      | Caveats / When to Avoid                     | Minimal YAML Snippet |
 |--------------------------------------|----------------------------|-----------------------------------------------------------|------------------------------------------------|----------------------------------------------|----------------------|
-| `equal`                              | `EqualWeight`              | w_i = 1 / N                                               | Stable, transparent, zero parameter risk       | Ignores differences in risk / edge           | `portfolio:\n  weighting:\n    method: equal` |
-| `score_prop`                         | `ScorePropSimple`          | w_i ∝ max(score_i, 0); normalised                         | Directly reflects relative strength            | Sensitive to extreme outliers               | `method: score_prop` |
-| `score_prop_bayes`                   | `ScorePropBayesian`        | Shrunk scores: score'_i = μ + (1-τ)(score_i-μ)            | Dampens noise / overfitting                     | Choose τ (`shrink_tau`) sensibly (0–1)       | `method: score_prop_bayes\n    params:\n      shrink_tau: 0.25` |
-| `adaptive_bayes`                     | `AdaptiveBayesWeighting`   | Online Bayesian update of score distribution              | Learns over periods; path‑aware                | Needs state persistence for best effect      | `method: adaptive_bayes` |
-| `risk_parity`                        | `RiskParity`               | Target equal marginal risk contribution                   | Balances vol; diversification                  | Can overweight low‑vol/low‑return assets     | `method: risk_parity` |
-| `hrp`                                | `HierarchicalRiskParity`   | Tree clustering → recursive bisection risk allocation     | Robust to collinearity; hierarchical structure | Slightly heavier compute; cluster instability| `method: hrp` |
-| `erc`                                | `EqualRiskContribution`    | Solve for RC_i = TotalRisk / N                            | Formal equal risk targeting                    | Optimisation may fail on degenerate matrices | `method: erc` |
+| `equal`                              | `EqualWeight`              | w_i = 1 / N                                               | Stable, transparent, zero parameter risk       | Ignores differences in risk / edge           | `portfolio:\n  weighting:\n    name: equal\n    params: {}` |
+| `score_prop`                         | `ScorePropSimple`          | w_i ∝ max(score_i, 0); normalised                         | Directly reflects relative strength            | Sensitive to extreme outliers               | `name: score_prop\n    params: {}` |
+| `score_prop_bayes`                   | `ScorePropBayesian`        | Shrunk scores: score'_i = μ + (1-τ)(score_i-μ)            | Dampens noise / overfitting                     | Choose τ (`shrink_tau`) sensibly (0–1)       | `name: score_prop_bayes\n    params:\n      shrink_tau: 0.25` |
+| `adaptive_bayes`                     | `AdaptiveBayesWeighting`   | Online Bayesian update of score distribution              | Learns over periods; path‑aware                | Needs state persistence for best effect      | `name: adaptive_bayes\n    params: {}` |
+| `risk_parity`                        | `RiskParity`               | Target equal marginal risk contribution                   | Balances vol; diversification                  | Can overweight low‑vol/low‑return assets     | `name: risk_parity\n    params: {}` |
+| `hrp`                                | `HierarchicalRiskParity`   | Tree clustering → recursive bisection risk allocation     | Robust to collinearity; hierarchical structure | Slightly heavier compute; cluster instability| `name: hrp\n    params: {}` |
+| `erc`                                | `EqualRiskContribution`    | Solve for RC_i = TotalRisk / N                            | Formal equal risk targeting                    | Optimisation may fail on degenerate matrices | `name: erc\n    params: {}` |
 
 Notes:
 1. All engines normalise final weights to sum to 1.0 (100%).
@@ -328,23 +328,21 @@ See `README.md` for a short overview of the repository structure and the example
 Two optional portfolio execution controls make simulation results closer to
 realistic implementation:
 
-- `portfolio.transaction_cost_bps` – linear cost, in basis points, applied to
-   the absolute turnover each rebalancing period. Must be a non‑negative
+- `portfolio.cost_model.per_trade_bps` – linear cost, in basis points, applied
+   to the absolute turnover each rebalancing period. It must be a non‑negative
    number (e.g. `10` = 10 bps = 0.10%). The summary metrics internally
-   subtract these costs when computing risk/return figures. When a nested
-   `portfolio.cost_model.bps_per_trade` value is supplied it overrides this
-   top-level field so configs can keep transaction costs and slippage together.
+   subtract these costs when computing risk/return figures.
    **Single-period note:** this turnover-based cost is charged only by the
    multi-period engine. On a single-period run it is ignored (the app emits a
    `UserWarning`); use `run.monthly_cost`, or run multi-period, to model costs
    for a single-period analysis.
-- `portfolio.cost_model.slippage_bps` – optional extra spread per turnover
+- `portfolio.cost_model.half_spread_bps` – optional extra spread per turnover
    event to mimic fill slippage. Defaults to `0`. Positive values reduce the
    first post-rebalance return by the specified number of basis points.
 - `run.monthly_cost` – flat decimal per-period fee subtracted from every fund
    return before portfolio statistics are calculated. For example, `0.001`
    subtracts 10 bps from each monthly return. This is not scaled by turnover or
-   exposure; use `portfolio.transaction_cost_bps` / `portfolio.cost_model` for
+   exposure; use `portfolio.cost_model` for
    turnover-based trading costs.
 - `portfolio.max_turnover` – soft cap on total turnover (sum of absolute
    weight changes) for a single rebalance expressed as a fraction of gross

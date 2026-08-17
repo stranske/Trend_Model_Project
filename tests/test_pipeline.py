@@ -39,7 +39,7 @@ def make_cfg(tmp_path, df):
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "metrics": {},
         "export": {},
@@ -291,7 +291,7 @@ def test_run_missing_csv_key(tmp_path):
         preprocessing={},
         vol_adjust={},
         sample_split={},
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         metrics={},
         export={},
         run={},
@@ -330,7 +330,7 @@ def test_run_full_includes_risk_diagnostics(tmp_path):
 
 def test_run_full_robustness_settings_affect_weights(tmp_path):
     cfg = make_cfg(tmp_path, _make_three_fund_df())
-    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["weighting"] = {"name": "robust_mv"}
     cfg.portfolio["robustness"] = {
         "shrinkage": {"enabled": False},
         "condition_check": {
@@ -362,7 +362,7 @@ def test_run_full_robustness_settings_affect_weights(tmp_path):
 def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
     df = _make_ill_conditioned_df()
     cfg = make_cfg(tmp_path, df)
-    cfg.portfolio["weighting_scheme"] = "robust_mv"
+    cfg.portfolio["weighting"] = {"name": "robust_mv"}
     cfg.portfolio["robustness"] = {
         "shrinkage": {"enabled": False},
         "condition_check": {

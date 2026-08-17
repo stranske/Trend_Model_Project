@@ -11,7 +11,9 @@ metrics:
   return_ann: 0.3
   drawdown: 0.3
 portfolio:
-  weighting_scheme: equal
+  weighting:
+    name: equal
+    params: {}
   constraints:
     long_only: true
     max_weight: 0.25

@@ -23,15 +23,15 @@ def make_cfg(overrides):
 
 
 @pytest.mark.parametrize("tc", [0, 5, 12.5, 0.0])
-def test_transaction_cost_bps_valid(tc):
-    cfg_dict = make_cfg({"portfolio": {"transaction_cost_bps": tc}})
+def test_per_trade_bps_valid(tc):
+    cfg_dict = make_cfg({"portfolio": {"cost_model": {"per_trade_bps": tc, "half_spread_bps": 0}}})
     cfg = Config(**cfg_dict)
-    assert float(cfg.portfolio.get("transaction_cost_bps")) == float(tc)
+    assert float(cfg.portfolio["cost_model"]["per_trade_bps"]) == float(tc)
 
 
 @pytest.mark.parametrize("tc", [-1, -0.01])
-def test_transaction_cost_bps_invalid(tc):
-    cfg_dict = make_cfg({"portfolio": {"transaction_cost_bps": tc}})
+def test_per_trade_bps_invalid(tc):
+    cfg_dict = make_cfg({"portfolio": {"cost_model": {"per_trade_bps": tc, "half_spread_bps": 0}}})
     with pytest.raises(Exception):
         Config(**cfg_dict)
 
@@ -72,7 +72,14 @@ def test_max_turnover_regime_mapping_invalid(mapping):
 
 
 def test_string_coercion():
-    cfg_dict = make_cfg({"portfolio": {"transaction_cost_bps": "15", "max_turnover": "0.75"}})
+    cfg_dict = make_cfg(
+        {
+            "portfolio": {
+                "cost_model": {"per_trade_bps": "15", "half_spread_bps": 0},
+                "max_turnover": "0.75",
+            }
+        }
+    )
     cfg = Config(**cfg_dict)
-    assert cfg.portfolio["transaction_cost_bps"] == 15.0
+    assert cfg.portfolio["cost_model"]["per_trade_bps"] == 15.0
     assert cfg.portfolio["max_turnover"] == 0.75

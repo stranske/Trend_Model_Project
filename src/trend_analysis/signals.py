@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Hashable, Literal, TypeAlias, cast
@@ -156,16 +156,23 @@ def trend_spec_from_mapping(
     vol_adjust: Any = None,
     retain_disabled_vol_target: bool = False,
 ) -> TrendSpec:
-    """Build the shared signal contract from canonical keys and legacy aliases.
+    """Build the shared signal contract from canonical keys."""
 
-    Callers retain responsibility for their no-signals policy; the pipeline
-    returns ``None`` in that case while compatibility parsing uses defaults.
-    """
+    if isinstance(signals, Mapping):
+        removed_aliases = {
+            "trend_" + "window": "window",
+            "trend_" + "lag": "lag",
+            "trend_" + "min_periods": "min_periods",
+            "trend_" + "zscore": "zscore",
+            "trend_" + "vol_adjust": "vol_adjust",
+            "trend_" + "vol_target": "vol_target",
+        }
+        for key, replacement in removed_aliases.items():
+            if key in signals:
+                raise ValueError(f"signals.{key} was removed; use signals.{replacement}")
 
-    def setting(key: str, alias: str | None = None, default: Any = None) -> Any:
+    def setting(key: str, default: Any = None) -> Any:
         value = _config_value(signals, key)
-        if value is None and alias:
-            value = _config_value(signals, alias)
         return default if value is None else value
 
     kind = str(_config_value(signals, "kind", "tsmom") or "tsmom").lower()
@@ -173,25 +180,23 @@ def trend_spec_from_mapping(
         raise ValueError(f"Unsupported trend signal kind: {kind}")
 
     try:
-        window = int(setting("window", "trend_window", 63))
+        window = int(setting("window", 63))
     except (TypeError, ValueError, OverflowError):
         window = 63
     try:
-        min_periods_raw = setting("min_periods", "trend_min_periods")
+        min_periods_raw = setting("min_periods")
         min_periods = int(min_periods_raw) if min_periods_raw is not None else None
     except (TypeError, ValueError, OverflowError):
         min_periods = None
     if min_periods is not None and min_periods <= 0:
         min_periods = None
     try:
-        lag = max(1, int(setting("lag", "trend_lag", 1)))
+        lag = max(1, int(setting("lag", 1)))
     except (TypeError, ValueError, OverflowError):
         lag = 1
 
-    vol_adjust_flag = bool(
-        setting("vol_adjust", "trend_vol_adjust", _config_value(vol_adjust, "enabled", False))
-    )
-    vol_target_raw = setting("vol_target", "trend_vol_target")
+    vol_adjust_flag = bool(setting("vol_adjust", _config_value(vol_adjust, "enabled", False)))
+    vol_target_raw = setting("vol_target")
     if vol_target_raw is None and vol_adjust_flag:
         vol_target_raw = _config_value(vol_adjust, "target_vol")
     try:
@@ -203,7 +208,7 @@ def trend_spec_from_mapping(
     if not vol_adjust_flag and not retain_disabled_vol_target:
         vol_target = None
 
-    zscore_setting = setting("zscore", "trend_zscore", False)
+    zscore_setting = setting("zscore", False)
     if isinstance(zscore_setting, bool):
         zscore: bool | float = zscore_setting
     else:

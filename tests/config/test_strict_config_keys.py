@@ -41,13 +41,27 @@ def test_portfolio_keylint_flags_unknown() -> None:
                 "selection_mode": "all",
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.0,
-                "transaction_cost_bps": 0,
+                "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
                 "bogus_key": True,
             }
         }
     )
 
     assert errors == ["portfolio.bogus_key"]
+
+
+def test_portfolio_keylint_accepts_canonical_threshold_controls() -> None:
+    errors = lint_portfolio_keys(
+        {
+            "portfolio": {
+                "constraints": {"min_weight_strikes": 2},
+                "sticky_add_x": 2,
+                "sticky_drop_y": 3,
+            }
+        }
+    )
+
+    assert errors == []
 
 
 def test_validate_trend_config_rejects_unknown_portfolio_key(tmp_path: Path) -> None:
@@ -62,7 +76,7 @@ def test_validate_trend_config_rejects_unknown_portfolio_key(tmp_path: Path) -> 
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
             "bogus_key": True,
         },
         "vol_adjust": {
@@ -136,7 +150,7 @@ def _valid_payload(base_dir: Path) -> dict:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
         },
         "vol_adjust": {
             "target_vol": 0.1,
@@ -184,7 +198,7 @@ def test_unknown_top_level_section_rejected(tmp_path: Path) -> None:
         config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
-def test_consumed_legacy_top_level_sections_allowed(tmp_path: Path) -> None:
+def test_consumed_optional_top_level_sections_allowed(tmp_path: Path) -> None:
     payload = _valid_payload(tmp_path)
     payload["signals"] = {"window": 10, "lag": 1}
     payload["output"] = {"path": "report.html", "format": "csv"}

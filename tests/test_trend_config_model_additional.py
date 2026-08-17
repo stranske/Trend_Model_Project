@@ -199,7 +199,7 @@ def test_portfolio_settings_validator_errors() -> None:
             {
                 "rebalance_calendar": " ",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             }
         )
 
@@ -208,7 +208,7 @@ def test_portfolio_settings_validator_errors() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": -0.1,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             }
         )
 
@@ -217,16 +217,16 @@ def test_portfolio_settings_validator_errors() -> None:
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 1.5,
-                "transaction_cost_bps": 10,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             }
         )
 
-    with pytest.raises(ValueError, match="transaction_cost_bps cannot be negative"):
+    with pytest.raises(ValueError, match="per_trade_bps cannot be negative"):
         PortfolioSettings.model_validate(
             {
                 "rebalance_calendar": "NYSE",
                 "max_turnover": 0.5,
-                "transaction_cost_bps": -5,
+                "cost_model": {"per_trade_bps": -5, "half_spread_bps": 0},
             }
         )
 
@@ -236,14 +236,12 @@ def test_portfolio_settings_accepts_cooldown_values() -> None:
         {
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "cooldown_periods": "2",
-            "cooldown_months": 3,
         }
     )
 
     assert settings.cooldown_periods == 2
-    assert settings.cooldown_months == 3
 
 
 def test_risk_settings_validator_errors() -> None:
@@ -299,7 +297,7 @@ def test_validate_trend_config_formats_first_error(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }

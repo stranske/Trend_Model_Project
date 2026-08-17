@@ -76,7 +76,7 @@ def test_build_config_populates_threshold_hold_metric_and_capacity(monkeypatch):
     assert cfg.regime.get("proxy") == "ACWI"
 
 
-def test_build_config_maps_min_tenure_periods(monkeypatch):
+def test_build_config_maps_min_tenure_n(monkeypatch):
     stub = SimpleNamespace()
     stub.session_state = {}
     stub.cache_data = lambda *args, **kwargs: (
@@ -92,7 +92,7 @@ def test_build_config_maps_min_tenure_periods(monkeypatch):
         {"FundA": [0.01, 0.02]},
         index=pd.to_datetime(["2020-01-31", "2020-02-29"]),
     )
-    model_state = {"min_tenure_periods": 4}
+    model_state = {"min_tenure_n": 4}
 
     payload = AnalysisPayload(returns=returns, model_state=model_state, benchmark=None)
     cfg = _build_config(payload)
@@ -176,14 +176,14 @@ def test_analysis_runner_payload_round_trips_through_canonical_config(monkeypatc
 
     model_state = {
         "selection_count": 6,
-        "weighting_scheme": "risk_parity",
-        "transaction_cost_bps": 7,
-        "slippage_bps": 3,
+        "weighting_name": "risk_parity",
+        "per_trade_bps": 7,
+        "half_spread_bps": 3,
         "metric_weights": {"sharpe": 0.6, "return_ann": 0.2, "drawdown": 0.2},
-        "trend_window": 12,
-        "trend_lag": 1,
-        "trend_zscore": True,
-        "trend_vol_adjust": False,
+        "signal_window": 12,
+        "signal_lag": 1,
+        "signal_zscore": True,
+        "signal_vol_adjust": False,
         "multi_period_enabled": True,
         "multi_period_frequency": "A",
         "lookback_periods": 1,
@@ -200,9 +200,9 @@ def test_analysis_runner_payload_round_trips_through_canonical_config(monkeypatc
     cfg = _build_config(payload)
 
     assert isinstance(cfg, Config)
-    assert cfg.portfolio["transaction_cost_bps"] == 7
-    assert cfg.portfolio["weighting_scheme"] == "risk_parity"
-    assert cfg.portfolio["cost_model"] == {"bps_per_trade": 7, "slippage_bps": 3}
+    assert cfg.portfolio["cost_model"]["per_trade_bps"] == 7
+    assert cfg.portfolio["weighting"]["name"] == "risk_parity"
+    assert cfg.portfolio["cost_model"] == {"per_trade_bps": 7, "half_spread_bps": 3}
     assert cfg.portfolio["threshold_hold"]["blended_weights"] == {
         "Sharpe": 0.6,
         "AnnualReturn": 0.2,
@@ -233,8 +233,8 @@ def test_analysis_runner_payload_round_trips_through_canonical_config(monkeypatc
     dumped = cfg.model_dump()
     rehydrated = Config(**dumped)
     assert rehydrated.model_dump() == dumped
-    assert dumped["portfolio"]["transaction_cost_bps"] == 7
-    assert dumped["portfolio"]["cost_model"]["slippage_bps"] == 3
+    assert dumped["portfolio"]["cost_model"]["per_trade_bps"] == 7
+    assert dumped["portfolio"]["cost_model"]["half_spread_bps"] == 3
     assert dumped["signals"]["window"] == 12
     assert dumped["sample_split"] == cfg.sample_split
     assert dumped["multi_period"]["frequency"] == "A"

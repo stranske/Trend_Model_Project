@@ -15,7 +15,11 @@ def test_config_import_with_pydantic():
     assert _HAS_PYDANTIC is True
 
     # Test that Config can be instantiated
-    cfg = Config(version="test", data={"key": "value"})
+    cfg = Config(
+        version="test",
+        data={"key": "value"},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+    )
     assert cfg.version == "test"
     assert cfg.data == {"key": "value"}
 
@@ -47,7 +51,11 @@ def test_config_import_without_pydantic():
         assert _HAS_PYDANTIC is False
 
         # Test that Config can be instantiated without pydantic
-        cfg = Config(version="test", data={"key": "value"})
+        cfg = Config(
+            version="test",
+            data={"key": "value"},
+            portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+        )
         assert cfg.version == "test"
         assert cfg.data == {"key": "value"}
 
@@ -69,7 +77,10 @@ def test_config_validation_with_pydantic():
         (ValidationError, TypeError),
         match=r"(Input should be a valid string|version must be a string)",
     ):
-        Config(version=123)
+        Config(
+            version=123,
+            portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+        )
 
 
 def test_config_validation_without_pydantic():
@@ -95,7 +106,10 @@ def test_config_validation_without_pydantic():
 
         # Test validation error without pydantic
         with pytest.raises((ValueError, TypeError), match="version must be a string"):
-            Config(version=123)
+            Config(
+                version=123,
+                portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+            )
 
 
 def test_load_function_works_without_pydantic():
@@ -131,7 +145,10 @@ def test_missing_version_validation_consistency():
     from trend_analysis.config.models import Config
 
     with pytest.raises(Exception):
-        Config(data={})
+        Config(
+            data={},
+            portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+        )
 
     # Test without pydantic
     original_import = builtins.__import__
@@ -154,8 +171,15 @@ def test_missing_version_validation_consistency():
         from trend_analysis.config.models import Config
 
         with pytest.raises(ValueError, match="version field is required"):
-            Config(data={})
+            Config(
+                data={},
+                portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+            )
 
         # Also test explicit None
         with pytest.raises(ValueError, match="version field is required"):
-            Config(version=None, data={})
+            Config(
+                version=None,
+                data={},
+                portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+            )

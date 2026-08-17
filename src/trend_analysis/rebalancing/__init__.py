@@ -5,7 +5,6 @@ from .strategies import (
     DrawdownGuardStrategy,
     DriftBandStrategy,
     PeriodicRebalanceStrategy,
-    RebalancingStrategy,
     TurnoverCapStrategy,
     VolTargetRebalanceStrategy,
     apply_rebalancing_strategies,
@@ -26,7 +25,6 @@ def get_rebalancing_strategies() -> Dict[str, type]:
 
 __all__ = (
     "CashPolicy",
-    "RebalancingStrategy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
     "DriftBandStrategy",

@@ -371,9 +371,9 @@ Both selectors must return **two** DataFrames:
 
 | Class (inherits `BaseWeighting`) | Logic | YAML Config Stub |
 | --- | --- | --- |
-| `EqualWeight` | 1/N allocation across `selected`; rounds to nearest bps to avoid float dust. | `portfolio.weighting: {method: equal}` |
-| `ScorePropSimple` | Weight ∝ positive score; rescales to 100 %. | `portfolio.weighting: {method: score_prop}` |
-| `ScorePropBayesian` | Same, but shrinks extreme scores toward the cross‑sectional mean using a conjugate‑normal update. | `portfolio.weighting: {method: score_prop_bayes, shrink_tau: 0.25}` |
+| `EqualWeight` | 1/N allocation across `selected`; rounds to nearest bps to avoid float dust. | `portfolio.weighting: {name: equal, params: {}}` |
+| `ScorePropSimple` | Weight ∝ positive score; rescales to 100 %. | `portfolio.weighting: {name: score_prop, params: {}}` |
+| `ScorePropBayesian` | Same, but shrinks extreme scores toward the cross‑sectional mean using a conjugate‑normal update. | `portfolio.weighting: {name: score_prop_bayes, params: {shrink_tau: 0.25}}` |
 
 ---
 
@@ -583,6 +583,5 @@ feature lands, run the sequence below and update `config/demo.yml` or
 5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so the demo covers all features.
-
 
 

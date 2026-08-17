@@ -118,12 +118,10 @@ def _section_get(section: Mapping[str, Any], key: str, default: Any = None) -> A
     return section.get(key, default)
 
 
-def _resolve_parallel_jobs(cfg: Any, run_cfg: Mapping[str, Any]) -> int | None:
-    """Resolve canonical ``run.jobs`` with top-level ``jobs`` as a legacy alias."""
+def _resolve_parallel_jobs(run_cfg: Mapping[str, Any]) -> int | None:
+    """Resolve the canonical ``run.jobs`` setting."""
 
-    run_jobs = _section_get(run_cfg, "jobs", None)
-    value = run_jobs if run_jobs is not None else _cfg_value(cfg, "jobs", None)
-    return _coerce_int(value, default=0) or None
+    return _coerce_int(_section_get(run_cfg, "jobs", None), default=0) or None
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:
@@ -198,25 +196,13 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     export_dir = _maybe_path(_section_get(export_cfg, "directory"), base_path=base_path)
     output_path = _maybe_path(_section_get(output_cfg, "path"), base_path=base_path)
     checkpoint = _maybe_path(_section_get(run_cfg, "checkpoint_dir"), base_path=base_path)
-    transaction_cost_bps = float(
-        _coerce_float(_section_get(portfolio, "transaction_cost_bps", 0.0), 0.0) or 0.0
-    )
     cost_cfg = _cfg_section(portfolio, "cost_model")
-    half_spread_bps = _coerce_float(cost_cfg.get("half_spread_bps"))
-    slippage = float(_coerce_float(cost_cfg.get("slippage_bps"), 0.0) or 0.0)
-    if half_spread_bps is not None:
-        slippage = float(half_spread_bps)
-    override_bps = _coerce_float(cost_cfg.get("bps_per_trade"))
-    per_trade_bps = _coerce_float(cost_cfg.get("per_trade_bps"))
-    effective_bps = float(
-        per_trade_bps
-        if per_trade_bps is not None
-        else override_bps if override_bps is not None else transaction_cost_bps
-    )
+    per_trade_bps = float(_coerce_float(cost_cfg.get("per_trade_bps"), 0.0) or 0.0)
+    half_spread_bps = float(_coerce_float(cost_cfg.get("half_spread_bps"), 0.0) or 0.0)
     cost_model = CostModel(
-        bps_per_trade=effective_bps,
-        slippage_bps=slippage,
-        per_trade_bps=per_trade_bps if per_trade_bps is not None else override_bps,
+        bps_per_trade=per_trade_bps,
+        slippage_bps=half_spread_bps,
+        per_trade_bps=per_trade_bps,
         half_spread_bps=half_spread_bps,
     )
 
@@ -229,14 +215,14 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         selection_mode=str(_section_get(portfolio, "selection_mode", "all")),
         random_n=_coerce_int(_section_get(portfolio, "random_n", 0), default=0),
         rebalance_calendar=_section_get(portfolio, "rebalance_calendar"),
-        transaction_cost_bps=transaction_cost_bps,
+        transaction_cost_bps=per_trade_bps,
         cost_model=cost_model,
         max_turnover=max_turnover_value,
         rank=rank_cfg,
         selector=selector_cfg,
         weighting=weighting_cfg,
         weight_policy=_section_get(portfolio, "weight_policy"),
-        weighting_scheme=_section_get(portfolio, "weighting_scheme"),
+        weighting_scheme=weighting_cfg.get("name"),
         custom_weights=_section_get(portfolio, "custom_weights"),
         manual_list=_as_tuple(manual, coerce=str),
         indices_list=_as_tuple(indices, coerce=str),
@@ -250,7 +236,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         regime=_cfg_section(cfg, "regime"),
         metrics=_as_tuple(_section_get(metrics, "registry", ())),
         seed=_coerce_int(_cfg_value(cfg, "seed", _section_get(run_cfg, "seed", 42)), default=42),
-        jobs=_resolve_parallel_jobs(cfg, run_cfg),
+        jobs=_resolve_parallel_jobs(run_cfg),
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
         export_formats=_as_tuple(_section_get(export_cfg, "formats", ())),

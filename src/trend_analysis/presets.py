@@ -163,6 +163,9 @@ class TrendPreset:
         portfolio = preset.get("portfolio")
         if not isinstance(portfolio, Mapping):
             portfolio = {}
+        weighting = portfolio.get("weighting")
+        if not isinstance(weighting, Mapping):
+            weighting = {}
 
         defaults = {
             "lookback_periods": _coerce_int(preset.get("lookback_periods"), default=36, minimum=1),
@@ -170,8 +173,10 @@ class TrendPreset:
             "min_track_months": _coerce_int(preset.get("min_track_months"), default=24, minimum=1),
             "selection_count": _coerce_int(preset.get("selection_count"), default=10, minimum=1),
             "risk_target": _coerce_optional_float(preset.get("risk_target"), minimum=0.0) or 0.1,
-            "weighting_scheme": str(portfolio.get("weighting_scheme", "equal")),
-            "cooldown_months": _coerce_int(portfolio.get("cooldown_months"), default=3, minimum=0),
+            "weighting_name": str(weighting.get("name", "equal")),
+            "cooldown_periods": _coerce_int(
+                portfolio.get("cooldown_periods"), default=3, minimum=0
+            ),
             "metrics": _normalise_metric_weights(
                 preset.get("metrics", {}) if isinstance(preset.get("metrics"), Mapping) else {}
             ),

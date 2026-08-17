@@ -61,11 +61,11 @@ scenarios:
 
   - id: cost_up
     tier: 1
-    param: portfolio.transaction_cost_bps
+    param: portfolio.cost_model.per_trade_bps
     description: Higher transaction costs should not increase net annual return.
     base: {}
-    control: {portfolio.transaction_cost_bps: 0}
-    vary: {portfolio.transaction_cost_bps: 50}
+    control: {portfolio.cost_model.per_trade_bps: 0}
+    vary: {portfolio.cost_model.per_trade_bps: 50}
     metric: ann_return
     direction: decrease_or_equal
     enforce: true
@@ -94,17 +94,17 @@ scenarios:
 
   - id: weighting_risk_parity
     tier: 1
-    param: portfolio.weighting_scheme
+    param: portfolio.weighting.name
     description: Risk-parity weighting should produce a different allocation than equal.
     # fixed 2026-06-11 (#5537): the demo fixture pins portfolio.custom_weights,
-    # which takes precedence over weighting_scheme -- the weight engine only runs
+    # which takes precedence over weighting.name -- the weight engine only runs
     # when custom_weights is None (src/trend_analysis/stages/portfolio.py:288).
-    # Clearing custom_weights here lets weighting_scheme actually drive the
+    # Clearing custom_weights here lets weighting.name actually drive the
     # allocation, so equal vs risk_parity now diverges (max_weight 0.2565 -> 0.3176)
     # and the scenario can be enforced.
     base: {portfolio.custom_weights: null}
-    control: {portfolio.weighting_scheme: equal}
-    vary: {portfolio.weighting_scheme: risk_parity}
+    control: {portfolio.weighting.name: equal}
+    vary: {portfolio.weighting.name: risk_parity}
     metric: max_weight
     direction: change   # only require the allocation to differ
     enforce: true
@@ -146,9 +146,9 @@ priority_params:
   - vol_adjust.enabled
   - portfolio.constraints.max_weight
   - portfolio.rank.n
-  - portfolio.transaction_cost_bps
+  - portfolio.cost_model.per_trade_bps
   - portfolio.max_turnover
-  - portfolio.weighting_scheme
+  - portfolio.weighting.name
   - portfolio.robustness.shrinkage.enabled
   - regime.enabled
   - metrics.rf_rate_annual

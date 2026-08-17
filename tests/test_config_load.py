@@ -37,10 +37,9 @@ def _write_cfg(
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.25,
-            "transaction_cost_bps": 10,
             "cost_model": {
-                "bps_per_trade": 0,
-                "slippage_bps": 0,
+                "per_trade_bps": 10,
+                "half_spread_bps": 0,
             },
         },
         "metrics": {},

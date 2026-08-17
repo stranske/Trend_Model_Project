@@ -42,7 +42,7 @@ def _base_cfg() -> dict[str, object]:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
         },
         "metrics": {},
         "export": {},

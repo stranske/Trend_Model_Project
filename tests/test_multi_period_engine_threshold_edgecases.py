@@ -32,7 +32,7 @@ class DummyConfig:
         default_factory=lambda: {
             "policy": "threshold_hold",
             "random_n": 4,
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0},
             "max_turnover": 1.0,
             "threshold_hold": {
                 "target_n": 3,
@@ -268,7 +268,9 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
 
     import trend_analysis.core.rank_selection as rank_sel
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
 
@@ -328,7 +330,9 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     cfg.portfolio["constraints"].update(
         {"max_funds": 2, "min_weight": 0.0, "max_weight": 1.0, "min_weight_strikes": 2}
     )
-    cfg.portfolio.update({"transaction_cost_bps": 15.0, "max_turnover": 0.4})
+    cfg.portfolio.update(
+        {"cost_model": {"per_trade_bps": 15.0, "half_spread_bps": 0}, "max_turnover": 0.4}
+    )
 
     dates = pd.to_datetime(
         [
@@ -364,7 +368,9 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
 
     import trend_analysis.core.rank_selection as rank_sel
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
 
@@ -472,7 +478,9 @@ def test_threshold_hold_applies_regime_turnover_cap(
 
     import trend_analysis.core.rank_selection as rank_sel
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metric_maps[metric]
         return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
 
@@ -651,7 +659,9 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
 
     import trend_analysis.core.rank_selection as rank_sel
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         period_idx = call_state["count"] // 6
         values = metric_queue[period_idx][metric]
         call_state["count"] += 1
@@ -827,7 +837,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
     )
     cfg.portfolio.update(
         {
-            "transaction_cost_bps": 25.0,
+            "cost_model": {"per_trade_bps": 25.0, "half_spread_bps": 0},
             "max_turnover": 0.2,
             "indices_list": ["Index Bench"],
         }
@@ -901,7 +911,9 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
     from trend_analysis import selector as selector_mod
     from trend_analysis.core import rank_selection as rank_mod
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         values = metrics[metric]
         return pd.Series({col: values[col] for col in frame.columns}, dtype=float)
 
@@ -1097,7 +1109,9 @@ def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
 
     from trend_analysis.core import rank_selection as rank_mod
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         vals = metrics[metric]
         return pd.Series({col: vals[col] for col in frame.columns}, dtype=float)
 
@@ -1137,7 +1151,9 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
             "min_weight_strikes": 1,
         }
     )
-    cfg.portfolio.update({"transaction_cost_bps": 25.0, "max_turnover": 0.2})
+    cfg.portfolio.update(
+        {"cost_model": {"per_trade_bps": 25.0, "half_spread_bps": 0}, "max_turnover": 0.2}
+    )
 
     dates = pd.to_datetime(
         [
@@ -1198,7 +1214,9 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
 
     from trend_analysis.core import rank_selection as rank_mod
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame, metric: str, _cfg: Any, *, risk_free_override: object
+    ) -> pd.Series:
         vals = metrics[metric]
         return pd.Series({col: vals[col] for col in frame.columns}, dtype=float)
 

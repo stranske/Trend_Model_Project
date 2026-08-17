@@ -16,32 +16,23 @@ _DECLARED_PORTFOLIO_KEYS = {
     "rebalance_calendar",
     "rebalance_freq",
     "max_turnover",
-    "transaction_cost_bps",
     "lambda_tc",
     "min_tenure_n",
-    "min_tenure_periods",
     "ci_level",
     "cost_model",
-    "cost_model.bps_per_trade",
-    "cost_model.slippage_bps",
     "cost_model.per_trade_bps",
     "cost_model.half_spread_bps",
     "turnover_cap",
     "weight_policy",
     "cooldown_periods",
-    "cooldown_months",
 }
 
 _CONSUMED_PORTFOLIO_KEYS = {
     "policy",
     "selection_mode",
-    "target_n",
-    "entry_soft_strikes",
-    "entry_eligible_strikes",
     "random_n",
     "manual_list",
     "indices_list",
-    "weighting_scheme",
     "leverage_cap",
     "rank",
     "rank.inclusion_approach",
@@ -64,6 +55,7 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "constraints.max_funds",
     "constraints.max_weight",
     "constraints.min_weight",
+    "constraints.min_weight_strikes",
     "constraints.max_active_positions",
     "constraints.group_caps",
     "constraints.cash_weight",
@@ -81,6 +73,8 @@ _CONSUMED_PORTFOLIO_KEYS = {
     "robustness.logging.log_method_switches",
     "robustness.logging.log_shrinkage_intensity",
     "robustness.logging.log_condition_numbers",
+    "sticky_add_x",
+    "sticky_drop_y",
 }
 
 _DYNAMIC_PORTFOLIO_SUBTREES = {
@@ -100,12 +94,10 @@ _DYNAMIC_PORTFOLIO_SUBTREES = {
 # rejects them (#5543, follow-up to A1/#5389).
 _DECLARED_TOP_LEVEL_SECTIONS = {
     "benchmarks",
-    "checkpoint_dir",
     "data",
     "export",
     "extra",
     "identity",
-    "jobs",
     "metrics",
     "multi_period",
     "output",
@@ -190,6 +182,11 @@ def lint_config_sections(config: Mapping[str, Any]) -> list[str]:
                 child = str(raw_child)
                 if child not in allowed:
                     unknown.append(f"{section}.{child}")
+    multi_period = config.get("multi_period")
+    if isinstance(multi_period, Mapping):
+        for key in ("cooldown_periods", "cooldown_months"):
+            if key in multi_period:
+                unknown.append(f"multi_period.{key}")
     return sorted(unknown)
 
 

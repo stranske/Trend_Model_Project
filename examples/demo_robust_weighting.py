@@ -118,7 +118,9 @@ def demonstrate_config_usage():
 
     robust_config = {
         "portfolio": {
-            "weighting_scheme": "robust_mv",
+            "weighting": {
+                "name": "robust_mv",
+            },
             "robustness": {
                 "shrinkage": {"enabled": True, "method": "ledoit_wolf"},
                 "condition_check": {

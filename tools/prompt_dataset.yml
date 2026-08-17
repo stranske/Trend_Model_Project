@@ -261,7 +261,7 @@
   starting_config: config/defaults.yml
   expected_operations:
     - op: set
-      path: portfolio.cost_model.slippage_bps
+      path: portfolio.cost_model.half_spread_bps
       value: 5
   constraints:
     - patch.operations | length == 1

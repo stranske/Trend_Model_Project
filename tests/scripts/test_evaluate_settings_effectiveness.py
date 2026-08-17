@@ -46,7 +46,7 @@ def test_extract_settings_from_model_page_includes_ui_settings() -> None:
         "buy_hold_initial",
         "shrinkage_method",
         "report_rolling_metrics",
-        "transaction_cost_bps",
+        "per_trade_bps",
     }
     assert expected_keys <= keys
 
@@ -77,7 +77,7 @@ def test_render_markdown_report_includes_breakdown_and_recommendations() -> None
         },
         "non_effective_settings": [
             {
-                "setting": "transaction_cost_bps",
+                "setting": "per_trade_bps",
                 "category": "Costs",
                 "status": "NO_EFFECT",
                 "reason": "No meaningful changes detected.",
@@ -91,7 +91,7 @@ def test_render_markdown_report_includes_breakdown_and_recommendations() -> None
 
     assert "Per-Category Breakdown" in markdown
     assert "Non-Effective Settings" in markdown
-    assert "transaction_cost_bps" in markdown
+    assert "per_trade_bps" in markdown
     assert "Costs" in markdown
     assert "No meaningful changes detected." in markdown
     assert "Ensure transaction costs" in markdown

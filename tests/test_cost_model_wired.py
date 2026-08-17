@@ -31,8 +31,7 @@ class CostModelConfig:
     portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
-            "transaction_cost_bps": 0.0,
-            "cost_model": {"bps_per_trade": 40.0, "slippage_bps": 10.0},
+            "cost_model": {"per_trade_bps": 40.0, "half_spread_bps": 10.0},
             "max_turnover": 1.0,
             "threshold_hold": {"target_n": 2, "metric": "Sharpe"},
             "constraints": {"max_funds": 2, "min_weight": 0.1, "max_weight": 0.35},
@@ -119,7 +118,14 @@ def test_cost_model_bps_feed_multi_period_transaction_cost(
     import trend_analysis.core.rank_selection as rank_selection
     import trend_analysis.selector as selector_mod
 
-    def metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        _cfg: Any,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del risk_free_override
         values = {
             "AnnualReturn": {"Alpha": 0.1, "Beta": 0.08},
             "Volatility": {"Alpha": 0.2, "Beta": 0.18},
@@ -178,8 +184,8 @@ def test_cost_model_bps_feed_non_threshold_pipeline_cost(
 
 def test_invalid_cost_model_bps_raises_core_config_error() -> None:
     with pytest.raises(
-        CoreConfigError, match="portfolio.cost_model.bps_per_trade cannot be negative"
+        CoreConfigError, match="portfolio.cost_model.per_trade_bps cannot be negative"
     ):
         mp_engine._resolve_portfolio_cost_bps(
-            {"cost_model": {"bps_per_trade": -1.0, "slippage_bps": 0.0}}
+            {"cost_model": {"per_trade_bps": -1.0, "half_spread_bps": 0.0}}
         )

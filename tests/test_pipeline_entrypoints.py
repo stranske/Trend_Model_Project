@@ -35,8 +35,7 @@ def test_same_config_same_numbers_across_entrypoints() -> None:
     """Single-period config resolution matches the multi-period cost contract."""
 
     portfolio = {
-        "transaction_cost_bps": 12,
-        "cost_model": {"slippage_bps": 3},
+        "cost_model": {"per_trade_bps": 12, "half_spread_bps": 3},
         "weighting": {"name": "score_prop_bayes"},
     }
 
@@ -52,17 +51,17 @@ def test_single_period_costs_reject_non_finite_and_negative_values(
     invalid: float, error_fragment: str
 ) -> None:
     with pytest.raises(ValueError, match=error_fragment):
-        _resolve_single_period_monthly_cost({"transaction_cost_bps": invalid}, {})
+        _resolve_single_period_monthly_cost(
+            {"cost_model": {"per_trade_bps": invalid, "half_spread_bps": 0}}, {}
+        )
     with pytest.raises(ValueError, match=error_fragment):
         _resolve_single_period_monthly_cost({}, {"monthly_cost": invalid})
 
 
-def test_single_period_cost_model_honours_effective_override_fields() -> None:
+def test_single_period_cost_model_honours_canonical_fields() -> None:
     portfolio = {
         "cost_model": {
-            "bps_per_trade": 1,
             "per_trade_bps": 12,
-            "slippage_bps": 2,
             "half_spread_bps": 3,
         }
     }
@@ -70,11 +69,22 @@ def test_single_period_cost_model_honours_effective_override_fields() -> None:
     assert _resolve_single_period_monthly_cost(portfolio, {}) == pytest.approx(0.0015)
 
 
-def test_single_period_legacy_weighting_scheme_overrides_nested_name() -> None:
+def test_zero_cost_model_preserves_configured_flat_monthly_cost() -> None:
     portfolio = {
-        "weighting_scheme": "risk_parity",
-        "weighting": {"name": "score_prop_bayes"},
+        "cost_model": {
+            "per_trade_bps": 0,
+            "half_spread_bps": 0,
+        }
     }
+
+    assert _resolve_single_period_monthly_cost(
+        portfolio,
+        {"monthly_cost": 0.0025},
+    ) == pytest.approx(0.0025)
+
+
+def test_single_period_uses_nested_weighting_name() -> None:
+    portfolio = {"weighting": {"name": "risk_parity"}}
 
     assert _resolve_single_period_weighting_scheme(portfolio, dict.get) == "risk_parity"
 
@@ -319,7 +329,6 @@ def test_run_full_propagates_analysis_payload(
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
     base_config["portfolio"] = {
-        "weighting_scheme": "equal",
         "weighting": {"name": "score_prop_bayes"},
         "cost_model": {"per_trade_bps": 12, "half_spread_bps": 3},
     }

@@ -53,12 +53,13 @@ def test_weights_normalised():
     assert np.isclose(out.sum(), 1.0, atol=NUMERICAL_TOLERANCE_MEDIUM)
 
 
-def test_root_level_exit_thresholds_respected():
+def test_nested_exit_thresholds_respected():
     cfg = {
         "portfolio": {
-            # Legacy placement (outside portfolio.threshold_hold)
-            "z_exit_soft": -0.1,
-            "soft_strikes": 1,
+            "threshold_hold": {
+                "z_exit_soft": -0.1,
+                "soft_strikes": 1,
+            },
             "constraints": {"max_funds": 3},
         }
     }

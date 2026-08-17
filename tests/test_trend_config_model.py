@@ -6,11 +6,14 @@ import pytest
 import yaml
 
 from trend_analysis.config import (
+    Config,
+    SignalSettings,
     TrendConfig,
     load_config,
     load_trend_config,
     validate_trend_config,
 )
+from trend_analysis.pipeline_helpers import _build_trend_spec
 
 
 def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
@@ -24,7 +27,7 @@ def _write_config(tmp_path: Path, csv_path: Path, **overrides: object) -> Path:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -45,6 +48,32 @@ def test_load_trend_config_defaults() -> None:
     assert cfg.data.csv_path.exists()
     assert cfg.data.date_column == "Date"
     assert isinstance(cfg, TrendConfig)
+    assert _build_trend_spec(cfg, cfg.vol_adjust) is None
+
+
+@pytest.mark.parametrize(
+    "cost_model",
+    [
+        {},
+        {"per_trade_bps": 1.0},
+        {"half_spread_bps": 0.5},
+    ],
+)
+def test_public_load_config_requires_complete_cost_model(
+    tmp_path: Path,
+    cost_model: dict[str, float],
+) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_path = _write_config(
+        tmp_path,
+        csv_file,
+        portfolio={"cost_model": cost_model},
+    )
+    payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+
+    with pytest.raises(ValueError, match="per_trade_bps|half_spread_bps"):
+        load_config(payload)
 
 
 def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,6 +85,86 @@ def test_load_trend_config_env_override(tmp_path: Path, monkeypatch: pytest.Monk
     cfg, resolved = load_trend_config()
     assert resolved == cfg_path
     assert cfg.data.csv_path == csv_file.resolve()
+
+
+def test_load_trend_config_preserves_canonical_signals(tmp_path: Path) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    signals = {
+        "kind": "tsmom",
+        "window": 63,
+        "lag": 1,
+        "min_periods": None,
+        "zscore": False,
+        "vol_adjust": False,
+        "vol_target": 0.10,
+    }
+    cfg_path = _write_config(tmp_path, csv_file, signals=signals)
+
+    cfg, _ = load_trend_config(cfg_path)
+
+    assert cfg.signals.window == 63
+    assert cfg.signals.lag == 1
+    assert cfg.signals.vol_target == pytest.approx(0.10)
+    assert cfg.model_dump(exclude_none=True)["signals"] == {
+        key: value for key, value in signals.items() if value is not None
+    }
+    spec = _build_trend_spec(cfg, cfg.vol_adjust)
+    assert spec is not None
+    assert spec.window == 63
+
+
+@pytest.mark.parametrize("signals", [{"trend": {"window": 20}}, {"windw": 20}])
+def test_load_trend_config_rejects_unknown_signal_shapes(
+    tmp_path: Path,
+    signals: dict[str, object],
+) -> None:
+    csv_file = tmp_path / "returns.csv"
+    csv_file.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    cfg_path = _write_config(tmp_path, csv_file, signals=signals)
+
+    with pytest.raises(ValueError, match="signals"):
+        load_trend_config(cfg_path)
+
+
+@pytest.mark.parametrize("signals", [{"trend": {"window": 20}}, {"windw": 20}])
+def test_runtime_config_rejects_unknown_signal_shapes(signals: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="signals"):
+        Config(
+            version="1",
+            portfolio={"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
+            signals=signals,
+        )
+
+
+def test_signal_min_periods_cannot_exceed_window() -> None:
+    with pytest.raises(ValueError, match="min_periods.*window"):
+        SignalSettings(window=5, min_periods=6)
+
+    with pytest.raises(ValueError, match="min_periods.*window"):
+        Config(
+            version="1",
+            portfolio={"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
+            signals={"window": 5, "min_periods": 6},
+        )
+
+
+def test_signal_settings_match_canonical_trend_spec_bounds() -> None:
+    settings = SignalSettings(
+        kind="tsmom",
+        window=1,
+        lag=11,
+        min_periods=1,
+        vol_target=0.001,
+    )
+
+    assert settings.kind == "tsmom"
+    assert settings.window == 1
+    assert settings.lag == 11
+    assert settings.vol_target == pytest.approx(0.001)
+
+    with pytest.raises(ValueError, match="kind"):
+        SignalSettings(kind="cross_sectional")  # type: ignore[arg-type]
 
 
 def test_trend_config_rejects_invalid_frequency(tmp_path: Path) -> None:
@@ -88,7 +197,7 @@ def test_load_config_mapping_requires_source(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
         "preprocessing": {},
@@ -118,7 +227,7 @@ def test_trend_config_accepts_valid_managers_glob(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -138,7 +247,7 @@ def test_trend_config_requires_matching_managers_glob(tmp_path: Path) -> None:
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -163,7 +272,7 @@ def test_trend_config_managers_glob_requires_csv_extension(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -189,7 +298,7 @@ def test_validate_trend_config_normalises_month_end_frequency(tmp_path: Path) ->
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -212,7 +321,7 @@ def test_validate_trend_config_normalises_weekly_frequency(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -235,7 +344,7 @@ def test_validate_trend_config_reports_frequency_error_message(tmp_path: Path) -
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -277,7 +386,7 @@ def test_validate_trend_config_rejects_directory_csv_path(tmp_path: Path) -> Non
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -302,7 +411,7 @@ def test_validate_trend_config_accepts_pathlike_managers_glob(tmp_path: Path) ->
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 0.5,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -325,7 +434,7 @@ def test_validate_trend_config_reports_validation_location(tmp_path: Path) -> No
         "portfolio": {
             "rebalance_calendar": "NYSE",
             "max_turnover": 2,
-            "transaction_cost_bps": 10,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -357,7 +466,7 @@ def test_load_trend_config_accepts_relative_file_without_suffix(
                 "portfolio": {
                     "rebalance_calendar": "NYSE",
                     "max_turnover": 0.5,
-                    "transaction_cost_bps": 10,
+                    "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
                 },
                 "vol_adjust": {"target_vol": 0.1},
             }

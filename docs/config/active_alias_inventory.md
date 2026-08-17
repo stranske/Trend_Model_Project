@@ -6,8 +6,7 @@ configuration import path is removed; the canonical loader owns validation.
 
 | Alias / key | Shipped in | Runtime consumer | Status |
 |-------------|------------|------------------|--------|
-| `portfolio.weighting.name` | `defaults.yml`, `demo.yml`, `long_backtest.yml`, `portfolio_test.yml`, `robust_demo.yml`, `trend_concentrated_2004.yml`, `trend_universe_2004.yml` | Canonical weighting resolver | Active; `portfolio.weighting_scheme` is the UI path |
-| `portfolio.weighting_scheme` | `defaults.yml`, `demo.yml`, `robust_demo.yml`, and Monte Carlo strategy payloads | Portfolio construction | Active |
+| `portfolio.weighting.name` / `params` | Core presets and Monte Carlo strategy payloads | Canonical weighting resolver and plugin constructor | Active canonical surface; the former flat weighting key is rejected |
 | `portfolio.selector.name` / `params` | `demo.yml`, `long_backtest.yml`, `portfolio_test.yml`, `robust_demo.yml`, `trend_concentrated_2004.yml`, `trend_universe_2004.yml` | Rank selection | Active shipped selector shape |
 | `portfolio.custom_weights` | `demo.yml` | Demo weight override | Active demo-only shape |
 | `data.missing_policy` / `missing_limit` | `defaults.yml`, `demo.yml`, `robust_demo.yml` | Data ingestion | Active canonical surface |

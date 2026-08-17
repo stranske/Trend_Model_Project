@@ -10,6 +10,21 @@ import pytest
 import trend_analysis.multi_period.engine as engine
 
 
+def test_canonical_benchmark_columns_reject_inverse_orientation() -> None:
+    with pytest.raises(ValueError, match="retired column-to-label"):
+        engine._canonical_benchmark_columns(
+            {"SPX": "S&P 500"},
+            available_columns=["Fund A", "SPX"],
+        )
+
+
+def test_canonical_benchmark_columns_resolve_label_to_column() -> None:
+    assert engine._canonical_benchmark_columns(
+        {"S&P 500": "spx"},
+        available_columns=["Fund A", "SPX"],
+    ) == ("SPX",)
+
+
 def test_compute_turnover_state_with_previous_allocation() -> None:
     prev_idx = np.array(["A", "B"], dtype=object)
     prev_vals = np.array([0.4, 0.6], dtype=float)
@@ -209,7 +224,9 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
         *,
         policy: object,
         limit: object,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert enforce_completeness is True
         policy_args["policy"] = policy
         policy_args["limit"] = limit
         return frame, {"policy": policy, "limit": limit}
@@ -386,7 +403,9 @@ def test_run_missing_policy_removal_raises(monkeypatch: pytest.MonkeyPatch) -> N
         *,
         policy: object,
         limit: object,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert enforce_completeness is True
         empty = frame.copy()
         empty[:] = np.nan
         return empty, {"policy": policy, "limit": limit}
@@ -428,7 +447,7 @@ def test_run_threshold_hold_low_weight_replacement(
                         "min_weight_strikes": 1,
                     },
                     "weighting": {"name": "equal"},
-                    "transaction_cost_bps": 25,
+                    "cost_model": {"per_trade_bps": 25, "half_spread_bps": 0},
                     "max_turnover": 0.4,
                 }
             )
@@ -470,13 +489,21 @@ def test_run_threshold_hold_low_weight_replacement(
         *,
         policy: object,
         limit: object,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert enforce_completeness is True
         return frame, {"policy": policy, "limit": limit}
 
     monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
-        del metric, stats_cfg
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        stats_cfg: object,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del metric, stats_cfg, risk_free_override
         base = np.linspace(1.0, 1.0 + frame.shape[1], num=frame.shape[1])
         series = pd.Series(base, index=frame.columns, dtype=float)
         if "FundA" in series.index:
@@ -570,7 +597,7 @@ def test_run_threshold_hold_low_weight_replacement(
 
     turnover_cap = cfg.portfolio["max_turnover"]
     assert results[1]["turnover"] <= turnover_cap + 1e-9
-    expected_cost = results[1]["turnover"] * (cfg.portfolio["transaction_cost_bps"] / 10000)
+    expected_cost = results[1]["turnover"] * (cfg.portfolio["cost_model"]["per_trade_bps"] / 10000)
     assert results[1]["transaction_cost"] == pytest.approx(expected_cost)
 
 
@@ -621,11 +648,20 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
     monkeypatch.setattr(
         engine,
         "apply_missing_policy",
-        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+        lambda frame, *, policy, limit, enforce_completeness: (
+            frame,
+            {"policy": policy, "limit": limit, "enforce": enforce_completeness},
+        ),
     )
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
-        del metric, stats_cfg
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        stats_cfg: object,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del metric, stats_cfg, risk_free_override
         base = pd.Series(
             {
                 "FundA": 5.0,
@@ -753,7 +789,10 @@ def test_run_reconciles_manager_changes_to_pipeline_fund_weights(
     monkeypatch.setattr(
         engine,
         "apply_missing_policy",
-        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+        lambda frame, *, policy, limit, enforce_completeness: (
+            frame,
+            {"policy": policy, "limit": limit, "enforce": enforce_completeness},
+        ),
     )
 
     from trend_analysis import selector as selector_mod
@@ -885,11 +924,20 @@ def test_run_threshold_hold_reseeds_and_skips_period(
     monkeypatch.setattr(
         engine,
         "apply_missing_policy",
-        lambda frame, *, policy, limit: (frame, {"policy": policy, "limit": limit}),
+        lambda frame, *, policy, limit, enforce_completeness: (
+            frame,
+            {"policy": policy, "limit": limit, "enforce": enforce_completeness},
+        ),
     )
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
-        del metric, stats_cfg
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        stats_cfg: object,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del metric, stats_cfg, risk_free_override
         base = pd.Series(
             {
                 "FundA": 5.0,
@@ -1037,8 +1085,13 @@ def test_run_covariance_cache_converts_string_dates(
     monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
 
     def fake_apply_missing_policy(
-        frame: pd.DataFrame, *, policy: object, limit: object
+        frame: pd.DataFrame,
+        *,
+        policy: object,
+        limit: object,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert enforce_completeness is True
         if "Date" in frame.columns:
             working = frame.set_index("Date")
         else:
@@ -1110,7 +1163,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
             "threshold_hold": {"metric": "Sharpe", "min_weight_strikes": 1},
             "constraints": {"min_weight": 0.2, "max_weight": 0.6, "max_funds": 3},
             "weighting": {"name": "score_prop_bayes", "params": {"column": "Sharpe"}},
-            "transaction_cost_bps": 25,
+            "cost_model": {"per_trade_bps": 25, "half_spread_bps": 0},
             "max_turnover": 0.1,
         }
     )
@@ -1145,7 +1198,14 @@ def test_threshold_hold_replacements_and_turnover_cap(
 
     import trend_analysis.core.rank_selection as rank_selection_mod
 
-    def fake_metric_series(frame: pd.DataFrame, metric: str, stats_cfg: object) -> pd.Series:
+    def fake_metric_series(
+        frame: pd.DataFrame,
+        metric: str,
+        stats_cfg: object,
+        *,
+        risk_free_override: object,
+    ) -> pd.Series:
+        del metric, stats_cfg, risk_free_override
         base = pd.Series(
             {
                 "Alpha Fund": 0.9,
@@ -1192,8 +1252,13 @@ def test_threshold_hold_replacements_and_turnover_cap(
     )
 
     def fake_apply_missing_policy(
-        frame: pd.DataFrame, *, policy: object, limit: object
+        frame: pd.DataFrame,
+        *,
+        policy: object,
+        limit: object,
+        enforce_completeness: bool,
     ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert enforce_completeness is True
         if "Date" in frame.columns:
             working = frame.set_index("Date")
         else:

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
-
 from utils.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
@@ -34,12 +33,19 @@ _TYPE_OVERRIDES: dict[str, list[str] | str] = {
     "portfolio.rank.pct": ["number", "null"],
     "portfolio.rank.threshold": ["number", "null"],
     "portfolio.max_turnover": ["number", "object", "null"],
-    "portfolio.cost_model.bps_per_trade": "number",
-    "portfolio.cost_model.slippage_bps": "number",
+    "portfolio.cost_model.per_trade_bps": "number",
+    "portfolio.cost_model.half_spread_bps": "number",
+    "signals.kind": ["string", "null"],
+    "signals.window": ["integer", "null"],
+    "signals.lag": ["integer", "null"],
+    "signals.min_periods": ["integer", "null"],
+    "signals.zscore": ["boolean", "number", "null"],
+    "signals.vol_adjust": ["boolean", "null"],
+    "signals.vol_target": ["number", "null"],
     "output": ["object", "null"],
     "multi_period": ["object", "null"],
-    "jobs": ["integer", "null"],
-    "checkpoint_dir": ["string", "null"],
+    "run.jobs": ["integer", "null"],
+    "run.checkpoint_dir": ["string", "null"],
 }
 
 # Known constraints for validation and prompting.
@@ -52,25 +58,20 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "vol_adjust.window.decay": {"enum": ["ewma", "simple"]},
     "sample_split.method": {"enum": ["date", "ratio"]},
     "portfolio.selection_mode": {"enum": ["all", "random", "manual", "rank"]},
-    "portfolio.weighting_scheme": {
-        "enum": [
-            "equal",
-            "risk_parity",
-            "hrp",
-            "erc",
-            "robust_mv",
-            "robust_risk_parity",
-            "custom",
-        ]
-    },
     "portfolio.rebalance_freq": {"enum": ["M", "Q", "A", None]},
     "portfolio.rank.inclusion_approach": {"enum": ["top_n", "top_pct", "threshold"]},
     "portfolio.constraints.max_weight": {"minimum": 0, "maximum": 1},
     "portfolio.leverage_cap": {"minimum": 0},
-    "portfolio.transaction_cost_bps": {"minimum": 0},
-    "portfolio.cost_model.bps_per_trade": {"minimum": 0},
-    "portfolio.cost_model.slippage_bps": {"minimum": 0},
+    "portfolio.cost_model.per_trade_bps": {"minimum": 0},
+    "portfolio.cost_model.half_spread_bps": {"minimum": 0},
     "portfolio.max_turnover": {"minimum": 0, "maximum": 2},
+    "portfolio.min_tenure_n": {"minimum": 0},
+    "signals.kind": {"enum": ["tsmom", None]},
+    "signals.window": {"minimum": 1},
+    "signals.lag": {"minimum": 1},
+    "signals.min_periods": {"minimum": 1},
+    "signals.zscore": {"exclusiveMinimum": 0},
+    "signals.vol_target": {"exclusiveMinimum": 0},
     "metrics.rf_rate_annual": {"minimum": 0},
     "vol_adjust.target_vol": {"minimum": 0},
     "vol_adjust.window.lambda": {"minimum": 0, "maximum": 1},
@@ -93,6 +94,14 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
         "type": ["number", "string", "boolean", "array", "object", "null"]
     },
     "strategy.grid": {"type": ["array", "number", "string", "boolean", "object", "null"]},
+}
+
+# Object fields that the runtime models require whenever their parent section
+# is present. Keep the generated validators aligned with fail-closed loading.
+_REQUIRED_PROPERTIES: dict[str, list[str]] = {
+    "": ["portfolio"],
+    "portfolio": ["cost_model"],
+    "portfolio.cost_model": ["half_spread_bps", "per_trade_bps"],
 }
 
 # Manual descriptions for common fields that lack inline comments.
@@ -152,6 +161,7 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "portfolio.selector": "Selector plugin settings.",
     "portfolio.selector.params": "Parameters for selector plugin.",
     "portfolio.custom_weights": "Explicit weight overrides keyed by manager name.",
+    "portfolio.min_tenure_n": "Minimum number of periods a fund must remain held.",
     "portfolio.weighting": "Weighting plugin settings.",
     "portfolio.weighting.name": "Weighting plugin name.",
     "portfolio.weighting.params": "Parameters for weighting plugin.",
@@ -188,8 +198,14 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "run.seed": "Random seed used for deterministic runs.",
     "run.jobs": "Canonical parallel worker count for a run.",
     "run.checkpoint_dir": "Directory for saving checkpoints.",
-    "jobs": "Deprecated top-level alias for run.jobs; ignored when run.jobs is set.",
-    "checkpoint_dir": "Legacy top-level checkpoint directory override.",
+    "signals": "Canonical time-series momentum signal settings.",
+    "signals.kind": "Canonical signal family. Only time-series momentum is supported.",
+    "signals.window": "Rolling window used to compute trend signals.",
+    "signals.lag": "Periods to lag signals for causal execution.",
+    "signals.min_periods": "Minimum observations required for a valid signal.",
+    "signals.zscore": "Cross-sectional z-score normalization control.",
+    "signals.vol_adjust": "Scale signals by volatility when enabled.",
+    "signals.vol_target": "Target volatility for volatility-adjusted signals.",
     "multi_period.frequency": "Frequency for multi-period windows.",
     "multi_period.in_sample_len": "Length of the in-sample window.",
     "multi_period.out_sample_len": "Length of the out-of-sample window.",
@@ -215,6 +231,53 @@ _MODEL_SCHEMA_KEYS = {
     "maximum",
     "minItems",
     "maxItems",
+}
+
+_IDENTITY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Deterministic entity identity aliases for run manifest selected_entities.",
+    "default": {},
+    "nl_editable": True,
+    "constraints": {},
+    "additionalProperties": False,
+    "properties": {
+        "entities": {
+            "type": "array",
+            "description": "Explicit canonical entities and aliases.",
+            "default": [],
+            "nl_editable": True,
+            "constraints": {},
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["canonical_id"],
+                "properties": {
+                    "canonical_id": {"type": "string"},
+                    "display_name": {"type": "string"},
+                    "name": {"type": "string"},
+                    "aliases": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "default": [],
+                    },
+                },
+            },
+        },
+        "universe": {
+            "type": ["string", "array", "null"],
+            "description": "Universe file path or paths, resolved relative to the config file.",
+            "default": None,
+            "nl_editable": False,
+            "constraints": {},
+        },
+        "universes": {
+            "type": ["string", "array", "null"],
+            "description": "Universe file path or paths, resolved relative to the config file.",
+            "default": None,
+            "nl_editable": False,
+            "constraints": {},
+        },
+    },
 }
 
 
@@ -500,6 +563,8 @@ def build_schema(
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
+        if path_key in _REQUIRED_PROPERTIES:
+            schema["required"] = _REQUIRED_PROPERTIES[path_key]
         schema["default"] = value
         return schema
 
@@ -525,6 +590,8 @@ def build_schema(
             )
         if path_key in _FREEFORM_MAPS:
             schema["additionalProperties"] = _FREEFORM_MAPS[path_key]
+        if path_key in _REQUIRED_PROPERTIES:
+            schema["required"] = _REQUIRED_PROPERTIES[path_key]
         schema["default"] = None
         return schema
 
@@ -549,6 +616,8 @@ def _apply_constraints(
         schema["minimum"] = constraints["minimum"]
     if "maximum" in constraints:
         schema["maximum"] = constraints["maximum"]
+    if "exclusiveMinimum" in constraints:
+        schema["exclusiveMinimum"] = constraints["exclusiveMinimum"]
     if "minItems" in constraints:
         schema["minItems"] = constraints["minItems"]
     if "maxItems" in constraints:
@@ -578,6 +647,7 @@ def generate_schema(
         "description": _schema_root_description(config_map_path),
         "additionalProperties": False,
         "properties": {},
+        "required": _REQUIRED_PROPERTIES[""],
         "default": defaults,
     }
     properties_dict: dict[str, Any] = schema["properties"]
@@ -589,24 +659,23 @@ def generate_schema(
             samples=samples,
             model_overrides=model_overrides,
         )
-    for key in ("jobs",):
-        properties_dict.setdefault(
-            key,
-            build_schema(
-                None,
-                path=[key],
-                comment_map=comment_map,
-                samples=samples,
-                model_overrides=model_overrides,
-            ),
-        )
+    properties_dict.setdefault("identity", _IDENTITY_SCHEMA)
     return schema
 
 
 def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Create a compact schema for prompt injection."""
 
-    allowed_keys = {"type", "description", "default", "nl_editable", "properties", "items"}
+    allowed_keys = {
+        "type",
+        "description",
+        "default",
+        "nl_editable",
+        "properties",
+        "required",
+        "items",
+        "exclusiveMinimum",
+    }
     compact: dict[str, Any] = {k: v for k, v in schema.items() if k in allowed_keys}
     if "properties" in schema:
         compact["properties"] = {

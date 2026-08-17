@@ -61,7 +61,14 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
             {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "Alpha": [0.1, 0.2]}
         )
 
-    def fake_apply_missing_policy(frame: pd.DataFrame, *, policy: str | None, limit: int | None):
+    def fake_apply_missing_policy(
+        frame: pd.DataFrame,
+        *,
+        policy: str | None,
+        limit: int | None,
+        enforce_completeness: bool,
+    ):
+        assert enforce_completeness is True
         captured["applied_policy"] = policy
         captured["applied_limit"] = limit
         return frame, {}

@@ -32,8 +32,7 @@ def _payload(
     return {
         "data": data,
         "portfolio": {
-            "transaction_cost_bps": 5.0,
-            "cost_model": {"bps_per_trade": 5.0, "slippage_bps": 0.5},
+            "cost_model": {"per_trade_bps": 5.0, "half_spread_bps": 0.5},
         },
     }
 
@@ -49,11 +48,11 @@ def test_validate_core_config_round_trips(tmp_path: Path) -> None:
     assert result.data.managers_glob is None
     assert result.data.universe_membership_path == membership.resolve()
     assert result.data.frequency == "M"
-    assert result.costs.transaction_cost_bps == pytest.approx(5.0)
+    assert result.costs.per_trade_bps == pytest.approx(5.0)
 
     round_trip = result.to_payload()
     assert round_trip["data"]["csv_path"].endswith("returns.csv")
-    assert round_trip["portfolio"]["transaction_cost_bps"] == pytest.approx(5.0)
+    assert round_trip["portfolio"]["cost_model"]["per_trade_bps"] == pytest.approx(5.0)
 
 
 def test_validate_core_config_requires_csv_path(tmp_path: Path) -> None:
@@ -75,8 +74,33 @@ def test_validate_core_config_rejects_cost_type(tmp_path: Path) -> None:
     csv = tmp_path / "returns.csv"
     csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
     payload = _payload(csv)
-    payload["portfolio"]["transaction_cost_bps"] = "not-a-number"
-    with pytest.raises(CoreConfigError, match="transaction_cost_bps"):
+    payload["portfolio"]["cost_model"]["per_trade_bps"] = "not-a-number"
+    with pytest.raises(CoreConfigError, match="per_trade_bps"):
+        validate_core_config(payload, base_path=tmp_path)
+
+
+@pytest.mark.parametrize(
+    "cost_model",
+    [
+        None,
+        {},
+        {"per_trade_bps": 0.0},
+        {"half_spread_bps": 0.0},
+    ],
+)
+def test_validate_core_config_requires_complete_cost_model(
+    tmp_path: Path,
+    cost_model: dict[str, float] | None,
+) -> None:
+    csv = tmp_path / "returns.csv"
+    csv.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    payload = _payload(csv)
+    if cost_model is None:
+        payload["portfolio"].pop("cost_model")
+    else:
+        payload["portfolio"]["cost_model"] = cost_model
+
+    with pytest.raises(CoreConfigError, match="cost_model.*required"):
         validate_core_config(payload, base_path=tmp_path)
 
 
@@ -116,14 +140,13 @@ def test_load_core_config_reads_yaml(tmp_path: Path) -> None:
           date_column: Date
           frequency: M
         portfolio:
-          transaction_cost_bps: 1.5
           cost_model:
-            bps_per_trade: 1.5
-            slippage_bps: 0.25
+            per_trade_bps: 1.5
+            half_spread_bps: 0.25
         """,
         encoding="utf-8",
     )
 
     result = load_core_config(cfg_path)
     assert result.data.managers_glob.endswith("returns.csv")
-    assert result.costs.transaction_cost_bps == pytest.approx(1.5)
+    assert result.costs.per_trade_bps == pytest.approx(1.5)

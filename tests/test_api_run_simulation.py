@@ -49,7 +49,8 @@ def make_robust_cfg() -> Config:
             "out_end": "2020-08",
         },
         portfolio={
-            "weighting_scheme": "robust_mv",
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+            "weighting": {"name": "robust_mv"},
             "robustness": {
                 "shrinkage": {"enabled": False},
                 "condition_check": {
@@ -86,7 +87,7 @@ def make_cfg(path: str | None = None) -> Config:
             "out_start": "2020-04",
             "out_end": "2020-06",
         },
-        portfolio={},
+        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         metrics={},
         export={},
         run={},
@@ -153,6 +154,27 @@ def test_run_simulation_safe_mode_changes_weights():
     rp_values = np.array([rp_weights["A"], rp_weights["B"], rp_weights["C"]])
     diag_values = np.array([diag_weights["A"], diag_weights["B"], diag_weights["C"]])
     assert not np.allclose(rp_values, diag_values, rtol=1e-3, atol=1e-4)
+
+
+def test_run_simulation_score_weighting_uses_in_sample_scores() -> None:
+    df = make_ill_conditioned_df()
+    cfg = make_robust_cfg()
+    cfg.portfolio = {
+        "weighting": {
+            "name": "score_prop",
+            "params": {"column": "Sharpe"},
+        }
+    }
+
+    result = api.run_simulation(cfg, df)
+
+    weights = result.details["fund_weights"]
+    assert result.details["weight_engine_fallback"] is None
+    assert result.details["weight_engine_diagnostics"] == {
+        "engine": "score_prop",
+        "source": "in_sample_score_frame",
+    }
+    assert len({round(float(value), 6) for value in weights.values()}) > 1
 
 
 def _assert_fraction_mapping(weights: dict[str, float]) -> None:

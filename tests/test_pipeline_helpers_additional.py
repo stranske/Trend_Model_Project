@@ -1010,7 +1010,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
         preprocessing={"missing_data": {}},
         vol_adjust={"target_vol": 1.0},
         run={"monthly_cost": 0.0},
-        portfolio={"weighting_scheme": "equal"},
+        portfolio={"weighting": {"name": "equal"}},
         benchmarks={},
         seed=0,
     )
@@ -1981,7 +1981,7 @@ def test_run_full_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch)
         preprocessing={"missing_data": {}},
         vol_adjust={"target_vol": 1.0},
         run={"monthly_cost": 0.0},
-        portfolio={"weighting_scheme": "equal"},
+        portfolio={"weighting": {"name": "equal"}},
     )
 
     with monkeypatch.context() as mp:
@@ -2030,7 +2030,7 @@ def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> N
         preprocessing={"missing_data": {}},
         vol_adjust={"target_vol": 1.0},
         run={"monthly_cost": 0.0},
-        portfolio={"weighting_scheme": "equal"},
+        portfolio={"weighting": {"name": "equal"}},
     )
 
     with monkeypatch.context() as mp:

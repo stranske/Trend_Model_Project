@@ -107,7 +107,7 @@ def _build_result_with_details() -> tuple[SimpleNamespace, SimpleNamespace]:
         vol_adjust={"target_vol": 0.15, "floor_vol": 0.05, "warmup_periods": 3},
         portfolio={
             "selection_mode": "rank",
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
             "max_turnover": 0.2,
             "rebalance_calendar": "M",
         },
@@ -355,6 +355,20 @@ def test_backtest_spec_summary_with_method_and_proxy():
     assert "proxy=SPX" in summary["Regime analysis"]
 
 
+def test_backtest_spec_summary_omits_zero_cost_model() -> None:
+    spec = SimpleNamespace(
+        rank={},
+        metrics=(),
+        regime={},
+        multi_period={},
+        cost_model=SimpleNamespace(bps_per_trade=0.0, slippage_bps=0.0),
+    )
+
+    summary = dict(unified._backtest_spec_summary(spec))
+
+    assert "Cost model" not in summary
+
+
 def test_build_param_summary_exposes_optional_fields():
     config = SimpleNamespace(
         sample_split={"in_start": "2020-01", "out_end": "2021-12"},
@@ -371,6 +385,22 @@ def test_build_param_summary_exposes_optional_fields():
     assert params["Warm-up periods"] == "5"
     assert params["Turnover cap"] == "10.0%"
     assert params["Benchmarks"] == "2"
+
+
+def test_build_param_summary_reports_effective_flat_monthly_cost() -> None:
+    config = SimpleNamespace(
+        sample_split={},
+        vol_adjust={},
+        portfolio={
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+        },
+        run={"monthly_cost": 0.0025},
+        benchmarks={},
+    )
+
+    params = dict(unified._build_param_summary(config))
+
+    assert params["Transaction cost"] == "0.2500% per period"
 
 
 def test_build_param_summary_handles_missing_sections():

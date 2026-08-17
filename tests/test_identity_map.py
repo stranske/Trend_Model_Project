@@ -110,6 +110,7 @@ def test_identity_config_validates_against_schema() -> None:
     schema = load_schema()
     payload = {
         "version": "1",
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         "identity": {
             "entities": [
                 {

@@ -27,27 +27,11 @@ class Rebalancer:  # pylint: disable=too-few-public-methods
         self.cfg = cfg or {}
         self._strikes: dict[str, int] = {}
         self._entry_strikes: dict[str, int] = {}
-        # Read thresholds from config if available (backward compatible).
-        # Some configs historically placed threshold-hold knobs at the
-        # portfolio root (e.g. portfolio.z_exit_soft) instead of under
-        # portfolio.threshold_hold.*.
         portfolio = self.cfg.get("portfolio", {}) if isinstance(self.cfg, dict) else {}
         # Check if random selection mode - if so, disable z-score triggers
         selection_mode = portfolio.get("selection_mode", "rank")
         self.is_random_mode = selection_mode == "random"
         th = dict(portfolio.get("threshold_hold", {}) or {})
-        for key in (
-            "z_exit_soft",
-            "z_exit_hard",
-            "z_entry_soft",
-            "z_entry_hard",
-            "soft_strikes",
-            "entry_soft_strikes",
-            "entry_eligible_strikes",
-            "target_n",
-        ):
-            if key not in th and key in portfolio:
-                th[key] = portfolio[key]
 
         def _parse_optional_float(value: Any) -> float | None:
             if value in (None, "", "null"):

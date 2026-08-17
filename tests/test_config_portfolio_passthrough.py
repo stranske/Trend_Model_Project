@@ -37,7 +37,7 @@ def test_loader_preserves_arbitrary_portfolio_constraints():
     """A constraints block (incl. max_weight) must reach the loaded config.
 
     Built on the valid demo config so all required sections are present; we add a
-    constraints block + weighting_scheme that the loader previously dropped.
+    constraints block and nested weighting config that the loader previously dropped.
     """
     from pathlib import Path
 
@@ -49,9 +49,9 @@ def test_loader_preserves_arbitrary_portfolio_constraints():
     # (demo's "../demo/..." is relative to the config/ dir).
     raw["data"]["csv_path"] = str((Path("config") / raw["data"]["csv_path"]).resolve())
     raw["portfolio"]["constraints"] = {"long_only": True, "max_weight": 0.2}
-    raw["portfolio"]["weighting_scheme"] = "risk_parity"
+    raw["portfolio"]["weighting"] = {"name": "risk_parity", "params": {}}
 
     cfg = load_config(raw)
     portfolio = cfg.portfolio
     assert (portfolio.get("constraints") or {}).get("max_weight") == 0.2
-    assert portfolio.get("weighting_scheme") == "risk_parity"
+    assert (portfolio.get("weighting") or {}).get("name") == "risk_parity"

@@ -28,6 +28,7 @@ from trend.validation import (
 from .config_contract import (
     resolve_pipeline_monthly_cost,
     resolve_portfolio_weighting_name,
+    resolve_portfolio_weighting_params,
 )
 from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .llm.analysis_fleet import record_analysis_run
@@ -548,6 +549,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         weighting_scheme,
         robustness_cfg if isinstance(robustness_cfg, Mapping) else None,
     )
+    weight_engine_params.update(resolve_portfolio_weighting_params(portfolio_cfg))
 
     if lag_limit is not None:
         as_of_candidate = (

@@ -183,7 +183,7 @@ def _turnover_config(max_turnover: float) -> Config:
     portfolio_cfg["policy"] = ""
     portfolio_cfg["selection_mode"] = "rank"
     portfolio_cfg["rank"] = {"inclusion_approach": "top_n", "n": 1}
-    portfolio_cfg["weighting_scheme"] = "equal"
+    portfolio_cfg["weighting"] = {"name": "equal"}
     portfolio_cfg["constraints"] = {"max_weight": 1.0, "long_only": True}
     portfolio_cfg["max_turnover"] = max_turnover
     return Config(**cfg_data)

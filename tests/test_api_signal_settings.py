@@ -42,7 +42,7 @@ def _make_config(returns: pd.DataFrame, signals: dict[str, object]) -> SimpleNam
             "rank": {},
             "manual_list": None,
             "indices_list": None,
-            "weighting_scheme": "equal",
+            "weighting": {"name": "equal"},
         },
         benchmarks={},
         signals=signals,
@@ -58,19 +58,19 @@ def test_run_simulation_trend_window_changes_output() -> None:
     config_short = _make_config(
         returns,
         {
-            "trend_window": 20,
-            "trend_lag": 1,
-            "trend_zscore": False,
-            "trend_vol_adjust": False,
+            "window": 20,
+            "lag": 1,
+            "zscore": False,
+            "vol_adjust": False,
         },
     )
     config_long = _make_config(
         returns,
         {
-            "trend_window": 60,
-            "trend_lag": 1,
-            "trend_zscore": False,
-            "trend_vol_adjust": False,
+            "window": 60,
+            "lag": 1,
+            "zscore": False,
+            "vol_adjust": False,
         },
     )
 
@@ -94,19 +94,19 @@ def test_run_simulation_trend_zscore_changes_output() -> None:
     config_base = _make_config(
         returns,
         {
-            "trend_window": 20,
-            "trend_lag": 1,
-            "trend_zscore": 1.0,
-            "trend_vol_adjust": False,
+            "window": 20,
+            "lag": 1,
+            "zscore": 1.0,
+            "vol_adjust": False,
         },
     )
     config_zscore = _make_config(
         returns,
         {
-            "trend_window": 20,
-            "trend_lag": 1,
-            "trend_zscore": 2.0,
-            "trend_vol_adjust": False,
+            "window": 20,
+            "lag": 1,
+            "zscore": 2.0,
+            "vol_adjust": False,
         },
     )
 

@@ -44,7 +44,7 @@ class ThresholdScenarioConfig:
     portfolio: dict[str, Any] = field(
         default_factory=lambda: {
             "policy": "threshold_hold",
-            "transaction_cost_bps": 0.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             "max_turnover": 1.0,
             "selector": {"params": {"rank_column": "Sharpe"}},
             "rank": {
@@ -128,11 +128,11 @@ def _patch_scenario(
     monkeypatch.setattr(
         engine,
         "apply_missing_policy",
-        lambda frame, *, policy, limit: (frame, {}),
+        lambda frame, *, policy, limit, enforce_completeness=True: (frame, {}),
     )
     monkeypatch.setattr(engine, "_run_analysis", lambda *_args, **_kwargs: {})
 
-    def metric_series(frame: pd.DataFrame, metric: str, _cfg: Any) -> pd.Series:
+    def metric_series(frame: pd.DataFrame, metric: str, _cfg: Any, **_kwargs: Any) -> pd.Series:
         end_key = pd.Timestamp(frame.index.max()).strftime("%Y-%m")
         values = (metric_by_name or {}).get(metric, metric_by_in_end[end_key])
         return pd.Series(
@@ -161,7 +161,7 @@ def test_entry_exit_delay_and_weight_continuity_golden(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
-    cfg.portfolio["transaction_cost_bps"] = 100.0
+    cfg.portfolio["cost_model"]["per_trade_bps"] = 100.0
     _patch_scenario(
         monkeypatch,
         period_count=3,
@@ -219,7 +219,7 @@ def test_turnover_cap_and_transaction_cost_golden(
 ) -> None:
     cfg = ThresholdScenarioConfig()
     cfg.portfolio["max_turnover"] = max_turnover
-    cfg.portfolio["transaction_cost_bps"] = transaction_cost_bps
+    cfg.portfolio["cost_model"]["per_trade_bps"] = transaction_cost_bps
     cfg.portfolio["threshold_hold"].update(
         {
             "z_entry_soft": 0.0,
@@ -480,7 +480,7 @@ def test_threshold_liquidation_to_cash_charges_full_turnover(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = ThresholdScenarioConfig()
-    cfg.portfolio["transaction_cost_bps"] = 100.0
+    cfg.portfolio["cost_model"]["per_trade_bps"] = 100.0
     cfg.portfolio["rank"].update(
         {
             "inclusion_approach": "threshold",

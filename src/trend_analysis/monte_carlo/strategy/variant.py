@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from trend_analysis.config.model import TrendConfig, validate_trend_config
+from trend_analysis.config_contract import (
+    SUPPORTED_PORTFOLIO_WEIGHTING_NAMES,
+    normalise_weighting_name,
+)
+from trend_analysis.plugins import weight_engine_registry
 
 
 def _require_non_empty_str(value: Any, field_name: str) -> str:
@@ -64,16 +69,6 @@ _FREEFORM_OVERRIDE_PATHS: set[tuple[str, ...]] = {
     ("portfolio", "weighting", "params"),
 }
 
-_ALLOWED_WEIGHTING_SCHEMES = {
-    "equal",
-    "risk_parity",
-    "hrp",
-    "erc",
-    "robust_mv",
-    "robust_risk_parity",
-    "custom",
-}
-
 
 def _allows_freeform_override(path: tuple[str, ...], key: str) -> bool:
     if path in _FREEFORM_OVERRIDE_PATHS:
@@ -85,9 +80,6 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
         return
-
-    if "weighting_scheme" in portfolio:
-        _require_non_empty_str(portfolio.get("weighting_scheme"), "portfolio.weighting_scheme")
 
     if "weighting" not in portfolio:
         return
@@ -103,8 +95,6 @@ def _validate_weighting_config(config: Mapping[str, Any]) -> None:
 def _allow_weighting_params_extension(overrides: Mapping[str, Any]) -> bool:
     portfolio = overrides.get("portfolio")
     if not isinstance(portfolio, Mapping):
-        return False
-    if "weighting_scheme" not in portfolio:
         return False
     weighting = portfolio.get("weighting")
     if not isinstance(weighting, Mapping):
@@ -256,13 +246,17 @@ class StrategyVariant:
 
         portfolio = merged.get("portfolio")
         if isinstance(portfolio, Mapping):
-            scheme = portfolio.get("weighting_scheme")
-            if isinstance(scheme, str) and scheme.strip():
-                scheme_value = scheme.strip().lower()
-                if scheme_value not in _ALLOWED_WEIGHTING_SCHEMES:
-                    allowed = ", ".join(sorted(_ALLOWED_WEIGHTING_SCHEMES))
+            weighting = portfolio.get("weighting")
+            if isinstance(weighting, Mapping):
+                name = weighting.get("name")
+                name_value = normalise_weighting_name(name)
+                allowed_weighting_names = set(SUPPORTED_PORTFOLIO_WEIGHTING_NAMES) | set(
+                    weight_engine_registry.available()
+                )
+                if name_value not in allowed_weighting_names:
+                    allowed = ", ".join(sorted(allowed_weighting_names))
                     raise ValueError(
-                        "Strategy '{name}' config invalid: portfolio.weighting_scheme must be one of: {allowed}".format(
+                        "Strategy '{name}' config invalid: portfolio.weighting.name must be one of: {allowed}".format(
                             name=self.name,
                             allowed=allowed,
                         )

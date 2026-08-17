@@ -50,7 +50,7 @@ BASELINE_OVERRIDES = {
 }
 
 OPTIONS_BY_KEY = {
-    "weighting_scheme": [
+    "weighting_name": [
         "equal",
         "risk_parity",
         "hrp",
@@ -82,18 +82,18 @@ VARIATION_OVERRIDES: dict[str, Any] = {
     "min_weight": 0.08,
     "cooldown_periods": 2,
     "max_turnover": 0.3,
-    "transaction_cost_bps": 25,
-    "slippage_bps": 10,
+    "per_trade_bps": 25,
+    "half_spread_bps": 10,
     "warmup_periods": 6,
     "random_seed": 123,
     "condition_threshold": 1.0e10,
     "preset": "Conservative",
     "regime_proxy": "RF",
-    "min_tenure_periods": 6,
+    "min_tenure_n": 6,
     "max_changes_per_period": 2,
     "max_active_positions": 8,
-    "trend_window": 126,
-    "trend_lag": 2,
+    "signal_window": 126,
+    "signal_lag": 2,
     "z_entry_soft": 1.5,
     "z_exit_soft": -0.5,
     "soft_strikes": 3,
@@ -108,10 +108,10 @@ VARIATION_OVERRIDES: dict[str, Any] = {
 MODE_CONTEXT: dict[str, dict[str, Any]] = {
     "buy_hold_initial": {"inclusion_approach": "buy_and_hold"},
     "rank_pct": {"inclusion_approach": "top_pct"},
-    "shrinkage_enabled": {"weighting_scheme": "robust_mv"},
-    "shrinkage_method": {"weighting_scheme": "robust_mv"},
-    "sticky_add_periods": {"multi_period_enabled": True},
-    "sticky_drop_periods": {"multi_period_enabled": True},
+    "shrinkage_enabled": {"weighting_name": "robust_mv"},
+    "shrinkage_method": {"weighting_name": "robust_mv"},
+    "sticky_add_x": {"multi_period_enabled": True},
+    "sticky_drop_y": {"multi_period_enabled": True},
     "rf_rate_annual": {"rf_override_enabled": True},
     "info_ratio_benchmark": {"metric_weights": {"info_ratio": 1.0}},
     "regime_proxy": {"regime_enabled": True},
@@ -348,9 +348,9 @@ def _resolve_variation(
     if key == "end_date":
         test_value = (returns.index.max() - pd.DateOffset(months=6)).strftime("%Y-%m-%d")
         required_context["date_mode"] = "explicit"
-    if key == "trend_min_periods":
+    if key == "signal_min_periods":
         test_value = 10 if base_value in (None, "", 0) else None
-    if key == "trend_vol_target":
+    if key == "signal_vol_target":
         test_value = 0.12 if base_value in (None, "", 0) else None
 
     return test_value, required_context

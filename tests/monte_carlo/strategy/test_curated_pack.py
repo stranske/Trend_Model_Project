@@ -310,7 +310,6 @@ def test_hf_equity_curated_strategies_cover_major_axes() -> None:
         elif selection_mode == "all":
             holding_buckets.add("all")
 
-        weighting_schemes.add(portfolio.get("weighting_scheme"))
         weighting = portfolio.get("weighting", {})
         if isinstance(weighting, dict) and weighting.get("name"):
             weighting_schemes.add(weighting.get("name"))

@@ -167,7 +167,7 @@ with st.expander(
             "Cooldown Months",
             min_value=0,
             max_value=24,
-            value=int(preset_config.get("portfolio", {}).get("cooldown_months", 3)),
+            value=int(preset_config.get("portfolio", {}).get("cooldown_periods", 3)),
             key="demo_cooldown",
             help="Periods before a dropped fund can be re-added",
         )
@@ -225,7 +225,7 @@ if st.button("🚀 Run Demo", type="primary", use_container_width=True):
         "risk_target": st.session_state.get("demo_risk_target", 0.10),
         "portfolio": {
             "max_weight": st.session_state.get("demo_max_weight", 0.15),
-            "cooldown_months": st.session_state.get("demo_cooldown", 3),
+            "cooldown_periods": st.session_state.get("demo_cooldown", 3),
         },
         "metrics": {
             "sharpe_ratio": st.session_state.get("demo_w_sharpe", 0.3),

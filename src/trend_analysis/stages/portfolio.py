@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from analysis.results import build_metadata
 
 from ..diagnostics import PipelineResult, pipeline_success
+from ..config_contract import normalise_weighting_name
 from ..metrics import (
     annual_return,
     information_ratio,
@@ -29,6 +30,12 @@ from ..risk import (
     realised_volatility,
 )
 from ..signals import TrendSpec, compute_trend_signals
+from ..weighting import (
+    AdaptiveBayesWeighting,
+    BaseWeighting,
+    ScorePropBayesian,
+    ScorePropSimple,
+)
 from .preprocessing import _PreprocessStage, _WindowStage
 from .selection import _SelectionStage
 
@@ -66,6 +73,56 @@ def _default_avg_corr_handler(
 
 
 avg_corr_handler = _default_avg_corr_handler
+
+_SCORE_WEIGHTING_NAMES = {"score", "score_prop", "score_prop_simple"}
+_BAYES_WEIGHTING_NAMES = {"bayes", "score_bayes", "score_prop_bayes"}
+_ADAPTIVE_WEIGHTING_NAMES = {"adaptive", "adaptive_bayes"}
+
+
+def _score_weighting_percentages(
+    weighting_scheme: str,
+    score_frame: pd.DataFrame,
+    fund_cols: list[str],
+    params: Mapping[str, Any] | None,
+) -> dict[str, float] | None:
+    """Resolve score-family weights for a single-period run.
+
+    Risk engines consume a covariance matrix, while the advertised score and
+    Bayesian schemes consume the in-sample score frame. Returning ``None``
+    leaves non-score names on the risk-engine path.
+    """
+
+    scheme = normalise_weighting_name(weighting_scheme)
+    if scheme not in (_SCORE_WEIGHTING_NAMES | _BAYES_WEIGHTING_NAMES | _ADAPTIVE_WEIGHTING_NAMES):
+        return None
+
+    options = dict(params or {})
+    column = str(options.get("column", "Sharpe"))
+    candidates = score_frame.reindex(fund_cols)
+    weighting: BaseWeighting
+    if scheme in _SCORE_WEIGHTING_NAMES:
+        weighting = ScorePropSimple(column=column)
+    elif scheme in _BAYES_WEIGHTING_NAMES:
+        weighting = ScorePropBayesian(
+            column=column,
+            shrink_tau=float(options.get("shrink_tau", 0.25)),
+        )
+    else:
+        adaptive_cap = {"max_w": options["max_w"]} if "max_w" in options else {}
+        adaptive_weighting = AdaptiveBayesWeighting(
+            half_life=int(options.get("half_life", 90)),
+            obs_sigma=float(options.get("obs_sigma", 0.25)),
+            prior_mean=options.get("prior_mean", "equal"),
+            prior_tau=float(options.get("prior_tau", 1.0)),
+            **adaptive_cap,
+        )
+        if column not in candidates.columns:
+            raise KeyError(column)
+        adaptive_weighting.update(candidates[column], days=0)
+        weighting = adaptive_weighting
+
+    weights = weighting.weight(candidates)["weight"].reindex(fund_cols).fillna(0.0)
+    return {fund: float(weights.loc[fund] * 100.0) for fund in fund_cols}
 
 
 @dataclass
@@ -289,14 +346,28 @@ def _compute_weights_and_stats(
     weight_engine_diagnostics: dict[str, Any] | None = None
     if custom_weights is None and weighting_scheme and weighting_scheme.lower() != "equal":
         try:
-            from ..plugins import create_weight_engine
+            custom_weights = _score_weighting_percentages(
+                weighting_scheme,
+                selection.score_frame,
+                fund_cols,
+                weight_engine_params,
+            )
+            if custom_weights is None:
+                from ..plugins import create_weight_engine
 
-            cov = window.in_df[fund_cols].cov()
-            engine = create_weight_engine(weighting_scheme.lower(), **(weight_engine_params or {}))
-            w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
-            custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+                cov = window.in_df[fund_cols].cov()
+                engine = create_weight_engine(
+                    weighting_scheme.lower(), **(weight_engine_params or {})
+                )
+                w_series = engine.weight(cov).reindex(fund_cols).fillna(0.0)
+                custom_weights = {c: float(w_series.get(c, 0.0) * 100.0) for c in fund_cols}
+                weight_engine_diagnostics = getattr(engine, "diagnostics", None)
+            else:
+                weight_engine_diagnostics = {
+                    "engine": normalise_weighting_name(weighting_scheme),
+                    "source": "in_sample_score_frame",
+                }
             weight_engine_used = True
-            weight_engine_diagnostics = getattr(engine, "diagnostics", None)
             if (
                 weight_engine_diagnostics
                 and isinstance(weight_engine_diagnostics, Mapping)

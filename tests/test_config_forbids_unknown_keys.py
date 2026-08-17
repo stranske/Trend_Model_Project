@@ -20,7 +20,7 @@ def _valid_payload(tmp_path: Path) -> dict[str, object]:
             "selection_mode": "all",
             "rebalance_calendar": "NYSE",
             "max_turnover": 1.0,
-            "transaction_cost_bps": 0,
+            "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},
     }
@@ -33,7 +33,7 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
         "preprocessing": {},
         "vol_adjust": {},
         "sample_split": {},
-        "portfolio": {},
+        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
         "metrics": {},
         "export": {},
         "run": {},
@@ -56,6 +56,27 @@ def test_unknown_top_level_and_nested_keys_are_rejected(tmp_path: Path) -> None:
     preprocessing["preprocessing"] = {"misspelled_step": True}
     with pytest.raises(ValueError, match=r"preprocessing\.misspelled_step"):
         validate_trend_config(preprocessing, base_path=tmp_path)
+
+    for retired_key in ("cooldown_periods", "cooldown_months"):
+        retired_cooldown = _valid_payload(tmp_path)
+        retired_cooldown["multi_period"] = {retired_key: 2}
+        with pytest.raises(ValueError, match=rf"multi_period\.{retired_key}"):
+            models.load_config(retired_cooldown)
+
+    retired_max_active = _valid_payload(tmp_path)
+    retired_max_active["portfolio"] = {
+        **retired_max_active["portfolio"],  # type: ignore[arg-type]
+        "constraints": {"max_active": 3},
+    }
+    with pytest.raises(ValueError, match=r"portfolio\.constraints\.max_active"):
+        validate_trend_config(retired_max_active, base_path=tmp_path)
+
+    production_payload["portfolio"] = {
+        "constraints": {"max_active": 3},
+        "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+    }
+    with pytest.raises(ValidationError, match=r"portfolio\.constraints\.max_active"):
+        models.Config.model_validate(production_payload)
 
     # The closed production model still accepts every declared section shipped
     # by the two canonical configurations.
@@ -86,3 +107,28 @@ def test_declared_legacy_sections_remain_optional(tmp_path: Path) -> None:
     assert model.extra == {"note": "legacy-extra"}
     assert model.strategy == {"name": "legacy-strategy"}
     assert model.walk_forward == {"enabled": False}
+
+
+def test_active_config_guidance_uses_canonical_cost_keys() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    active_guidance = (
+        "docs/UserGuide.md",
+        "docs/config.md",
+        "docs/phase-2/multi_period_types.md",
+        "tools/prompt_dataset.yml",
+    )
+    retired = (
+        "portfolio.transaction_cost_bps",
+        "portfolio.cost_model.bps_per_trade",
+        "portfolio.cost_model.slippage_bps",
+    )
+
+    for relative in active_guidance:
+        text = (repo_root / relative).read_text(encoding="utf-8")
+        assert not [key for key in retired if key in text], relative
+
+    user_guide = (repo_root / "docs/UserGuide.md").read_text(encoding="utf-8")
+    prompt_dataset = (repo_root / "tools/prompt_dataset.yml").read_text(encoding="utf-8")
+    assert "portfolio.cost_model.per_trade_bps" in user_guide
+    assert "portfolio.cost_model.half_spread_bps" in user_guide
+    assert "path: portfolio.cost_model.half_spread_bps" in prompt_dataset
