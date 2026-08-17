@@ -200,6 +200,7 @@
       "rolling_walk": false
     },
     "seed": 42,
+    "signals": {},
     "version": "0.1.0",
     "vol_adjust": {
       "enabled": true,
@@ -2007,6 +2008,69 @@
       "description": "Global random seed for runs.",
       "nl_editable": true,
       "type": "integer"
+    },
+    "signals": {
+      "default": {},
+      "description": "Canonical time-series momentum signal settings.",
+      "nl_editable": true,
+      "properties": {
+        "lag": {
+          "default": null,
+          "description": "Periods to lag signals for causal execution.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min_periods": {
+          "default": null,
+          "description": "Minimum observations required for a valid signal.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "vol_adjust": {
+          "default": null,
+          "description": "Scale signals by volatility when enabled.",
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "vol_target": {
+          "default": null,
+          "description": "Target volatility for volatility-adjusted signals.",
+          "nl_editable": true,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "window": {
+          "default": null,
+          "description": "Rolling window used to compute trend signals.",
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "zscore": {
+          "default": null,
+          "description": "Cross-sectional z-score normalization control.",
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "version": {
       "default": "0.1.0",

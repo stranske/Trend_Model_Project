@@ -153,6 +153,26 @@ def test_schema_validation_accepts_regime_model() -> None:
     assert errors == []
 
 
+def test_schema_validation_accepts_canonical_signals_section() -> None:
+    schema = generate_schema()
+    signals_schema = schema["properties"]["signals"]
+    payload = {
+        "signals": {
+            "window": 63,
+            "lag": 1,
+            "min_periods": None,
+            "zscore": False,
+            "vol_adjust": False,
+            "vol_target": 0.10,
+        },
+        "portfolio": {"cost_model": _COST_MODEL},
+    }
+
+    assert signals_schema["default"] == {}
+    assert set(signals_schema["properties"]) == set(payload["signals"])
+    assert validate_config_data(payload, schema) == []
+
+
 def test_schema_validation_accepts_cost_model_float_bps() -> None:
     schema = generate_schema()
     portfolio_schema = schema["properties"]["portfolio"]

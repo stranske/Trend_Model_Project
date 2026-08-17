@@ -133,7 +133,9 @@ def resolve_portfolio_cost_bps(
         if section_get(portfolio_cfg, removed, None) is not None:
             raise CoreConfigError(f"portfolio.{removed} was removed; use portfolio.cost_model")
     cost_model = section_get(portfolio_cfg, "cost_model", {})
-    if not isinstance(cost_model, Mapping):
+    if not isinstance(cost_model, Mapping) and not all(
+        hasattr(cost_model, field) for field in ("per_trade_bps", "half_spread_bps")
+    ):
         raise CoreConfigError("portfolio.cost_model must be a mapping")
     for removed in ("bps_per_trade", "slippage_bps"):
         if section_get(cost_model, removed, None) is not None:

@@ -202,6 +202,7 @@
       "rolling_walk": false
     },
     "seed": 42,
+    "signals": {},
     "version": "0.1.0",
     "vol_adjust": {
       "enabled": true,
@@ -2415,6 +2416,97 @@
       "description": "Global random seed for runs.",
       "nl_editable": true,
       "type": "integer"
+    },
+    "signals": {
+      "additionalProperties": false,
+      "constraints": {},
+      "default": {},
+      "description": "Canonical time-series momentum signal settings.",
+      "nl_editable": true,
+      "properties": {
+        "lag": {
+          "constraints": {
+            "maximum": 10,
+            "minimum": 1
+          },
+          "default": null,
+          "description": "Periods to lag signals for causal execution.",
+          "maximum": 10,
+          "minimum": 1,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min_periods": {
+          "constraints": {
+            "maximum": 252,
+            "minimum": 0
+          },
+          "default": null,
+          "description": "Minimum observations required for a valid signal.",
+          "maximum": 252,
+          "minimum": 0,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "vol_adjust": {
+          "constraints": {},
+          "default": null,
+          "description": "Scale signals by volatility when enabled.",
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "vol_target": {
+          "constraints": {
+            "maximum": 0.5,
+            "minimum": 0.01
+          },
+          "default": null,
+          "description": "Target volatility for volatility-adjusted signals.",
+          "maximum": 0.5,
+          "minimum": 0.01,
+          "nl_editable": true,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "window": {
+          "constraints": {
+            "maximum": 252,
+            "minimum": 5
+          },
+          "default": null,
+          "description": "Rolling window used to compute trend signals.",
+          "maximum": 252,
+          "minimum": 5,
+          "nl_editable": true,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "zscore": {
+          "constraints": {},
+          "default": null,
+          "description": "Cross-sectional z-score normalization control.",
+          "nl_editable": true,
+          "type": [
+            "boolean",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "version": {
       "constraints": {},

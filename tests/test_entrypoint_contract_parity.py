@@ -7,7 +7,7 @@ import pytest
 
 from trend_analysis import api
 from trend_analysis.config import Config
-from trend_analysis.config.model import CostModelSettings
+from trend_analysis.config.model import CostModelSettings, PortfolioSettings
 from trend_analysis.config_contract import (
     resolve_pipeline_monthly_cost,
     resolve_portfolio_cost_bps,
@@ -148,10 +148,12 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
     assert mp_scheme == "hrp"
 
 
-def test_cost_model_dump_preserves_canonical_values() -> None:
-
-    cost_model = CostModelSettings(per_trade_bps=12, half_spread_bps=3).model_dump()
-    portfolio = {"cost_model": cost_model}
+def test_typed_portfolio_cost_model_preserves_canonical_values() -> None:
+    portfolio = PortfolioSettings(
+        rebalance_calendar="NYSE",
+        max_turnover=1.0,
+        cost_model=CostModelSettings(per_trade_bps=12, half_spread_bps=3),
+    )
 
     assert resolve_portfolio_cost_bps(portfolio) == (12.0, 3.0)
     assert _resolve_single_period_monthly_cost(portfolio, {"monthly_cost": 0.0}) == pytest.approx(

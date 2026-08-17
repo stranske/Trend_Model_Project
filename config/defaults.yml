@@ -49,6 +49,9 @@ vol_adjust:
     lambda: 0.94 # EWMA decay
   floor_vol: 0.04 # avoid 100× leverage
   warmup_periods: 0 # zero weights for first N periods
+# Canonical trend-signal controls are optional. Presets provide sampled values
+# for schema generation; an empty mapping preserves the risk-window fallback.
+signals: {}
 # ----------------------------------------------------------------------
 # 4. IN-SAMPLE / OUT-OF-SAMPLE SPLIT
 # ----------------------------------------------------------------------
