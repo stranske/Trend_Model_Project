@@ -122,7 +122,10 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
         try:
             notebook = json.loads(text)
             code_units = [
-                "".join(cell.get("source", []))
+                "".join(
+                    "\n" if line.lstrip().startswith(("%", "!")) else line
+                    for line in "".join(cell.get("source", [])).splitlines(keepends=True)
+                )
                 for cell in notebook.get("cells", [])
                 if cell.get("cell_type") == "code"
             ]
@@ -137,8 +140,7 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
         try:
             tree = ast.parse(code_unit, filename=str(path))
         except SyntaxError:
-            # IPython magics may make one notebook cell invalid Python. Keep
-            # scanning the remaining cells so they cannot hide retired imports.
+            # Keep scanning other notebook cells if unrelated syntax is invalid.
             continue
         modules.extend(
             alias.name
@@ -307,17 +309,19 @@ def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
-def test_notebook_magic_cell_cannot_hide_retired_import(tmp_path: Path) -> None:
-    """A non-Python cell must not prevent later code cells from being scanned."""
+def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Path) -> None:
+    """IPython-only lines must not suppress later Python in the same cell."""
     notebook = tmp_path / "active.ipynb"
     notebook.write_text(
         json.dumps(
             {
                 "cells": [
-                    {"cell_type": "code", "source": ["%matplotlib inline\n"]},
                     {
                         "cell_type": "code",
-                        "source": ["from trend_analysis import cli\n"],
+                        "source": [
+                            "%matplotlib inline\n",
+                            "from trend_analysis import cli\n",
+                        ],
                     },
                 ]
             }
