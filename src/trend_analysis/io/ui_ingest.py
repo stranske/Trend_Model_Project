@@ -236,6 +236,8 @@ def load_ui_dataset(
         _raise_date_issue(correction_result, auto_fix_dates=auto_fix_dates)
 
     if resolved_date_column != "Date":
+        if "Date" in df.columns:
+            df = df.drop(columns=["Date"])
         df = df.rename(columns={resolved_date_column: "Date"})
 
     validated = validate_market_data(

@@ -101,7 +101,10 @@ def test_load_csv_rejects_missing_configured_date_column(tmp_path):
 def test_ui_date_repair_honors_configured_date_column(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text(
-        "Timestamp,ManagerA\n" "2024-01-31,0.01\n" "2024-02-30,0.02\n" "2024-03-31,0.03\n"
+        "Timestamp,Date,ManagerA\n"
+        "2024-01-31,0.10,0.01\n"
+        "2024-02-30,0.20,0.02\n"
+        "2024-03-31,0.30,0.03\n"
     )
 
     issues = inspect_ui_date_issues(csv_path, date_column="Timestamp")
@@ -114,6 +117,7 @@ def test_ui_date_repair_honors_configured_date_column(tmp_path):
     assert len(issues.corrections) == 1
     assert summary.corrected_dates == 1
     assert frame.index.name == "Timestamp"
+    assert frame.columns.tolist() == ["ManagerA"]
     assert frame.index[1] == pd.Timestamp("2024-02-29")
 
 
