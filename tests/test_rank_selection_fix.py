@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
 
@@ -28,7 +29,8 @@ def test_rank_selection_sorts_correctly():
     assert "Mgr_02" not in selected
 
 
-def test_rank_selection_ascending_metric():
+@pytest.mark.parametrize("transform", ["raw", "zscore", "rank"])
+def test_rank_selection_ascending_metric(transform: str):
     """Test ascending metrics (MaxDrawdown) handled correctly."""
 
     data = {
@@ -40,7 +42,14 @@ def test_rank_selection_ascending_metric():
     df = pd.DataFrame(data)
     cfg = RiskStatsConfig()
 
-    selected = rank_select_funds(df, cfg, inclusion_approach="top_n", n=2, score_by="MaxDrawdown")
+    selected = rank_select_funds(
+        df,
+        cfg,
+        inclusion_approach="top_n",
+        n=2,
+        score_by="MaxDrawdown",
+        transform=transform,
+    )
 
     # Should select funds with lowest (best) drawdowns
     assert len(selected) == 2
