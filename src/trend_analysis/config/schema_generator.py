@@ -67,7 +67,8 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "portfolio.min_tenure_n": {"minimum": 0},
     "signals.window": {"minimum": 5, "maximum": 252},
     "signals.lag": {"minimum": 1, "maximum": 10},
-    "signals.min_periods": {"minimum": 0, "maximum": 252},
+    "signals.min_periods": {"minimum": 1, "maximum": 252},
+    "signals.zscore": {"exclusiveMinimum": 0},
     "signals.vol_target": {"minimum": 0.01, "maximum": 0.5},
     "metrics.rf_rate_annual": {"minimum": 0},
     "vol_adjust.target_vol": {"minimum": 0},
@@ -612,6 +613,8 @@ def _apply_constraints(
         schema["minimum"] = constraints["minimum"]
     if "maximum" in constraints:
         schema["maximum"] = constraints["maximum"]
+    if "exclusiveMinimum" in constraints:
+        schema["exclusiveMinimum"] = constraints["exclusiveMinimum"]
     if "minItems" in constraints:
         schema["minItems"] = constraints["minItems"]
     if "maxItems" in constraints:
@@ -668,6 +671,7 @@ def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
         "properties",
         "required",
         "items",
+        "exclusiveMinimum",
     }
     compact: dict[str, Any] = {k: v for k, v in schema.items() if k in allowed_keys}
     if "properties" in schema:

@@ -1294,6 +1294,15 @@ def test_guard_turnover_distribution_rejects_non_numeric_sample() -> None:
         runner._build_strategy_config(strategy, seed)
 
 
+def test_strategy_config_rejects_unknown_signal_shapes() -> None:
+    base_config = _base_config()
+    base_config["signals"] = {"trend": {"window": 20}}
+    runner = MonteCarloRunner(_scenario("two_layer"), base_config=base_config)
+
+    with pytest.raises(ValueError, match="signals"):
+        runner._build_strategy_config(StrategyVariant(name="trend_basic"), seed=1)
+
+
 def test_run_two_layer_deterministic() -> None:
     scenario = _scenario("two_layer")
     runner = MonteCarloRunner(

@@ -8,6 +8,7 @@ symbol ``_HAS_PYDANTIC`` to reflect availability.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from collections.abc import Mapping
@@ -44,6 +45,11 @@ except Exception:  # pragma: no cover - fallback when model unavailable
 
     validate_trend_config = _fallback_validate_trend_config
 
+try:  # pragma: no cover - normal path
+    from trend_analysis.config.model import SignalSettings as _SignalSettings
+except Exception:  # pragma: no cover - pydantic-free fallback and loader tests
+    _SignalSettings = None
+
 
 class _ValidateConfigFn(Protocol):
     def __call__(self, data: dict[str, Any], *, base_path: Path) -> Any:
@@ -69,6 +75,7 @@ class ConfigProtocol(Protocol):
     metrics: dict[str, Any]
     regime: dict[str, Any]
     robustness: dict[str, Any]
+    signals: dict[str, Any]
     export: dict[str, Any]
     output: dict[str, Any] | None
     run: dict[str, Any]
@@ -178,6 +185,70 @@ def _validate_version_value(v: Any) -> str:
     if not v.strip():
         raise ValueError("Version field cannot be empty")
     return v
+
+
+def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
+    """Validate canonical signal settings while preserving the runtime dict API."""
+
+    if not isinstance(value, Mapping):
+        raise ValueError("signals must be a dictionary")
+    if _SignalSettings is not None:
+        validated = _SignalSettings.model_validate(dict(value))
+        return cast(dict[str, Any], validated.model_dump(exclude_none=True))
+
+    cleaned = dict(value)
+    allowed = {"window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
+    unknown = sorted(set(cleaned) - allowed)
+    if unknown:
+        raise ValueError(f"signals contains unknown field(s): {', '.join(unknown)}")
+
+    for key, lower, upper in (
+        ("window", 5, 252),
+        ("lag", 1, 10),
+        ("min_periods", 1, 252),
+    ):
+        raw = cleaned.get(key)
+        if raw is None:
+            cleaned.pop(key, None)
+            continue
+        if isinstance(raw, bool):
+            raise ValueError(f"signals.{key} must be an integer")
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"signals.{key} must be an integer") from exc
+        if parsed < lower or parsed > upper:
+            raise ValueError(f"signals.{key} must be between {lower} and {upper}")
+        cleaned[key] = parsed
+
+    raw_zscore = cleaned.get("zscore")
+    if raw_zscore is None:
+        cleaned.pop("zscore", None)
+    elif not isinstance(raw_zscore, bool):
+        try:
+            parsed_zscore = float(raw_zscore)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("signals.zscore must be true, false, or a positive number") from exc
+        if not math.isfinite(parsed_zscore) or parsed_zscore <= 0:
+            raise ValueError("signals.zscore must be true, false, or a positive number")
+        cleaned["zscore"] = parsed_zscore
+
+    raw_target = cleaned.get("vol_target")
+    if raw_target is None:
+        cleaned.pop("vol_target", None)
+    else:
+        try:
+            parsed_target = float(raw_target)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("signals.vol_target must be numeric") from exc
+        if not math.isfinite(parsed_target) or not 0.01 <= parsed_target <= 0.5:
+            raise ValueError("signals.vol_target must be between 0.01 and 0.5")
+        cleaned["vol_target"] = parsed_target
+
+    if cleaned.get("min_periods") is not None and cleaned.get("window") is not None:
+        if int(cleaned["min_periods"]) > int(cleaned["window"]):
+            raise ValueError("signals.min_periods cannot exceed signals.window")
+    return cleaned
 
 
 if _HAS_PYDANTIC:
@@ -460,6 +531,12 @@ if _HAS_PYDANTIC:
                         )
             return v
 
+        @_fv_typed("signals", mode="after")
+        def _validate_signal_controls(
+            cls, v: dict[str, Any]
+        ) -> dict[str, Any]:  # noqa: N805 - pydantic validator
+            return _validate_signal_settings_mapping(v)
+
     # Field constants are already defined as class variables above
 
     # Only cache when creating a fresh class
@@ -611,6 +688,7 @@ else:  # Fallback mode for tests without pydantic
                     continue
                 if not isinstance(value, dict):
                     raise ValueError(f"{optional_field} must be a dictionary")
+            self.signals = _validate_signal_settings_mapping(self.signals)
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})
             if isinstance(port, dict):

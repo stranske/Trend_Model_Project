@@ -103,6 +103,25 @@ def test_fallback_config_coerces_portfolio_controls(
     assert cfg.output is None
 
 
+@pytest.mark.parametrize(
+    "signals",
+    [
+        {"trend": {"window": 20}},
+        {"windw": 20},
+        {"window": 5, "min_periods": 6},
+        {"zscore": 0},
+    ],
+)
+def test_fallback_config_rejects_invalid_signal_controls(
+    fallback_models: ModuleType,
+    signals: dict[str, object],
+) -> None:
+    Config = fallback_models.Config  # type: ignore[attr-defined]
+
+    with pytest.raises(ValueError, match="signals"):
+        Config(**_base_config_payload(signals=signals))
+
+
 def test_fallback_config_rejects_invalid_portfolio_values(
     fallback_models: ModuleType,
 ) -> None:

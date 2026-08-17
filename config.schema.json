@@ -2442,12 +2442,12 @@
         "min_periods": {
           "constraints": {
             "maximum": 252,
-            "minimum": 0
+            "minimum": 1
           },
           "default": null,
           "description": "Minimum observations required for a valid signal.",
           "maximum": 252,
-          "minimum": 0,
+          "minimum": 1,
           "nl_editable": true,
           "type": [
             "integer",
@@ -2495,9 +2495,12 @@
           ]
         },
         "zscore": {
-          "constraints": {},
+          "constraints": {
+            "exclusiveMinimum": 0
+          },
           "default": null,
           "description": "Cross-sectional z-score normalization control.",
+          "exclusiveMinimum": 0,
           "nl_editable": true,
           "type": [
             "boolean",

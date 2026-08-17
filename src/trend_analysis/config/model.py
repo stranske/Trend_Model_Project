@@ -628,7 +628,7 @@ class SignalSettings(BaseModel):
 
     window: int | None = Field(default=None, ge=5, le=252)
     lag: int | None = Field(default=None, ge=1, le=10)
-    min_periods: int | None = Field(default=None, ge=0, le=252)
+    min_periods: int | None = Field(default=None, ge=1, le=252)
     zscore: bool | float | None = None
     vol_adjust: bool | None = None
     vol_target: float | None = Field(default=None, ge=0.01, le=0.5)
@@ -644,6 +644,16 @@ class SignalSettings(BaseModel):
         if not math.isfinite(parsed) or parsed <= 0:
             raise ValueError("signals.zscore must be true, false, or a positive number.")
         return parsed
+
+    @model_validator(mode="after")
+    def _validate_min_periods_window(self) -> SignalSettings:
+        if (
+            self.window is not None
+            and self.min_periods is not None
+            and self.min_periods > self.window
+        ):
+            raise ValueError("signals.min_periods cannot exceed signals.window.")
+        return self
 
 
 class TrendConfig(BaseModel):

@@ -173,6 +173,32 @@ def test_schema_validation_accepts_canonical_signals_section() -> None:
     assert validate_config_data(payload, schema) == []
 
 
+def test_schema_rejects_non_positive_numeric_signal_zscore() -> None:
+    schema = generate_schema()
+    zscore_schema = schema["properties"]["signals"]["properties"]["zscore"]
+
+    assert zscore_schema["exclusiveMinimum"] == 0
+    for value in (True, False, 1.5):
+        assert (
+            validate_config_data(
+                {
+                    "signals": {"zscore": value},
+                    "portfolio": {"cost_model": _COST_MODEL},
+                },
+                schema,
+            )
+            == []
+        )
+    for value in (0, -0.5):
+        assert validate_config_data(
+            {
+                "signals": {"zscore": value},
+                "portfolio": {"cost_model": _COST_MODEL},
+            },
+            schema,
+        )
+
+
 def test_schema_validation_accepts_cost_model_float_bps() -> None:
     schema = generate_schema()
     portfolio_schema = schema["properties"]["portfolio"]
