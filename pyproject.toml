@@ -128,6 +128,7 @@ dev = [
     "types-requests==2.33.0.20260518",
     "httpx==0.28.1",
     "tomlkit==0.15.0",
+    "IPython",
 ]
 
 [tool.black]
