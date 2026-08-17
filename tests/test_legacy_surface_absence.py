@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from IPython.core.inputtransformer2 import TransformerManager
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE_ROOTS = (
@@ -89,6 +90,7 @@ REMOVED_PATHS = (
     "examples/legacy_streamlit_app",
     "scripts/trend-model",
 )
+NOTEBOOK_TRANSFORMER = TransformerManager()
 
 
 def _is_archived(path: Path) -> bool:
@@ -105,7 +107,7 @@ def _include_text_file(path: Path) -> bool:
         return False
     if path.suffix.lower() in TEXT_SUFFIXES:
         return True
-    return (path.parent.name == "scripts" and path.suffix == "") or (
+    return (path.suffix == "" and os.access(path, os.X_OK)) or (
         path.parent == REPO_ROOT and path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES
     )
 
@@ -117,15 +119,12 @@ def _text_files(root: Path) -> list[Path]:
 
 
 def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
-    is_extensionless_launcher = path.suffix == "" and path.parent.name == "scripts"
+    is_extensionless_launcher = path.suffix == "" and os.access(path, os.X_OK)
     if path.suffix.lower() == ".ipynb":
         try:
             notebook = json.loads(text)
             code_units = [
-                "".join(
-                    "\n" if line.lstrip().startswith(("%", "!")) else line
-                    for line in "".join(cell.get("source", [])).splitlines(keepends=True)
-                )
+                NOTEBOOK_TRANSFORMER.transform_cell("".join(cell.get("source", [])))
                 for cell in notebook.get("cells", [])
                 if cell.get("cell_type") == "code"
             ]
@@ -220,14 +219,16 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
-def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path) -> None:
-    scripts = tmp_path / "scripts"
-    scripts.mkdir()
-    launcher = scripts / "trend"
+@pytest.mark.parametrize("directory", ["scripts", "tools"])
+def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
+    launchers = tmp_path / directory
+    launchers.mkdir()
+    launcher = launchers / "trend"
     launcher.write_text(
         "#!/usr/bin/env python\nfrom trend_analysis import cli\n",
         encoding="utf-8",
     )
+    launcher.chmod(0o755)
 
     assert launcher in _text_files(tmp_path)
     offenders = _forbidden_import_offenders(launcher, launcher.read_text(encoding="utf-8"))
@@ -323,6 +324,34 @@ def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Pat
                             "from trend_analysis import cli\n",
                         ],
                     },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_assignment_and_help_escapes_cannot_hide_later_import(
+    tmp_path: Path,
+) -> None:
+    """IPython assignment/help escapes must be transformed before AST parsing."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "files = !ls\n",
+                            "value?\n",
+                            "from trend_analysis import cli\n",
+                        ],
+                    }
                 ]
             }
         ),
