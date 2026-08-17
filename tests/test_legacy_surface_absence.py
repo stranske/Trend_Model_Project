@@ -121,36 +121,42 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
     if path.suffix.lower() == ".ipynb":
         try:
             notebook = json.loads(text)
-            text = "\n".join(
+            code_units = [
                 "".join(cell.get("source", []))
                 for cell in notebook.get("cells", [])
                 if cell.get("cell_type") == "code"
-            )
+            ]
         except (AttributeError, TypeError, ValueError):
             return []
     elif path.suffix.lower() != ".py" and not is_extensionless_launcher:
         return []
-    try:
-        tree = ast.parse(text, filename=str(path))
-    except SyntaxError:
-        return []
-    modules = [
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import)
-        for alias in node.names
-    ]
-    modules.extend(
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module is not None
-    )
-    modules.extend(
-        f"{node.module}.{alias.name}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module is not None
-        for alias in node.names
-    )
+    else:
+        code_units = [text]
+    modules: list[str] = []
+    for code_unit in code_units:
+        try:
+            tree = ast.parse(code_unit, filename=str(path))
+        except SyntaxError:
+            # IPython magics may make one notebook cell invalid Python. Keep
+            # scanning the remaining cells so they cannot hide retired imports.
+            continue
+        modules.extend(
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+        modules.extend(
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        )
+        modules.extend(
+            f"{node.module}.{alias.name}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+            for alias in node.names
+        )
     try:
         display_path = path.relative_to(REPO_ROOT)
     except ValueError:
@@ -290,6 +296,29 @@ def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
                         "cell_type": "code",
                         "source": ["from trend_analysis import cli\n"],
                     }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_magic_cell_cannot_hide_retired_import(tmp_path: Path) -> None:
+    """A non-Python cell must not prevent later code cells from being scanned."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {"cell_type": "code", "source": ["%matplotlib inline\n"]},
+                    {
+                        "cell_type": "code",
+                        "source": ["from trend_analysis import cli\n"],
+                    },
                 ]
             }
         ),
