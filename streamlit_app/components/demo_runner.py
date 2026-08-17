@@ -57,6 +57,7 @@ PIPELINE_METRIC_ALIASES: Mapping[str, str] = {
     "drawdown": "MaxDrawdown",
     "vol": "Volatility",
 }
+ZERO_COST_MODEL = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
 
 
 @dataclass
@@ -186,6 +187,7 @@ def _build_pipeline_config(
             "blended_weights": blended_weights,
         },
         "weighting": {"name": weighting_name, "params": {}},
+        "cost_model": dict(ZERO_COST_MODEL),
     }
     benchmarks = {"SPX": benchmark} if benchmark else {}
 
@@ -267,7 +269,10 @@ def _prepare_demo_setup(df: pd.DataFrame) -> DemoSetup:
         "risk_target": overrides["risk_target"],
         "column_mapping": column_mapping,
         "preset_name": DEFAULT_PRESET,
-        "portfolio": {"weighting": {"name": overrides["weighting_name"], "params": {}}},
+        "portfolio": {
+            "weighting": {"name": overrides["weighting_name"], "params": {}},
+            "cost_model": dict(ZERO_COST_MODEL),
+        },
     }
 
     pipeline_config = _build_pipeline_config(sim_config, metric_weights, benchmark)
@@ -579,7 +584,10 @@ def run_demo_with_overrides(
         "risk_target": float(merged.get("risk_target", 0.10)),
         "column_mapping": column_mapping,
         "preset_name": preset_name,
-        "portfolio": {"weighting": {"name": merged.get("weighting_name", "equal"), "params": {}}},
+        "portfolio": {
+            "weighting": {"name": merged.get("weighting_name", "equal"), "params": {}},
+            "cost_model": dict(ZERO_COST_MODEL),
+        },
     }
 
     pipeline_config = _build_pipeline_config(sim_config, metric_weights, benchmark)

@@ -81,6 +81,12 @@ def test_config_requires_canonical_cost_model(cost_model):
         models.Config(**cfg_dict)
 
 
+def test_config_validates_defaulted_portfolio_section():
+    """Pydantic must validate the default portfolio just like an explicit one."""
+    with pytest.raises(ValueError, match="cost_model is required and must be a mapping"):
+        models.Config(version="1")
+
+
 def test_invalid_version_type_raises():
     cfg_dict = _sample_config()
     cfg_dict["version"] = 123  # type: ignore[assignment]

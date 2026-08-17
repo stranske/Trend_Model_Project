@@ -299,7 +299,7 @@ if _HAS_PYDANTIC:
         preprocessing: dict[str, Any] = Field(default_factory=dict)
         vol_adjust: dict[str, Any] = Field(default_factory=dict)
         sample_split: dict[str, Any] = Field(default_factory=dict)
-        portfolio: dict[str, Any] = Field(default_factory=dict)
+        portfolio: dict[str, Any] = Field(default_factory=dict, validate_default=True)
         benchmarks: dict[str, str] = Field(default_factory=dict)
         metrics: dict[str, Any] = Field(default_factory=dict)
         regime: dict[str, Any] = Field(default_factory=dict)

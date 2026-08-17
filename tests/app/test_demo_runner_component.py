@@ -167,6 +167,10 @@ def test_build_pipeline_config_translates_weights() -> None:
         "AnnualReturn": 0.3,
         "MaxDrawdown": 0.2,
     }
+    assert dumped["portfolio"]["cost_model"] == {
+        "per_trade_bps": 0.0,
+        "half_spread_bps": 0.0,
+    }
     assert dumped["benchmarks"] == {"SPX": "SPX"}
     assert dumped["vol_adjust"] == {
         "target_vol": 0.12,
@@ -333,6 +337,7 @@ def test_run_one_click_demo_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
             "selection_mode": "rank",
             "rank": {},
             "weighting": {"name": "equal", "params": {}},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
         },
         benchmarks={},
         metrics={"registry": []},
@@ -523,6 +528,7 @@ def test_run_one_click_demo_imports_streamlit(monkeypatch: pytest.MonkeyPatch) -
             "selection_mode": "rank",
             "rank": {},
             "weighting": {"name": "equal", "params": {}},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
         },
         benchmarks={},
         metrics={"registry": []},
