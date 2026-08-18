@@ -52,6 +52,13 @@ def prepare_command_inputs(
     try:
         inspect.signature(ensure_dataframe).bind(returns_path, **ingestion_kwargs)
     except (TypeError, ValueError):
+        if getattr(args, "auto_fix_dates", False):
+            msg = (
+                "The selected data loader does not support --auto-fix-dates; "
+                "use the canonical CLI loader or a loader that accepts "
+                "auto_fix_dates and yes keyword arguments."
+            )
+            raise ValueError(msg) from None
         # Keep injected path-only test/extension loaders compatible. The
         # canonical CLI loader accepts ``config`` and applies its ingestion
         # contract before the pipeline sees the frame.

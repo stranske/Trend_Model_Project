@@ -8,6 +8,8 @@ ACTIVE_DOCS = (
     *Path("docs").rglob("*.md"),
 )
 EXCLUDED_DOC_ROOTS = (Path("docs/archive"), Path("docs/keepalive"))
+# Split ``trend_analysis/`` literals below so this file does not self-match the
+# legacy-surface scanner while still asserting retired runner names.
 REMOVED_RUNNERS = (
     "trend_analysis." + "run_analysis",
     "trend_analysis." + "run_multi_analysis",

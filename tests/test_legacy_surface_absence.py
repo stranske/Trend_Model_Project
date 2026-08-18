@@ -97,10 +97,13 @@ NOTEBOOK_TRANSFORMER = TransformerManager()
 def _textual_import_modules(text: str) -> list[str]:
     """Recover import targets from executable non-Python wrapper syntax."""
 
-    modules = [
-        match.group(1)
-        for match in re.finditer(r"\bimport\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)", text)
-    ]
+    modules = []
+    for match in re.finditer(r"\bimport\s+([^\n;]+)", text):
+        tail = match.group(1)
+        for part in tail.split(","):
+            name = part.strip().split(maxsplit=1)[0] if part.strip() else ""
+            if name and re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", name):
+                modules.append(name)
     from_pattern = re.compile(
         r"\bfrom\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+import\s+(\([^)]*\)|[^\n;]+)",
         re.DOTALL,
@@ -457,9 +460,11 @@ def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
     """Every scanned surface must trigger the CI job that enforces this contract."""
 
     gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
-    legacy_job_header = gate.split("  legacy-surface:\n", 1)[1].split("    runs-on:", 1)[0]
+    marker = "  legacy-surface:\n"
+    assert marker in gate, "legacy-surface job missing from gate workflow"
+    legacy_job_header = gate.split(marker, 1)[1].split("    runs-on:", 1)[0]
 
-    assert "needs.detect.result == 'success'" in legacy_job_header
+    assert "!cancelled()" in legacy_job_header
     assert "is_python_code" not in legacy_job_header
     assert "is_docs_only" not in legacy_job_header
 

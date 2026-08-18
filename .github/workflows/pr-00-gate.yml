@@ -123,7 +123,9 @@ jobs:
     # The scanner covers workflows, scripts, root launchers, and active docs in
     # addition to Python. Run it after every successful path-classification so
     # none of those surfaces can bypass the contract through a category gap.
-    if: ${{ needs.detect.result == 'success' }}
+    # `!cancelled()` keeps the contract enforced when path classification fails,
+    # because a skipped job is not reported as a failed check to branch protection.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

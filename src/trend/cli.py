@@ -582,6 +582,11 @@ def _ensure_dataframe(
             changes.append(f"{summary.corrected_dates} date correction(s)")
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
+        if getattr(summary, "dropped_columns", ()):
+            changes.append(
+                "dropped date-named column(s): "
+                + ", ".join(summary.dropped_columns)
+            )
         if changes:
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
         return frame.rename_axis("Date").reset_index()
@@ -603,13 +608,17 @@ def _ensure_dataframe(
     return df
 
 
-def _load_ui_payload(path: Path) -> tuple[dict[str, Any], Mapping[str, Any]]:
+def _load_ui_payload(
+    path: Path,
+    payload_any: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], Mapping[str, Any]]:
     """Load a nested or flat Streamlit model-state export."""
 
-    try:
-        payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TrendCLIError(f"Unable to load Streamlit JSON export: {exc}") from exc
+    if payload_any is None:
+        try:
+            payload_any = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise TrendCLIError(f"Unable to load Streamlit JSON export: {exc}") from exc
     if not isinstance(payload_any, Mapping):
         raise TrendCLIError("Streamlit JSON export must contain an object at the root")
     payload = dict(payload_any)
@@ -662,16 +671,22 @@ def _looks_like_model_state(payload: Mapping[str, Any]) -> bool:
     return hits >= 3 or ("metric_weights" in payload and "selection_count" in payload)
 
 
-def _should_handle_as_ui_config(path: Path) -> bool:
+def _read_ui_config_payload(path: Path) -> Mapping[str, Any] | None:
     if path.suffix.lower() != ".json":
-        return False
+        return None
     try:
         payload_any: Any = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return False
+        return None
     if not isinstance(payload_any, Mapping):
-        return False
-    return "model_state" in payload_any or _looks_like_model_state(payload_any)
+        return None
+    if "model_state" in payload_any or _looks_like_model_state(payload_any):
+        return payload_any
+    return None
+
+
+def _should_handle_as_ui_config(path: Path) -> bool:
+    return _read_ui_config_payload(path) is not None
 
 
 def _confirm_ui_date_fixes(
@@ -704,6 +719,7 @@ def _prepare_ui_command_inputs(
     args: argparse.Namespace,
     *,
     prepare_config: Callable[[Any], None],
+    ui_payload: Mapping[str, Any] | None = None,
 ) -> PreparedCommandInputs:
     """Map a Streamlit export onto the canonical ``trend run`` inputs."""
 
@@ -711,7 +727,7 @@ def _prepare_ui_command_inputs(
     if not args.returns:
         raise TrendCLIError("Streamlit JSON replay requires --input/--returns data")
     data_path = Path(args.returns).resolve()
-    payload, model_state = _load_ui_payload(params_path)
+    payload, model_state = _load_ui_payload(params_path, ui_payload)
 
     if "risk_free_column" not in model_state:
         risk_free = payload.get("selected_risk_free")
@@ -731,7 +747,7 @@ def _prepare_ui_command_inputs(
         returns, metadata, summary = load_ui_dataset(
             data_path,
             auto_fix_dates=args.auto_fix_dates,
-            missing_policy=model_state.get("missing_policy") or "ffill",
+            missing_policy=model_state.get("missing_policy") or "drop",
             missing_limit=model_state.get("missing_limit"),
         )
     except MarketDataValidationError as exc:
@@ -739,12 +755,21 @@ def _prepare_ui_command_inputs(
         suffix = f"\n{details}" if details else ""
         raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
 
-    if summary.corrected_dates or summary.dropped_rows:
+    if (
+        summary.corrected_dates
+        or summary.dropped_rows
+        or getattr(summary, "dropped_columns", ())
+    ):
         changes = []
         if summary.corrected_dates:
             changes.append(f"{summary.corrected_dates} date correction(s)")
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
+        if getattr(summary, "dropped_columns", ()):
+            changes.append(
+                "dropped date-named column(s): "
+                + ", ".join(summary.dropped_columns)
+            )
         print(f"Applied UI-style date fixes: {', '.join(changes)}")
 
     cfg = build_config_from_ui_state(
@@ -918,7 +943,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
         out_formats = DEFAULT_OUTPUT_FORMATS
     if not out_dir or not out_formats:
         return
-    format_list = list(out_formats)
+    format_list = [out_formats] if isinstance(out_formats, str) else list(out_formats)
     out_dir_path = Path(out_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
     maybe_log_step(
@@ -2380,10 +2405,12 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 wrap_config_for_coverage(cfg, coverage_tracker)
 
         config_path = Path(args.config).resolve()
-        if command == "run" and _should_handle_as_ui_config(config_path):
+        ui_payload = _read_ui_config_payload(config_path) if command == "run" else None
+        if command == "run" and ui_payload is not None:
             prepared = _prepare_ui_command_inputs(
                 args,
                 prepare_config=_prepare_config_for_command,
+                ui_payload=ui_payload,
             )
         else:
             prepared = prepare_command_inputs(

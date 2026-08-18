@@ -195,6 +195,51 @@ def test_prepare_command_inputs_forwards_schema_date_fix_flags() -> None:
     }
 
 
+def test_prepare_command_inputs_path_only_loader_ignores_date_fix_flags() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(path: Path) -> pd.DataFrame:
+        seen["path"] = path
+        return pd.DataFrame({"Fund": [0.01]})
+
+    prepared = trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(
+            config="config.yml",
+            returns=None,
+            seed=None,
+            auto_fix_dates=False,
+            yes=False,
+        ),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert prepared.returns_df.equals(pd.DataFrame({"Fund": [0.01]}))
+    assert seen == {"path": Path("returns.csv")}
+
+    with pytest.raises(ValueError, match="does not support --auto-fix-dates"):
+        trend_cli.prepare_command_inputs(
+            types.SimpleNamespace(
+                config="config.yml",
+                returns=None,
+                seed=None,
+                auto_fix_dates=True,
+                yes=True,
+            ),
+            load_configuration=lambda _path: (Path("config.yml"), config),
+            prepare_config=lambda _cfg: None,
+            ensure_run_spec=lambda *_args, **_kwargs: None,
+            resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+            ensure_dataframe=ensure_dataframe,
+            determine_seed=lambda _cfg, _seed: 7,
+        )
+
+
 def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -227,7 +272,7 @@ def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
         return (
             fixed,
             SimpleNamespace(frequency="M"),
-            SimpleNamespace(corrected_dates=1, dropped_rows=0),
+            SimpleNamespace(corrected_dates=1, dropped_rows=0, dropped_columns=()),
         )
 
     monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
@@ -905,7 +950,7 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
         return (
             returns,
             SimpleNamespace(frequency="M"),
-            SimpleNamespace(corrected_dates=0, dropped_rows=0),
+            SimpleNamespace(corrected_dates=0, dropped_rows=0, dropped_columns=()),
         )
 
     monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)

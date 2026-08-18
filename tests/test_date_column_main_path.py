@@ -116,9 +116,27 @@ def test_ui_date_repair_honors_configured_date_column(tmp_path):
 
     assert len(issues.corrections) == 1
     assert summary.corrected_dates == 1
+    assert summary.dropped_columns == ("Date",)
     assert frame.index.name == "Timestamp"
     assert frame.columns.tolist() == ["ManagerA"]
     assert frame.index[1] == pd.Timestamp("2024-02-29")
+
+
+def test_ui_date_repair_reports_date_column_collision(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Timestamp,Date,ManagerA\n"
+        "2024-01-31,0.10,0.01\n"
+        "2024-02-29,0.20,0.02\n"
+    )
+
+    _, _, summary = load_ui_dataset(
+        csv_path,
+        auto_fix_dates=False,
+        date_column="Timestamp",
+    )
+
+    assert summary.dropped_columns == ("Date",)
 
 
 def test_accepts_keyword_is_conservative_when_signature_fails():

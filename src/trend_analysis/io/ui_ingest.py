@@ -32,6 +32,7 @@ class UiIngestSummary:
 
     corrected_dates: int = 0
     dropped_rows: int = 0
+    dropped_columns: tuple[str, ...] = ()
 
 
 def _normalise_header_value(value: Any) -> str:
@@ -139,6 +140,17 @@ def _find_date_column(df: pd.DataFrame, date_column: str = "Date") -> str | None
     return None
 
 
+def _date_name_collisions(df: pd.DataFrame, resolved_date_column: str) -> list[str]:
+    """Return non-timestamp columns whose names collide case-insensitively with Date."""
+
+    resolved_name = str(resolved_date_column)
+    return [
+        str(column)
+        for column in df.columns
+        if str(column) != resolved_name and str(column).strip().casefold() == "date"
+    ]
+
+
 def inspect_ui_date_issues(
     path: str | Path,
     *,
@@ -235,10 +247,21 @@ def load_ui_dataset(
     elif correction_result.has_unfixable:
         _raise_date_issue(correction_result, auto_fix_dates=auto_fix_dates)
 
-    if resolved_date_column != "Date":
-        if "Date" in df.columns:
-            df = df.drop(columns=["Date"])
-        df = df.rename(columns={resolved_date_column: "Date"})
+    dropped_columns: list[str] = []
+    canonical_date_name = "Date"
+    if resolved_date_column.strip().casefold() != canonical_date_name.casefold():
+        dropped_columns = _date_name_collisions(df, resolved_date_column)
+        if dropped_columns:
+            df = df.drop(columns=dropped_columns)
+        df = df.rename(columns={resolved_date_column: canonical_date_name})
+    elif resolved_date_column != canonical_date_name:
+        df = df.rename(columns={resolved_date_column: canonical_date_name})
+    if dropped_columns:
+        summary = UiIngestSummary(
+            corrected_dates=summary.corrected_dates,
+            dropped_rows=summary.dropped_rows,
+            dropped_columns=tuple(dropped_columns),
+        )
 
     validated = validate_market_data(
         df,

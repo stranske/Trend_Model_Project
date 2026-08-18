@@ -110,6 +110,7 @@ def test_cli_api_golden_master():
             },
             capture_output=True,
             text=True,
+            timeout=300,
         )
         assert cli_result.returncode == 0, cli_result.stderr
 
