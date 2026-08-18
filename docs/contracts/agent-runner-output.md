@@ -206,7 +206,7 @@ Workflows that invoke agent runners MUST:
    ```
 
 5. **Respect error-recovery suggestions:**
-   - `"retry"` → Re-dispatch `agents-81-gate-followups.yml` with the PR number and `force_retry=true`; a label alone does not force the run
+   - `"retry"` → Add `agent:retry` label or re-dispatch
    - `"manual"` → Add `needs-human` label and notify
    - `"ignore"` → Continue without blocking
 

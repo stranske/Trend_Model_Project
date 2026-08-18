@@ -57,25 +57,40 @@ provides:
 
 ### Agent Automation System
 
-The Workflows repo includes a sophisticated agent automation system:
+The Workflows repo provides the shared implementations behind these consumer entry points:
 
 | Component | Purpose |
 |-----------|---------|
-| **Agents Issue Intake** | Creates or refreshes ready-for-review PRs from labeled issues |
-| **Agents Auto-Pilot** | Runs the end-to-end issue automation route |
-| **Agents 71-72 Codex Belt** | Claims queued work and dispatches the active worker |
-| **Agents 80 PR Event Hub** | Routes supported pull-request events |
-| **Agents 81 Gate Followups** | Evaluates exact-head Gate results and guarded delivery |
-| **Keepalive Sweep** | Re-evaluates stalled eligible PRs through Agents 81 |
+| **Agents Issue Intake** (`agents-issue-intake.yml`) | Thin caller that forwards syntactically valid assignment labels to the shared issue bridge |
+| **Agents 71 Dispatcher + Agents 72 Worker wrapper** (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`) | Auto-pilot issue queue and bounded worker dispatch |
+| **Agents 80 PR Event Hub** (`agents-80-pr-event-hub.yml`) | Consolidates PR, comment, and Gate events for PR metadata and follow-ups |
+| **Agents 81 Gate Followups** (`agents-81-gate-followups.yml`) | Owns consumer keepalive evaluation, supported runner dispatch, and guarded post-Gate delivery |
+| **Verifier** (`agents-verifier.yml`) | Runs explicit post-merge evaluation and comparison lanes |
 | **Autofix** | Automatic formatting fixes on PRs |
 
 ### Key Features
 
-- **Ready-for-review bootstrap**: Creates branches and non-draft PRs from labeled issues
-- **Exact-head Gate**: Validates the current PR head before follow-up work
-- **Guarded delivery**: Agents 81 evaluates eligible PRs after Gate completes
-- **Keepalive recovery**: Re-enters Agents 81 for stalled eligible PRs
-- **Protected-workflow enforcement**: Prevents the retired topology from returning
+- **Readiness probes**: Validates agent availability before work
+- **Bootstrap**: Creates ready-for-review branches and PRs from labeled issues
+- **Keepalive**: Evaluates the current Gate/task state and dispatches bounded supported-agent follow-ups
+- **Guarded closeout**: Merges only after the unchanged exact head passes checks, review-thread, review-window, and merge-state gates
+
+Agents 81 fails closed unless the PR is ready, targets the default branch, has a
+`clean` merge state, has held the same head for at least seven minutes, has no
+active non-outdated review threads, and has successful statuses and check runs.
+Every merge-capable wakeup first resets the current head's durable observation,
+so a queued `synchronize` run that GitHub replaces cannot expose an older marker
+for the same head. This may conservatively extend the wait but cannot shorten it.
+If Gate completes before the window expires, the merge job waits only for the
+remaining interval and then re-fetches the PR; a changed head restarts the
+normal Gate path. Immediately before merging, it rechecks persisted head-transition
+events and restarts the window if the same SHA returned during the wait. That lookup
+runs before the final PR, check, task, and review-thread snapshots so its pagination
+cannot make those live guards stale. The merge request is bound to the validated head SHA. Branch
+protection remains responsible for any required approving-review policy.
+Privileged label and synchronize wakeups use `pull_request_target`, so GitHub loads
+the workflow from the trusted default branch; the merge job never checks out or
+executes pull-request-head code.
 
 ---
 
@@ -125,21 +140,30 @@ Quick start:
 
 ### Agent Workflow
 
-```text
-Issue created → agent label or Agents Auto-Pilot
-                      ↓
-        Issue Intake creates a ready PR
-                      ↓
-          Agents 71-72 run the worker
-                      ↓
-           Gate validates exact head
-                      ↓
-        Agents 81 evaluates follow-up
-                      ↓
-             Guarded delivery
-
-Keepalive Sweep re-enters Agents 81 for stalled eligible PRs.
 ```
+Issue created → agent:codex label added
+                      ↓
+          Issue Intake validates
+                      ↓
+        Bootstrap creates ready branch + PR
+                      ↓
+         Agent works on the code
+                      ↓
+            CI runs on changes
+                      ↓
+              Agents 81 evaluates Gate
+                         ↓
+             ┌───────────┴───────────┐
+             │                       │
+       tasks complete          work or repair remains
+             │                       │
+ guarded exact-head closer     supported runner dispatch
+```
+
+The retired consumer orchestrator and automatic conveyor are not local entry points. Agents 73 has
+no local caller in the current consumer topology. Agents 81 owns guarded delivery and clears the
+linked issue's `status:in-progress` label after a successful merge; it does not merge merely because
+CI is green.
 
 ---
 
