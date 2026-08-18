@@ -121,10 +121,11 @@ jobs:
     name: Legacy Surface Contract
     needs: detect
     # The scanner covers workflows, scripts, root launchers, and active docs in
-    # addition to Python. Run it after every successful path-classification so
-    # none of those surfaces can bypass the contract through a category gap.
-    # `!cancelled()` keeps the contract enforced when path classification fails,
-    # because a skipped job is not reported as a failed check to branch protection.
+    # addition to Python. Run whenever path classification completes, succeeds,
+    # fails, or is skipped so none of those surfaces bypass the contract through
+    # a category gap. `!cancelled()` keeps the contract enforced when
+    # classification fails, because a skipped job is not reported as a failed
+    # check to branch protection.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
