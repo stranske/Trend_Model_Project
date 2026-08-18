@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis.io.market_data import MarketDataMode
-from trend_analysis.monte_carlo.folds import FoldGenerator
 from trend_analysis.monte_carlo import history
+from trend_analysis.monte_carlo.folds import FoldGenerator
 
 
 def _frame(values: list[float], *, mode: MarketDataMode) -> pd.DataFrame:

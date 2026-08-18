@@ -8,7 +8,10 @@ import pandas as pd
 import pytest
 
 from trend_analysis.data import load_csv
-from trend_analysis.io.market_data import MarketDataValidationError, validate_market_data
+from trend_analysis.io.market_data import (
+    MarketDataValidationError,
+    validate_market_data,
+)
 from trend_analysis.util import missing
 
 

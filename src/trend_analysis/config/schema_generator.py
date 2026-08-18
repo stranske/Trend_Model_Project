@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
+
 from utils.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"

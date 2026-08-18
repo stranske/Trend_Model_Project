@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 
 from analysis.results import build_metadata
 
-from ..diagnostics import PipelineResult, pipeline_success
 from ..config_contract import normalise_weighting_name
+from ..diagnostics import PipelineResult, pipeline_success
 from ..metrics import (
     annual_return,
     information_ratio,

@@ -10,7 +10,11 @@ from trend_analysis.io.market_data import (
     classify_frequency,
     validate_market_data,
 )
-from trend_analysis.util.missing import MissingPolicyResult, _coerce_limit, apply_missing_policy
+from trend_analysis.util.missing import (
+    MissingPolicyResult,
+    _coerce_limit,
+    apply_missing_policy,
+)
 
 
 def _build_returns_frame() -> pd.DataFrame:

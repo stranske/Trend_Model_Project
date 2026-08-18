@@ -68,6 +68,7 @@ from trend_analysis.config.ui_mapping import build_config_from_ui_state
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.data import load_csv
+from trend_analysis.export.run_envelope import write_run_envelope
 from trend_analysis.identity import IdentityMap
 from trend_analysis.io.market_data import MarketDataValidationError
 from trend_analysis.io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
@@ -100,7 +101,6 @@ from trend_analysis.presets import (
     get_trend_preset,
     list_preset_slugs,
 )
-from trend_analysis.export.run_envelope import write_run_envelope
 from trend_analysis.reporting.portfolio_series import select_primary_portfolio_series
 from trend_analysis.reporting.run_artifacts import write_run_artifacts
 from trend_analysis.signal_presets import (
@@ -583,10 +583,7 @@ def _ensure_dataframe(
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
         if getattr(summary, "dropped_columns", ()):
-            changes.append(
-                "dropped date-named column(s): "
-                + ", ".join(summary.dropped_columns)
-            )
+            changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
         if changes:
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
         return frame.rename_axis("Date").reset_index()
@@ -755,21 +752,14 @@ def _prepare_ui_command_inputs(
         suffix = f"\n{details}" if details else ""
         raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
 
-    if (
-        summary.corrected_dates
-        or summary.dropped_rows
-        or getattr(summary, "dropped_columns", ())
-    ):
+    if summary.corrected_dates or summary.dropped_rows or getattr(summary, "dropped_columns", ()):
         changes = []
         if summary.corrected_dates:
             changes.append(f"{summary.corrected_dates} date correction(s)")
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
         if getattr(summary, "dropped_columns", ()):
-            changes.append(
-                "dropped date-named column(s): "
-                + ", ".join(summary.dropped_columns)
-            )
+            changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
         print(f"Applied UI-style date fixes: {', '.join(changes)}")
 
     cfg = build_config_from_ui_state(

@@ -135,7 +135,9 @@ def test_membership_upload_state_only_changes_for_new_content(tmp_path: Path) ->
 
 
 def test_invalid_membership_upload_is_removed(tmp_path: Path) -> None:
-    from streamlit_app.components.universe_membership_input import persist_membership_upload
+    from streamlit_app.components.universe_membership_input import (
+        persist_membership_upload,
+    )
 
     with pytest.raises(ValueError):
         persist_membership_upload(b"fund\nMgr_01\n", upload_dir=tmp_path, filename="membership.csv")
@@ -182,8 +184,7 @@ def test_execute_analysis_masks_single_period_membership(tmp_path: Path, monkeyp
 
 
 def test_multi_period_api_passes_loaded_membership_to_engine(monkeypatch) -> None:
-    from trend_analysis import api
-    from trend_analysis import multi_period
+    from trend_analysis import api, multi_period
     from trend_analysis.multi_period import loaders
 
     membership = pd.DataFrame(

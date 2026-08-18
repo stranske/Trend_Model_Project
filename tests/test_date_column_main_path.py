@@ -125,9 +125,7 @@ def test_ui_date_repair_honors_configured_date_column(tmp_path):
 def test_ui_date_repair_reports_date_column_collision(tmp_path):
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text(
-        "Timestamp,Date,ManagerA\n"
-        "2024-01-31,0.10,0.01\n"
-        "2024-02-29,0.20,0.02\n"
+        "Timestamp,Date,ManagerA\n" "2024-01-31,0.10,0.01\n" "2024-02-29,0.20,0.02\n"
     )
 
     _, _, summary = load_ui_dataset(
