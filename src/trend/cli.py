@@ -582,7 +582,7 @@ def _ensure_dataframe(
             changes.append(f"{summary.corrected_dates} date correction(s)")
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
-        if getattr(summary, "dropped_columns", ()):
+        if summary.dropped_columns:
             changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
         if changes:
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
@@ -752,13 +752,13 @@ def _prepare_ui_command_inputs(
         suffix = f"\n{details}" if details else ""
         raise TrendCLIError(f"{exc.user_message}{suffix}") from exc
 
-    if summary.corrected_dates or summary.dropped_rows or getattr(summary, "dropped_columns", ()):
+    if summary.corrected_dates or summary.dropped_rows or summary.dropped_columns:
         changes = []
         if summary.corrected_dates:
             changes.append(f"{summary.corrected_dates} date correction(s)")
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
-        if getattr(summary, "dropped_columns", ()):
+        if summary.dropped_columns:
             changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
         print(f"Applied UI-style date fixes: {', '.join(changes)}")
 
