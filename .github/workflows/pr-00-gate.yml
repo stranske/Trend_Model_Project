@@ -120,11 +120,13 @@ jobs:
   legacy-surface:
     name: Legacy Surface Contract
     needs: detect
-    if: >-
-      ${{
-        needs.detect.outputs.is_python_code == 'true' ||
-        needs.detect.outputs.is_docs_only == 'true'
-      }}
+    # The scanner covers workflows, scripts, root launchers, and active docs in
+    # addition to Python. Run whenever path classification completes, succeeds,
+    # fails, or is skipped so none of those surfaces bypass the contract through
+    # a category gap. `!cancelled()` keeps the contract enforced when
+    # classification fails, because a skipped job is not reported as a failed
+    # check to branch protection.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -150,7 +152,18 @@ jobs:
             tests/test_wheel_surface.py \
             tests/test_cli_installed.py \
             tests/test_streamlit_smoke_ci.py \
-            tests/test_export_outputs.py
+            tests/test_export_outputs.py \
+            tests/test_config_schema.py::test_validate_core_config_round_trips \
+            tests/test_trend_cli_entrypoints.py::test_main_check_flag_without_subcommand \
+            tests/test_trend_cli_entrypoints.py::test_main_run_command \
+            tests/test_trend_cli_entrypoints.py::test_main_report_command \
+            tests/test_trend_cli_entrypoints.py::test_main_app_command_uses_extracted_handler \
+            tests/test_trend_cli_quick_report.py::test_trend_quick_report_subcommand_creates_report \
+            tests/test_cli_mc.py::test_mc_list_registry_and_tags \
+            tests/test_cli_mc.py::test_mc_validate_success \
+            tests/test_cli_mc.py::test_trend_mc_run_dispatches_scenario \
+            tests/test_cli_mc.py::test_mc_viz_routes_selected_charts_and_exports_requested_formats \
+            tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end
 
   config-coverage:
     name: Config Coverage Check

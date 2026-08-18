@@ -9,6 +9,7 @@ the parser front door.
 from __future__ import annotations
 
 import argparse
+import inspect
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ def prepare_command_inputs(
     prepare_config: Callable[[Any], None],
     ensure_run_spec: Callable[..., Any],
     resolve_returns_path: Callable[..., Path],
-    ensure_dataframe: Callable[[Path], Any],
+    ensure_dataframe: Callable[..., Any],
     determine_seed: Callable[[Any, int | None], int],
 ) -> PreparedCommandInputs:
     """Load the shared run/report inputs outside the parser front door."""
@@ -45,7 +46,25 @@ def prepare_command_inputs(
     prepare_config(cfg)
     ensure_run_spec(cfg, base_path=cfg_path.parent)
     returns_path = resolve_returns_path(cfg_path, cfg, getattr(args, "returns", None))
-    returns_df = ensure_dataframe(returns_path)
+    ingestion_kwargs: dict[str, Any] = {"config": cfg}
+    if getattr(args, "auto_fix_dates", False):
+        ingestion_kwargs.update(auto_fix_dates=True, yes=bool(getattr(args, "yes", False)))
+    try:
+        inspect.signature(ensure_dataframe).bind(returns_path, **ingestion_kwargs)
+    except (TypeError, ValueError):
+        if getattr(args, "auto_fix_dates", False):
+            msg = (
+                "The selected data loader does not support --auto-fix-dates; "
+                "use the canonical CLI loader or a loader that accepts "
+                "auto_fix_dates and yes keyword arguments."
+            )
+            raise ValueError(msg) from None
+        # Keep injected path-only test/extension loaders compatible. The
+        # canonical CLI loader accepts ``config`` and applies its ingestion
+        # contract before the pipeline sees the frame.
+        returns_df = ensure_dataframe(returns_path)
+    else:
+        returns_df = ensure_dataframe(returns_path, **ingestion_kwargs)
     seed = determine_seed(cfg, getattr(args, "seed", None))
     return PreparedCommandInputs(
         cfg_path=cfg_path,
@@ -103,9 +122,13 @@ def run_analysis_command(
     attach_universe_paths: Callable[..., None],
     find_existing_run: Callable[..., Path | None],
     calculate_run_id: Callable[..., str],
+    get_default_log_path: Callable[[str], Path],
+    init_run_logger: Callable[[str, Path], Any],
+    log_step: Callable[..., None],
     run_pipeline: Callable[..., tuple[Any, str, Path | None]],
     write_artifacts: Callable[..., Path | None],
     print_summary: Callable[[Any, Any], None],
+    finish_structured_log: Callable[[bool, str, Path | None, Any], None],
     finalize_coverage: Callable[[], None],
 ) -> int:
     """Execute ``trend run`` with all side-effecting dependencies explicit."""
@@ -132,8 +155,33 @@ def run_analysis_command(
         candidate_run_id = calculate_run_id(cfg, returns_path)
         existing_manifest = find_existing_run(cfg, candidate_run_id)
         if existing_manifest is not None:
+            structured_log = not getattr(args, "no_structured_log", False)
+            log_path = None
+            if structured_log:
+                log_path = (
+                    Path(args.log_file)
+                    if getattr(args, "log_file", None)
+                    else get_default_log_path(candidate_run_id)
+                )
+                init_run_logger(candidate_run_id, log_path)
+            log_step(
+                structured_log,
+                candidate_run_id,
+                "start",
+                "trend CLI execution started",
+            )
+            log_step(
+                structured_log,
+                candidate_run_id,
+                "already_done",
+                f"already-done: run_id={candidate_run_id}",
+                manifest=str(existing_manifest),
+            )
             print(f"already-done: run_id={candidate_run_id}")
             print(f"Existing manifest: {existing_manifest}")
+            finish_structured_log(structured_log, candidate_run_id, log_path, None)
+            if log_path:
+                print(f"Structured log: {log_path}")
             finalize_coverage()
             return 0
     result, run_id, log_path = run_pipeline(
@@ -154,6 +202,7 @@ def run_analysis_command(
         structured_log=not args.no_structured_log,
     )
     print_summary(cfg, result)
+    finish_structured_log(not args.no_structured_log, run_id, log_path, result)
     if log_path:
         print(f"Structured log: {log_path}")
     finalize_coverage()

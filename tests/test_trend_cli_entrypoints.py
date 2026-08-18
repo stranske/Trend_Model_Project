@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import builtins
 import json
 import textwrap
@@ -74,11 +73,230 @@ def test_resolve_returns_path_requires_csv(tmp_path: Path) -> None:
 
 def test_ensure_dataframe_validates_load(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = pd.DataFrame({"a": [1]})
-    monkeypatch.setattr(trend_cli, "load_csv", lambda path: frame if "ok" in path else None)
+    monkeypatch.setattr(
+        trend_cli,
+        "load_csv",
+        lambda path, **_kwargs: frame if "ok" in path else None,
+    )
     assert trend_cli._ensure_dataframe(Path("ok.csv")).equals(frame)
 
     with pytest.raises(FileNotFoundError):
         trend_cli._ensure_dataframe(Path("missing.csv"))
+
+
+def test_ensure_dataframe_formats_market_data_validation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_validation_error(_path: str, **_kwargs: object) -> pd.DataFrame:
+        raise trend_cli.MarketDataValidationError(
+            "Unable to validate market data", issues=["Date contains malformed values"]
+        )
+
+    monkeypatch.setattr(trend_cli, "load_csv", raise_validation_error)
+
+    with pytest.raises(
+        trend_cli.TrendCLIError,
+        match="Unable to validate market data\\n- Date contains malformed values",
+    ):
+        trend_cli._ensure_dataframe(Path("invalid.csv"))
+
+
+def test_ensure_dataframe_forwards_configured_ingestion_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    frame = pd.DataFrame({"Timestamp": ["2020-01-31"], "Fund": [0.01]})
+
+    def fake_load_csv(path: str, **kwargs: object) -> pd.DataFrame:
+        captured["path"] = path
+        captured.update(kwargs)
+        return frame
+
+    monkeypatch.setattr(trend_cli, "load_csv", fake_load_csv)
+    config = types.SimpleNamespace(
+        data={
+            "date_column": "Timestamp",
+            "missing_policy": {"default": "ffill", "Fund": "zero"},
+            "missing_limit": {"default": 2},
+        }
+    )
+
+    result = trend_cli._ensure_dataframe(Path("configured.csv"), config=config)
+
+    assert result is frame
+    assert captured == {
+        "path": "configured.csv",
+        "errors": "raise",
+        "date_column": "Timestamp",
+        "missing_policy": {"default": "ffill", "Fund": "zero"},
+        "missing_limit": {"default": 2},
+    }
+
+
+def test_prepare_command_inputs_passes_loaded_config_to_ingestion() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(path: Path, *, config: object) -> pd.DataFrame:
+        seen["path"] = path
+        seen["config"] = config
+        return pd.DataFrame({"Fund": [0.01]})
+
+    prepared = trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(config="config.yml", returns=None, seed=None),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert prepared.returns_df.equals(pd.DataFrame({"Fund": [0.01]}))
+    assert seen == {"path": Path("returns.csv"), "config": config}
+
+
+def test_prepare_command_inputs_forwards_schema_date_fix_flags() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(
+        path: Path, *, config: object, auto_fix_dates: bool, yes: bool
+    ) -> pd.DataFrame:
+        seen.update(
+            path=path,
+            config=config,
+            auto_fix_dates=auto_fix_dates,
+            yes=yes,
+        )
+        return pd.DataFrame({"Fund": [0.01]})
+
+    trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(
+            config="config.yml",
+            returns=None,
+            seed=None,
+            auto_fix_dates=True,
+            yes=True,
+        ),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert seen == {
+        "path": Path("returns.csv"),
+        "config": config,
+        "auto_fix_dates": True,
+        "yes": True,
+    }
+
+
+def test_prepare_command_inputs_path_only_loader_ignores_date_fix_flags() -> None:
+    config = types.SimpleNamespace(data={"csv_path": "returns.csv"}, seed=7)
+    seen: dict[str, object] = {}
+
+    def ensure_dataframe(path: Path) -> pd.DataFrame:
+        seen["path"] = path
+        return pd.DataFrame({"Fund": [0.01]})
+
+    prepared = trend_cli.prepare_command_inputs(
+        types.SimpleNamespace(
+            config="config.yml",
+            returns=None,
+            seed=None,
+            auto_fix_dates=False,
+            yes=False,
+        ),
+        load_configuration=lambda _path: (Path("config.yml"), config),
+        prepare_config=lambda _cfg: None,
+        ensure_run_spec=lambda *_args, **_kwargs: None,
+        resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+        ensure_dataframe=ensure_dataframe,
+        determine_seed=lambda _cfg, _seed: 7,
+    )
+
+    assert prepared.returns_df.equals(pd.DataFrame({"Fund": [0.01]}))
+    assert seen == {"path": Path("returns.csv")}
+
+    with pytest.raises(ValueError, match="does not support --auto-fix-dates"):
+        trend_cli.prepare_command_inputs(
+            types.SimpleNamespace(
+                config="config.yml",
+                returns=None,
+                seed=None,
+                auto_fix_dates=True,
+                yes=True,
+            ),
+            load_configuration=lambda _path: (Path("config.yml"), config),
+            prepare_config=lambda _cfg: None,
+            ensure_run_spec=lambda *_args, **_kwargs: None,
+            resolve_returns_path=lambda *_args, **_kwargs: Path("returns.csv"),
+            ensure_dataframe=ensure_dataframe,
+            determine_seed=lambda _cfg, _seed: 7,
+        )
+
+
+def test_ensure_dataframe_applies_confirmed_schema_date_fixes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = types.SimpleNamespace(
+        data={
+            "date_column": "Timestamp",
+            "missing_policy": "ffill",
+            "missing_limit": 2,
+        }
+    )
+    fixed = pd.DataFrame(
+        {"Fund": [0.01]},
+        index=pd.DatetimeIndex(["2020-01-31"], name="Timestamp"),
+    )
+    confirmed: dict[str, object] = {}
+    loaded: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        trend_cli,
+        "_confirm_ui_date_fixes",
+        lambda path, *, yes, date_column: confirmed.update(
+            path=path,
+            yes=yes,
+            date_column=date_column,
+        ),
+    )
+
+    def fake_load_ui_dataset(path: Path, **kwargs: object):
+        loaded.update(path=path, **kwargs)
+        return (
+            fixed,
+            SimpleNamespace(frequency="M"),
+            SimpleNamespace(corrected_dates=1, dropped_rows=0, dropped_columns=()),
+        )
+
+    monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
+
+    result = trend_cli._ensure_dataframe(
+        Path("returns.csv"),
+        config=config,
+        auto_fix_dates=True,
+        yes=True,
+    )
+
+    assert result.columns.tolist() == ["Date", "Fund"]
+    assert confirmed == {
+        "path": Path("returns.csv"),
+        "yes": True,
+        "date_column": "Timestamp",
+    }
+    assert loaded == {
+        "path": Path("returns.csv"),
+        "auto_fix_dates": True,
+        "date_column": "Timestamp",
+        "missing_policy": "ffill",
+        "missing_limit": 2,
+    }
 
 
 def test_determine_seed_prefers_override_and_env(
@@ -151,12 +369,21 @@ def test_handle_exports_invokes_exporters(monkeypatch: pytest.MonkeyPatch, tmp_p
         "export_data",
         lambda data, path, formats: export_calls.append((tuple(sorted(formats)), path)),
     )
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    log_events: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+    )
 
     trend_cli._handle_exports(cfg, result, structured_log=True, run_id="abc")
 
     assert summary_called and export_calls
     assert (tmp_path / "analysis.xlsx").exists()
+    assert log_events == [
+        ("export_start", {"formats": ["xlsx", "csv"]}),
+        ("export_complete", {}),
+    ]
 
 
 def test_handle_exports_without_excel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -184,7 +411,12 @@ def test_run_pipeline_sets_metadata_and_bundle(
     monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: result)
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    log_events: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+    )
     handled: list[tuple] = []
     monkeypatch.setattr(trend_cli, "_handle_exports", lambda *args, **kwargs: handled.append(args))
     written: list[tuple] = []
@@ -208,6 +440,12 @@ def test_run_pipeline_sets_metadata_and_bundle(
     assert log_path == tmp_path / f"{run_id}.log"
     assert handled and written
     assert result_obj is result
+    assert log_events == [
+        ("start", {}),
+        ("load_data", {"rows": 3}),
+        ("pipeline_complete", {"metrics_rows": len(result.metrics)}),
+        ("summary_render", {}),
+    ]
     ledger = Path("perf") / run_id / "turnover.csv"
     assert ledger.exists()
     df = pd.read_csv(ledger)
@@ -277,6 +515,22 @@ def test_print_summary_emits_cache_stats(
     trend_cli._print_summary(cfg, result)
     out = capsys.readouterr().out
     assert "SUMMARY" in out and "Cache statistics" in out
+
+
+def test_finish_structured_log_emits_cache_stats_before_end(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    monkeypatch.setattr(trend_cli, "extract_cache_stats", lambda *_: {"hits": 2})
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, event, _message, **_fields: events.append(event),
+    )
+
+    trend_cli._finish_structured_log(True, "run123", Path("run.jsonl"), DummyResult())
+
+    assert events == ["cache_stats", "end"]
 
 
 def test_write_report_files_creates_expected_outputs(
@@ -519,7 +773,14 @@ def test_main_run_command(
         "_run_pipeline",
         lambda *_args, **_kwargs: (DummyResult(), "run123", tmp_path / "log.jsonl"),
     )
+    monkeypatch.setattr(trend_cli, "_write_trend_run_artifacts", lambda **_kwargs: None)
     monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
+    log_steps: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        trend_cli,
+        "maybe_log_step",
+        lambda *args, **_kwargs: log_steps.append(args),
+    )
 
     exit_code = trend_cli.main(
         [
@@ -534,6 +795,7 @@ def test_main_run_command(
     )
 
     assert exit_code == 0
+    assert any(step[2] == "end" for step in log_steps)
     assert "Structured log" in capsys.readouterr().out
 
 
@@ -569,6 +831,172 @@ def test_main_run_command_uses_extracted_shared_preparation(
     assert received["cfg"] is cfg
     assert received["returns_path"] == prepared.returns_path
     assert received["returns_df"].equals(prepared.returns_df)
+
+
+def test_skip_if_exists_emits_complete_structured_log(tmp_path: Path) -> None:
+    log_path = tmp_path / "skip.jsonl"
+    manifest_path = tmp_path / "manifest.json"
+    events: list[tuple[str, dict[str, object]]] = []
+    initialized: list[tuple[str, Path]] = []
+    finished: list[tuple[bool, str, Path | None, object]] = []
+    coverage_finalized: list[bool] = []
+    args = SimpleNamespace(
+        no_cache=False,
+        preset=None,
+        universe=None,
+        skip_if_exists=True,
+        no_structured_log=False,
+        log_file=str(log_path),
+        bundle=None,
+    )
+
+    def unexpected_pipeline(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("existing runs must not execute the pipeline")
+
+    exit_code = trend_cli.run_analysis_command(
+        args,
+        tmp_path / "config.yml",
+        _make_config(),
+        tmp_path / "returns.csv",
+        pd.DataFrame({"x": [1]}),
+        error=trend_cli.TrendCLIError,
+        set_cache=lambda _enabled: None,
+        get_spec_preset=lambda _name: None,
+        list_spec_presets=lambda: [],
+        apply_spec_preset=lambda _cfg, _preset: None,
+        get_portfolio_preset=lambda _name: None,
+        list_portfolio_presets=lambda: [],
+        apply_portfolio_preset=lambda _cfg, _preset: None,
+        load_universe=lambda *_args, **_kwargs: (None, None),
+        apply_universe_mask=lambda frame, *_args, **_kwargs: frame,
+        attach_universe_paths=lambda *_args, **_kwargs: None,
+        find_existing_run=lambda _cfg, _run_id: manifest_path,
+        calculate_run_id=lambda _cfg, _path: "existing123",
+        get_default_log_path=lambda _run_id: tmp_path / "default.jsonl",
+        init_run_logger=lambda run_id, path: initialized.append((run_id, path)),
+        log_step=lambda _enabled, _run_id, step, _message, **fields: events.append((step, fields)),
+        run_pipeline=unexpected_pipeline,
+        write_artifacts=lambda **_kwargs: None,
+        print_summary=lambda *_args: None,
+        finish_structured_log=lambda enabled, run_id, path, result: finished.append(
+            (enabled, run_id, path, result)
+        ),
+        finalize_coverage=lambda: coverage_finalized.append(True),
+    )
+
+    assert exit_code == 0
+    assert initialized == [("existing123", log_path)]
+    assert events == [
+        ("start", {}),
+        ("already_done", {"manifest": str(manifest_path)}),
+    ]
+    assert finished == [(True, "existing123", log_path, None)]
+    assert coverage_finalized == [True]
+
+
+def test_main_run_replays_streamlit_json_through_canonical_mapping(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    params_path = tmp_path / "streamlit-export.json"
+    params_path.write_text(
+        json.dumps(
+            {
+                "model_state": {
+                    "selection_count": 3,
+                    "metric_weights": {"Sharpe": 1.0},
+                    "signal_window": 63,
+                    "missing_policy": {"default": "ffill", "A": "zero"},
+                    "missing_limit": {"default": 2},
+                },
+                "selected_benchmark": "SPX",
+                "selected_risk_free": "RF",
+            }
+        ),
+        encoding="utf-8",
+    )
+    data_path = tmp_path / "returns.csv"
+    data_path.write_text("Date,A\n2020-01-31,0.01\n", encoding="utf-8")
+    returns = pd.DataFrame(
+        {"A": [0.01]},
+        index=pd.DatetimeIndex(["2020-01-31"], name="Date"),
+    )
+    cfg = _make_config()
+    mapped: dict[str, object] = {}
+    dispatched: dict[str, object] = {}
+    ingestion: dict[str, object] = {}
+
+    def fake_build_config_from_ui_state(**kwargs: object) -> object:
+        mapped.update(kwargs)
+        return cfg
+
+    def fake_run_analysis_command(
+        args: object,
+        cfg_path: Path,
+        command_cfg: object,
+        returns_path: Path,
+        returns_df: pd.DataFrame,
+        **_kwargs: object,
+    ) -> int:
+        dispatched.update(
+            cfg_path=cfg_path,
+            cfg=command_cfg,
+            returns_path=returns_path,
+            returns_df=returns_df,
+        )
+        return 0
+
+    def fake_load_ui_dataset(path: Path, **kwargs: object):
+        ingestion.update(path=path, **kwargs)
+        return (
+            returns,
+            SimpleNamespace(frequency="M"),
+            SimpleNamespace(corrected_dates=0, dropped_rows=0, dropped_columns=()),
+        )
+
+    monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
+    monkeypatch.setattr(trend_cli, "build_config_from_ui_state", fake_build_config_from_ui_state)
+    monkeypatch.setattr(trend_cli, "ensure_run_spec", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(trend_cli, "run_analysis_command", fake_run_analysis_command)
+
+    exit_code = trend_cli.main(["run", "--config", str(params_path), "--input", str(data_path)])
+
+    assert exit_code == 0
+    assert mapped["benchmark"] == "SPX"
+    assert mapped["frequency"] == "M"
+    assert mapped["csv_path"] == str(data_path.resolve())
+    assert mapped["model_state"]["risk_free_column"] == "RF"
+    assert ingestion == {
+        "path": data_path.resolve(),
+        "auto_fix_dates": False,
+        "missing_policy": {"default": "ffill", "A": "zero"},
+        "missing_limit": {"default": 2},
+    }
+    assert dispatched["cfg_path"] == params_path.resolve()
+    assert dispatched["cfg"] is cfg
+    assert dispatched["returns_path"] == data_path.resolve()
+    assert dispatched["returns_df"].columns.tolist() == ["Date", "A"]
+
+
+def test_flat_streamlit_json_detection_excludes_schema_config(tmp_path: Path) -> None:
+    flat_path = tmp_path / "flat.json"
+    flat_path.write_text(
+        json.dumps(
+            {
+                "selection_count": 3,
+                "metric_weights": {"Sharpe": 1.0},
+                "signal_window": 63,
+            }
+        ),
+        encoding="utf-8",
+    )
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(
+        json.dumps({"version": "1", "portfolio": {"selection_count": 3}}),
+        encoding="utf-8",
+    )
+
+    assert trend_cli._should_handle_as_ui_config(flat_path)
+    assert not trend_cli._should_handle_as_ui_config(schema_path)
 
 
 def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1371,51 +1799,3 @@ def test_main_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(SystemExit) as excinfo:
         trend_cli.main(["unknown", "--config", "cfg.yml", "--returns", "data.csv"])
     assert excinfo.value.code == 2
-
-
-def test_trend_cli_has_no_legacy_module_dependency() -> None:
-    source = Path(trend_cli.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    legacy_references: list[str] = []
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            legacy_references.extend(
-                alias.name for alias in node.names if alias.name == "trend_analysis.cli"
-            )
-        elif isinstance(node, ast.ImportFrom):
-            if node.module == "trend_analysis":
-                legacy_references.extend(
-                    f"{node.module}.{alias.name}" for alias in node.names if alias.name == "cli"
-                )
-            elif node.module == "trend_analysis.cli":
-                legacy_references.append(node.module)
-        elif (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "import_module"
-            and node.args
-            and isinstance(node.args[0], ast.Constant)
-            and node.args[0].value == "trend_analysis.cli"
-        ):
-            legacy_references.append("trend_analysis.cli")
-
-    assert not legacy_references
-
-
-def test_canonical_mc_commands_have_no_legacy_cli_dependency() -> None:
-    source = (Path(trend_cli.__file__).parent / "mc" / "commands.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    legacy_references = [
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import)
-        for alias in node.names
-        if alias.name == "trend_analysis.cli"
-    ]
-    legacy_references.extend(
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module == "trend_analysis.cli"
-    )
-    assert not legacy_references

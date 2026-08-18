@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from IPython.core.inputtransformer2 import TransformerManager
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE_ROOTS = (
@@ -17,17 +20,60 @@ ARCHIVE_ROOTS = (
     REPO_ROOT / "docs" / "keepalive",
     REPO_ROOT / "notebooks" / "old",
 )
+TEXT_SUFFIXES = {
+    ".cfg",
+    ".cjs",
+    ".ini",
+    ".ipynb",
+    ".js",
+    ".json",
+    ".md",
+    ".mjs",
+    ".py",
+    ".rst",
+    ".sh",
+    ".toml",
+    ".ts",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+ROOT_EXTENSIONLESS_RUNTIME_FILES = {"Dockerfile", "Makefile"}
+# This is preserved review evidence, not an operator, build, or runtime surface.
+ROOT_HISTORY_TEXT_FILES = {REPO_ROOT / "review-suggested-issues.md"}
+ROOT_RUNTIME_TEXT_FILES = tuple(
+    path
+    for path in REPO_ROOT.iterdir()
+    if path.is_file()
+    and path not in ROOT_HISTORY_TEXT_FILES
+    and (path.suffix.lower() in TEXT_SUFFIXES or path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES)
+)
 RUNTIME_TEXT_ROOTS = (
+    REPO_ROOT / "analysis",
+    REPO_ROOT / "design-system",
     REPO_ROOT / "src",
     REPO_ROOT / "streamlit_app",
     REPO_ROOT / "scripts",
+    REPO_ROOT / "examples",
+    REPO_ROOT / "notebooks",
+    REPO_ROOT / "tests",
     REPO_ROOT / "docs",
-    REPO_ROOT / "pyproject.toml",
+    REPO_ROOT / ".github" / "workflows",
+    REPO_ROOT / ".github" / "actions",
+    REPO_ROOT / ".github" / "scripts",
+    REPO_ROOT / "tools",
+    *ROOT_RUNTIME_TEXT_FILES,
 )
 FORBIDDEN_RUNTIME_IMPORTS = (
     "trend." + "compat_entrypoints",
+    "trend_analysis." + "cli",
     "trend_analysis." + "run_analysis",
     "trend_analysis." + "run_multi_analysis",
+)
+FORBIDDEN_RUNTIME_REFERENCES = FORBIDDEN_RUNTIME_IMPORTS + (
+    "trend_analysis/" + "cli.py",
+    "trend_analysis/" + "run_analysis.py",
+    "trend_analysis/" + "run_multi_analysis.py",
 )
 FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
@@ -35,8 +81,9 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
 )
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
-    "src/trend_analysis/run_analysis.py",
-    "src/trend_analysis/run_multi_analysis.py",
+    "src/trend_analysis/" + "cli.py",
+    "src/trend_analysis/" + "run_analysis.py",
+    "src/trend_analysis/" + "run_multi_analysis.py",
     "src/trend_model",
     "src/trend_portfolio_app",
     "retired/trend_portfolio_app",
@@ -44,26 +91,125 @@ REMOVED_PATHS = (
     "examples/legacy_streamlit_app",
     "scripts/trend-model",
 )
+NOTEBOOK_TRANSFORMER = TransformerManager()
+
+
+def _textual_import_modules(text: str) -> list[str]:
+    """Recover import targets from executable non-Python wrapper syntax."""
+
+    modules = []
+    for match in re.finditer(r"\bimport\s+([^\n;]+)", text):
+        tail = match.group(1)
+        for part in tail.split(","):
+            name = part.strip().split(maxsplit=1)[0] if part.strip() else ""
+            if name and re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", name):
+                modules.append(name)
+    from_pattern = re.compile(
+        r"\bfrom\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+import\s+(\([^)]*\)|[^\n;]+)",
+        re.DOTALL,
+    )
+    for match in from_pattern.finditer(text):
+        parent = match.group(1)
+        imported = match.group(2).strip().strip("()")
+        for item in imported.split(","):
+            name = item.strip().split(maxsplit=1)[0] if item.strip() else ""
+            if name and re.fullmatch(r"[A-Za-z_]\w*", name):
+                modules.append(f"{parent}.{name}")
+    return modules
 
 
 def _is_archived(path: Path) -> bool:
     return any(path.is_relative_to(root) for root in ARCHIVE_ROOTS)
 
 
+def _include_text_file(path: Path) -> bool:
+    if (
+        not path.is_file()
+        or "__pycache__" in path.parts
+        or "node_modules" in path.parts
+        or _is_archived(path)
+    ):
+        return False
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        return True
+    return (path.suffix == "" and os.access(path, os.X_OK)) or (
+        path.parent == REPO_ROOT and path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES
+    )
+
+
 def _text_files(root: Path) -> list[Path]:
     if root.is_file():
-        return [root]
+        return [root] if _include_text_file(root) else []
+    return [path for path in root.rglob("*") if _include_text_file(path)]
+
+
+def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
+    is_extensionless_launcher = path.suffix == "" and os.access(path, os.X_OK)
+    if path.suffix.lower() == ".ipynb":
+        try:
+            notebook = json.loads(text)
+            code_units = []
+            for cell in notebook.get("cells", []):
+                if cell.get("cell_type") != "code":
+                    continue
+                source = "".join(cell.get("source", []))
+                code_units.append(NOTEBOOK_TRANSFORMER.transform_cell(source))
+                # IPython wraps a ``%%`` cell-magic body in a string passed to
+                # ``run_cell_magic``. Parse that body too, otherwise executable
+                # imports inside it are invisible to the AST scan.
+                lines = source.splitlines(keepends=True)
+                first_content = next(
+                    (index for index, line in enumerate(lines) if line.strip()),
+                    None,
+                )
+                if first_content is not None and lines[first_content].lstrip().startswith("%%"):
+                    raw_body = "".join(lines[first_content + 1 :])
+                    code_units.append(NOTEBOOK_TRANSFORMER.transform_cell(raw_body))
+        except (AttributeError, TypeError, ValueError):
+            return []
+    elif path.suffix.lower() != ".py" and not is_extensionless_launcher:
+        return []
+    else:
+        code_units = [text]
+    modules: list[str] = []
+    for code_unit in code_units:
+        try:
+            tree = ast.parse(code_unit, filename=str(path))
+        except SyntaxError:
+            # Non-Python cell magics can wrap executable Python commands or
+            # heredocs. Recover import forms even when their wrapper is not a
+            # valid Python AST, then continue with the remaining cells.
+            modules.extend(_textual_import_modules(code_unit))
+            continue
+        modules.extend(
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+        modules.extend(
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+        )
+        modules.extend(
+            f"{node.module}.{alias.name}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is not None
+            for alias in node.names
+        )
+    try:
+        display_path = path.relative_to(REPO_ROOT)
+    except ValueError:
+        display_path = path
     return [
-        path
-        for path in root.rglob("*")
-        if path.is_file()
-        and "__pycache__" not in path.parts
-        and path.suffix != ".pyc"
-        and not _is_archived(path)
+        f"{display_path}: {forbidden}"
+        for forbidden in FORBIDDEN_RUNTIME_IMPORTS
+        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
     ]
 
 
-def test_removed_runtime_paths_do_not_return() -> None:
+def test_removed_runtime_surfaces_do_not_return() -> None:
     """Retired packages, apps, and scripts must stay absent from the checkout."""
 
     returned = [path for path in REMOVED_PATHS if (REPO_ROOT / path).exists()]
@@ -77,9 +223,10 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
     for root in RUNTIME_TEXT_ROOTS:
         for path in _text_files(root):
             text = path.read_text(encoding="utf-8", errors="ignore")
-            for module in FORBIDDEN_RUNTIME_IMPORTS:
-                if module in text:
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
+            for reference in FORBIDDEN_RUNTIME_REFERENCES:
+                if reference in text:
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
+            offenders.extend(_forbidden_import_offenders(path, text))
 
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 
@@ -98,54 +245,228 @@ def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
     assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(offenders)
 
 
-def test_tests_do_not_import_retired_runtime_modules() -> None:
-    """Test names may mention removals, but no test may import a retired module."""
-
-    offenders: list[str] = []
-    for path in (REPO_ROOT / "tests").rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        modules = [
-            alias.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-        ]
-        modules.extend(
-            node.module
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-        )
-        modules.extend(
-            f"{node.module}.{alias.name}"
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-            for alias in node.names
-        )
-        for module in FORBIDDEN_RUNTIME_IMPORTS:
-            if any(name == module or name.startswith(f"{module}.") for name in modules):
-                offenders.append(f"{path.relative_to(REPO_ROOT)}: {module}")
-
-    assert not offenders, "Tests import retired modules:\n" + "\n".join(offenders)
-
-
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:
-    """Qualified names from ``from package import name`` must remain forbidden."""
+    """Multiline ``from package import name`` forms must remain forbidden."""
 
     candidate = tmp_path / "retired_import.py"
-    candidate.write_text("from trend import compat_entrypoints\n", encoding="utf-8")
-    tree = ast.parse(candidate.read_text(encoding="utf-8"), filename=str(candidate))
-    modules = [
-        f"{node.module}.{alias.name}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module is not None
-        for alias in node.names
-    ]
-    offenders = [
-        forbidden
-        for forbidden in FORBIDDEN_RUNTIME_IMPORTS
-        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
-    ]
-    assert "trend.compat_entrypoints" in offenders
+    candidate.write_text(
+        "from trend_analysis import (\n    cli,\n)\n",
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(candidate, candidate.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+@pytest.mark.parametrize("directory", ["scripts", "tools"])
+def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
+    launchers = tmp_path / directory
+    launchers.mkdir()
+    launcher = launchers / "trend"
+    launcher.write_text(
+        "#!/usr/bin/env python\nfrom trend_analysis import cli\n",
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+
+    assert launcher in _text_files(tmp_path)
+    offenders = _forbidden_import_offenders(launcher, launcher.read_text(encoding="utf-8"))
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -> None:
+    """Automation and repository tools are active runtime entry points too."""
+
+    workflow = tmp_path / ".github" / "workflows" / "check.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("run: python -m trend.cli check\n", encoding="utf-8")
+    tool = tmp_path / "tools" / "coverage_guard.py"
+    tool.parent.mkdir()
+    tool.write_text("from trend import cli\n", encoding="utf-8")
+    action = tmp_path / ".github" / "actions" / "path-classifier" / "action.yml"
+    action.parent.mkdir(parents=True)
+    action.write_text("runs:\n  using: composite\n", encoding="utf-8")
+    helper = tmp_path / ".github" / "scripts" / "issue_format.py"
+    helper.parent.mkdir(parents=True)
+    helper.write_text("from trend import cli\n", encoding="utf-8")
+    action_helper = tmp_path / ".github" / "actions" / "path-classifier" / "classify.js"
+    action_helper.write_text("const { execFile } = require('child_process');\n", encoding="utf-8")
+
+    assert workflow in _text_files(tmp_path / ".github" / "workflows")
+    assert tool in _text_files(tmp_path / "tools")
+    assert action in _text_files(tmp_path / ".github" / "actions")
+    assert helper in _text_files(tmp_path / ".github" / "scripts")
+    assert action_helper in _text_files(tmp_path / ".github" / "actions")
+
+
+def test_root_launchers_and_active_docs_remain_in_text_scan() -> None:
+    """Root launch surfaces and active Markdown must not fall outside the gate."""
+
+    root_runtime_files = set(ROOT_RUNTIME_TEXT_FILES)
+    expected_launchers = {
+        REPO_ROOT / "Dockerfile",
+        REPO_ROOT / "docker-compose.yml",
+        REPO_ROOT / "Makefile",
+    }
+    expected_active_docs = set(REPO_ROOT.glob("*.md")) - ROOT_HISTORY_TEXT_FILES
+
+    assert expected_launchers <= root_runtime_files
+    assert expected_active_docs <= root_runtime_files
+
+
+def test_active_notebooks_remain_in_text_scan() -> None:
+    """Executable notebooks are active surfaces unless they live below ``old/``."""
+
+    active_notebooks = {
+        path for path in (REPO_ROOT / "notebooks").rglob("*.ipynb") if not _is_archived(path)
+    }
+    scanned_notebooks = set(_text_files(REPO_ROOT / "notebooks"))
+
+    assert active_notebooks
+    assert active_notebooks <= scanned_notebooks
+    assert not any(_is_archived(path) for path in scanned_notebooks)
+
+
+def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
+    """Executable notebook cells must receive the same import gate as Python."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": ["from trend_analysis import cli\n"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Path) -> None:
+    """IPython-only lines must not suppress later Python in the same cell."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "%matplotlib inline\n",
+                            "from trend_analysis import cli\n",
+                        ],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_assignment_and_help_escapes_cannot_hide_later_import(
+    tmp_path: Path,
+) -> None:
+    """IPython assignment/help escapes must be transformed before AST parsing."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "files = !ls\n",
+                            "value?\n",
+                            "from trend_analysis import cli\n",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_notebook_cell_magic_body_cannot_hide_retired_import(tmp_path: Path) -> None:
+    """Cell-magic bodies remain executable Python after IPython wrapping."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "%%capture\n",
+                            "files = !ls\n",
+                            "from trend_analysis import cli\n",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_non_python_cell_magic_cannot_hide_retired_import(tmp_path: Path) -> None:
+    """Shell cell magics may execute Python imports through heredocs."""
+    notebook = tmp_path / "active.ipynb"
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": [
+                            "%%bash\n",
+                            "python - <<'PY'\n",
+                            "from trend_analysis import cli\n",
+                            "PY\n",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+
+    assert any("trend_analysis." + "cli" in offender for offender in offenders)
+
+
+def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
+    """Every scanned surface must trigger the CI job that enforces this contract."""
+
+    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
+    marker = "  legacy-surface:\n"
+    assert marker in gate, "legacy-surface job missing from gate workflow"
+    legacy_job_header = gate.split(marker, 1)[1].split("    runs-on:", 1)[0]
+
+    assert "!cancelled()" in legacy_job_header
+    assert "is_python_code" not in legacy_job_header
+    assert "is_docs_only" not in legacy_job_header
 
 
 @pytest.mark.parametrize(

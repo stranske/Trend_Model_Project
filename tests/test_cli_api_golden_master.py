@@ -47,17 +47,26 @@ def make_test_config(csv_path: str) -> Config:
             "out_start": "2021-01",
             "out_end": "2021-12",
         },
-        portfolio={"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+        portfolio={
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 1.0,
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+            "weighting": {"name": "equal", "params": {}},
+        },
         benchmarks={"spx": "SPX"},
         metrics={},
-        export={},
+        export={"directory": str(Path(csv_path).parent / "outputs"), "formats": ["csv"]},
         run={},
     )
 
 
 def _write_config(cfg_path: Path, config: Config) -> None:
     """Write Config object to YAML file."""
-    config_dict = config.model_dump()
+    config_dict = config.model_dump(exclude_none=True)
+    config_dict.pop("unknown", None)
+    for key in ("extra", "robustness", "signals", "strategy", "walk_forward"):
+        if not config_dict.get(key):
+            config_dict.pop(key, None)
     with open(cfg_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
@@ -78,27 +87,32 @@ def test_cli_api_golden_master():
         cfg = make_test_config(str(csv_file))
         _write_config(config_file, cfg)
 
-        # Test API output
-    api_result = api.run_simulation(cfg, df)
+        # Test API output.
+        api_result = api.run_simulation(cfg, df)
 
-    # Test CLI output (detailed mode to get metrics DataFrame)
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "trend_analysis.run_analysis",
-            "-c",
-            str(config_file),
-            "--detailed",
-        ],
-        cwd=Path(__file__).parent.parent,
-        env={
-            **dict(os.environ),
-            "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
-        },
-        capture_output=True,
-        text=True,
-    )
+        # The supported CLI must execute successfully against the same inputs.
+        cli_result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "trend.cli",
+                "run",
+                "-c",
+                str(config_file),
+                "-i",
+                str(csv_file),
+                "--no-structured-log",
+            ],
+            cwd=Path(__file__).parent.parent,
+            env={
+                **dict(os.environ),
+                "PYTHONPATH": str(Path(__file__).parent.parent / "src"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert cli_result.returncode == 0, cli_result.stderr
 
     # For this test, we'll compare API results with expected structure
     # The CLI comparison is complex due to output formatting

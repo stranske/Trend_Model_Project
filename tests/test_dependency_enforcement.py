@@ -241,6 +241,8 @@ def test_all_test_imports_are_declared() -> None:
         "PIL": "pillow",
         "sklearn": "scikit_learn",
         "cv2": "opencv_python",
+        # PyPI package `ipython` imports as `IPython`.
+        "IPython": "ipython",
         # Shared baseline kit: import name `baseline_kit`, package `app-baseline-kit`.
         "baseline_kit": "app_baseline_kit",
     }

@@ -235,7 +235,7 @@ exactly as v1.0 did. Breaking that throws `ExportError`.
 | **Export / I/O**                     | `trend_analysis/export/` package                                           | the root‑level `exports.py`, snippets inside notebooks    |
 | **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
 | **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
-| **CLI entry‑point**                  | `trend_analysis/run_analysis.py` via `cli:main`                            | bespoke `scripts/*.py` entry points                       |
+| **CLI entry‑point**                  | `trend/cli.py` via `trend`                                                 | bespoke `scripts/*.py` entry points                       |
 | **Config**                           | `trend_analysis/config/` package with `models.py`                          | hard‑coded constants, magic numbers in notebooks          |
 | **Tests**                            | `tests/` (pytest with coverage gate)                                       |    —                                                      |
 

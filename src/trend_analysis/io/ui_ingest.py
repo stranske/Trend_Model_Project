@@ -32,6 +32,7 @@ class UiIngestSummary:
 
     corrected_dates: int = 0
     dropped_rows: int = 0
+    dropped_columns: tuple[str, ...] = ()
 
 
 def _normalise_header_value(value: Any) -> str:
@@ -131,14 +132,30 @@ def _sanitize_formula_headers(df: pd.DataFrame) -> pd.DataFrame:
     return sanitized
 
 
-def _find_date_column(df: pd.DataFrame) -> str | None:
+def _find_date_column(df: pd.DataFrame, date_column: str = "Date") -> str | None:
+    expected = str(date_column).strip().casefold()
     for column in df.columns:
-        if str(column).strip().casefold() == "date":
+        if str(column).strip().casefold() == expected:
             return str(column)
     return None
 
 
-def inspect_ui_date_issues(path: str | Path) -> DateCorrectionResult:
+def _date_name_collisions(df: pd.DataFrame, resolved_date_column: str) -> list[str]:
+    """Return non-timestamp columns whose names collide case-insensitively with Date."""
+
+    resolved_name = str(resolved_date_column)
+    return [
+        str(column)
+        for column in df.columns
+        if str(column) != resolved_name and str(column).strip().casefold() == "date"
+    ]
+
+
+def inspect_ui_date_issues(
+    path: str | Path,
+    *,
+    date_column: str = "Date",
+) -> DateCorrectionResult:
     raw, name = _read_binary_payload(path)
     lowered = (name or "").lower()
     is_excel = lowered.endswith((".xlsx", ".xls"))
@@ -154,13 +171,13 @@ def inspect_ui_date_issues(path: str | Path) -> DateCorrectionResult:
     _apply_original_headers(df, headers)
     df = _sanitize_formula_headers(df)
 
-    date_column = _find_date_column(df)
-    if date_column is None:
+    resolved_date_column = _find_date_column(df, date_column)
+    if resolved_date_column is None:
         raise MarketDataValidationError(
-            "Missing a 'Date' column or datetime index. "
-            "Ensure the upload includes a timestamp column named 'Date'."
+            f"Missing a '{date_column}' column or datetime index. "
+            f"Ensure the upload includes a timestamp column named '{date_column}'."
         )
-    return analyze_date_column(df, date_column)
+    return analyze_date_column(df, resolved_date_column)
 
 
 def _raise_date_issue(result: DateCorrectionResult, *, auto_fix_dates: bool) -> None:
@@ -184,6 +201,7 @@ def load_ui_dataset(
     path: str | Path,
     *,
     auto_fix_dates: bool = False,
+    date_column: str = "Date",
     missing_policy: str | Mapping[str, str] = "zero",
     missing_limit: int | Mapping[str, int | None] | None = None,
 ) -> tuple[pd.DataFrame, MarketDataMetadata, UiIngestSummary]:
@@ -202,20 +220,20 @@ def load_ui_dataset(
     _apply_original_headers(df, headers)
     df = _sanitize_formula_headers(df)
 
-    date_column = _find_date_column(df)
-    if date_column is None:
+    resolved_date_column = _find_date_column(df, date_column)
+    if resolved_date_column is None:
         raise MarketDataValidationError(
-            "Missing a 'Date' column or datetime index. "
-            "Ensure the upload includes a timestamp column named 'Date'."
+            f"Missing a '{date_column}' column or datetime index. "
+            f"Ensure the upload includes a timestamp column named '{date_column}'."
         )
 
     summary = UiIngestSummary()
-    correction_result = analyze_date_column(df, date_column)
+    correction_result = analyze_date_column(df, resolved_date_column)
     if correction_result.has_corrections or correction_result.total_droppable_rows > 0:
         if auto_fix_dates and correction_result.all_fixable:
             df = apply_date_corrections(
                 df,
-                date_column,
+                resolved_date_column,
                 correction_result.corrections,
                 drop_rows=correction_result.trailing_empty_rows
                 + correction_result.droppable_empty_rows,
@@ -229,6 +247,22 @@ def load_ui_dataset(
     elif correction_result.has_unfixable:
         _raise_date_issue(correction_result, auto_fix_dates=auto_fix_dates)
 
+    dropped_columns: list[str] = []
+    canonical_date_name = "Date"
+    if resolved_date_column.strip().casefold() != canonical_date_name.casefold():
+        dropped_columns = _date_name_collisions(df, resolved_date_column)
+        if dropped_columns:
+            df = df.drop(columns=dropped_columns)
+        df = df.rename(columns={resolved_date_column: canonical_date_name})
+    elif resolved_date_column != canonical_date_name:
+        df = df.rename(columns={resolved_date_column: canonical_date_name})
+    if dropped_columns:
+        summary = UiIngestSummary(
+            corrected_dates=summary.corrected_dates,
+            dropped_rows=summary.dropped_rows,
+            dropped_columns=tuple(dropped_columns),
+        )
+
     validated = validate_market_data(
         df,
         source=str(path),
@@ -236,5 +270,6 @@ def load_ui_dataset(
         missing_limit=missing_limit,
         auto_fix_dates=False,
     )
+    validated.frame.index.name = str(date_column)
 
     return validated.frame, validated.metadata, summary

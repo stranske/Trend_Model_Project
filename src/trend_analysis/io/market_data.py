@@ -26,6 +26,8 @@ from trend_analysis.io.date_correction import (
 )
 from trend_analysis.util.missing import (
     MissingPolicyResult,
+)
+from trend_analysis.util.missing import (
     apply_missing_policy as _apply_missing_policy,
 )
 

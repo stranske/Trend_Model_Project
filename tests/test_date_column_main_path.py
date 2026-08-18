@@ -7,6 +7,7 @@ from trend.diagnostics import DiagnosticResult
 from trend_analysis import pipeline_entrypoints
 from trend_analysis.data import load_csv
 from trend_analysis.io.market_data import MarketDataValidationError
+from trend_analysis.io.ui_ingest import inspect_ui_date_issues, load_ui_dataset
 from trend_analysis.multi_period import engine as multi_period_engine
 from trend_analysis.multi_period import loaders as multi_period_loaders
 
@@ -59,7 +60,9 @@ def _pipeline_bindings(captured: dict[str, object]) -> pipeline_entrypoints.Conf
         build_trend_spec=lambda *_args, **_kwargs: None,
         resolve_target_vol=lambda _vol_adjust: None,
         invoke_analysis_with_diag=fake_invoke_analysis,
-        weight_engine_params_from_robustness=lambda *_args, **_kwargs: None,
+        # The production binding always returns a mapping; keep this focused
+        # date-column double faithful now that the entrypoint merges it.
+        weight_engine_params_from_robustness=lambda *_args, **_kwargs: {},
         RiskStatsConfig=lambda **kwargs: SimpleNamespace(**kwargs),
     )
 
@@ -93,6 +96,45 @@ def test_load_csv_rejects_missing_configured_date_column(tmp_path):
 
     with pytest.raises(MarketDataValidationError, match="Timestamp"):
         load_csv(str(csv_path), errors="raise", date_column="Timestamp")
+
+
+def test_ui_date_repair_honors_configured_date_column(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Timestamp,Date,ManagerA\n"
+        "2024-01-31,0.10,0.01\n"
+        "2024-02-30,0.20,0.02\n"
+        "2024-03-31,0.30,0.03\n"
+    )
+
+    issues = inspect_ui_date_issues(csv_path, date_column="Timestamp")
+    frame, _, summary = load_ui_dataset(
+        csv_path,
+        auto_fix_dates=True,
+        date_column="Timestamp",
+    )
+
+    assert len(issues.corrections) == 1
+    assert summary.corrected_dates == 1
+    assert summary.dropped_columns == ("Date",)
+    assert frame.index.name == "Timestamp"
+    assert frame.columns.tolist() == ["ManagerA"]
+    assert frame.index[1] == pd.Timestamp("2024-02-29")
+
+
+def test_ui_date_repair_reports_date_column_collision(tmp_path):
+    csv_path = tmp_path / "returns.csv"
+    csv_path.write_text(
+        "Timestamp,Date,ManagerA\n" "2024-01-31,0.10,0.01\n" "2024-02-29,0.20,0.02\n"
+    )
+
+    _, _, summary = load_ui_dataset(
+        csv_path,
+        auto_fix_dates=False,
+        date_column="Timestamp",
+    )
+
+    assert summary.dropped_columns == ("Date",)
 
 
 def test_accepts_keyword_is_conservative_when_signature_fails():

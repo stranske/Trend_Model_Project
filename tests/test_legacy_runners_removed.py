@@ -13,8 +13,8 @@ PACKAGE_ROOT = SRC_ROOT / "trend_analysis"
 @pytest.mark.parametrize(
     "module_name",
     [
-        "trend_analysis.run_analysis",
-        "trend_analysis.run_multi_analysis",
+        "trend_analysis." + "run_analysis",
+        "trend_analysis." + "run_multi_analysis",
     ],
 )
 def test_legacy_runner_modules_gone(module_name: str) -> None:

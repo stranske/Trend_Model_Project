@@ -208,7 +208,7 @@ class TestDemoGoldenMaster:
             [
                 "python",
                 "-m",
-                "trend_analysis.cli",
+                "trend.cli",
                 "run",
                 "-c",
                 "config/demo.yml",
@@ -334,7 +334,7 @@ class TestDemoGoldenMaster:
                 [
                     "python",
                     "-m",
-                    "trend_analysis.cli",
+                    "trend.cli",
                     "run",
                     "-c",
                     "config/demo.yml",

@@ -44,13 +44,13 @@ def test_eager_imports_expose_core_helpers(reload_trend_analysis: object) -> Non
 def test_lazy_attribute_loads_requested_module(reload_trend_analysis: object) -> None:
     trend_analysis = reload_trend_analysis
     # Ensure the lazy module must be imported on access.
-    sys.modules.pop("trend_analysis.cli", None)
+    sys.modules.pop("trend_analysis.proxy", None)
 
-    cli_mod = trend_analysis.__getattr__("cli")
+    proxy_mod = trend_analysis.__getattr__("proxy")
 
-    assert cli_mod is importlib.import_module("trend_analysis.cli")
+    assert proxy_mod is importlib.import_module("trend_analysis.proxy")
     # Subsequent lookups should reuse the cached attribute on the package.
-    assert trend_analysis.cli is cli_mod
+    assert trend_analysis.proxy is proxy_mod
 
 
 def test_unknown_attribute_raises_attribute_error(

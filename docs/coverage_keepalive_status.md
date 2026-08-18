@@ -8,12 +8,12 @@
   2. `src/trend_analysis/export/bundle.py` — 7 %
   3. `src/trend_analysis/engine/walkforward.py` — 14 %
   4. `src/trend_analysis/core/rank_selection.py` — 17 %
-  5. `src/trend_analysis/config/model.py` — 44 %
-  6. `src/trend_analysis/config/models.py` — 46 %
-  7. `src/trend_analysis/data.py` — 29 %
-  8. `src/trend_analysis/cli.py` — 10 %
-  9. `src/trend_analysis/regimes.py` — 19 %
-  10. `src/trend_analysis/core/metric_cache.py` — 36 %
+  5. `src/trend_analysis/regimes.py` — 19 %
+  6. `src/trend_analysis/data.py` — 29 %
+  7. `src/trend/cli.py` — 31 %
+  8. `src/trend_analysis/core/metric_cache.py` — 36 %
+  9. `src/trend_analysis/config/model.py` — 44 %
+  10. `src/trend_analysis/config/models.py` — 46 %
 
 (See `coverage_report.txt` for the full listing.)
 

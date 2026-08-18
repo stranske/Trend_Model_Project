@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
 import pandas as pd
+import pytest
 
 from trend_analysis.multi_period.engine import (
     _configured_custom_weighting,

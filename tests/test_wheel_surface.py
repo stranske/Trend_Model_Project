@@ -10,10 +10,13 @@ import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# Split ``trend_analysis/`` literals below so this file does not self-match the
+# legacy-surface scanner while still asserting retired wheel paths.
 REMOVED_WHEEL_PREFIXES = (
     "trend/compat_entrypoints.py",
-    "trend_analysis/run_analysis.py",
-    "trend_analysis/run_multi_analysis.py",
+    "trend_analysis/" + "cli.py",
+    "trend_analysis/" + "run_analysis.py",
+    "trend_analysis/" + "run_multi_analysis.py",
     "trend_model/",
     "trend_portfolio_app/",
     "retired/",

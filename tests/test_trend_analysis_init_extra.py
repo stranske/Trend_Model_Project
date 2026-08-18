@@ -14,16 +14,16 @@ def _reset_trend_analysis():
     importlib.reload(trend_analysis)
 
 
-def test_lazy_cli_import_uses_registered_module(
+def test_lazy_proxy_import_uses_registered_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stub_cli = types.ModuleType("trend_analysis.cli")
-    monkeypatch.setitem(sys.modules, "trend_analysis.cli", stub_cli)
+    stub_proxy = types.ModuleType("trend_analysis.proxy")
+    monkeypatch.setitem(sys.modules, "trend_analysis.proxy", stub_proxy)
 
     module = importlib.reload(trend_analysis)
-    assert "cli" not in module.__dict__
-    assert module.cli is stub_cli
-    assert module.__dict__["cli"] is stub_cli
+    assert "proxy" not in module.__dict__
+    assert module.proxy is stub_proxy
+    assert module.__dict__["proxy"] is stub_proxy
 
 
 def test_unknown_attribute_raises_attribute_error() -> None:

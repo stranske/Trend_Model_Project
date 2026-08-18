@@ -35,8 +35,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 try:
     import trend_analysis as ta
+    from trend import cli
     from trend_analysis import (
-        cli,
         export,
         gui,
         metrics,
@@ -385,9 +385,9 @@ def _check_cli(cfg_path: str | os.PathLike[str], csv_path: str | os.PathLike[str
 
     cfg_arg = os.fspath(cfg_path)
     csv_arg = os.fspath(csv_path)
-    rc = cli.main(["--check"])
+    rc = cli.main(["check"])
     if rc != 0:
-        raise SystemExit("CLI --check failed")
+        raise SystemExit("CLI check failed")
     rc = cli.main(["run", "-c", cfg_arg, "-i", csv_arg])
     if rc != 0:
         raise SystemExit("CLI run failed")
@@ -2162,14 +2162,14 @@ _check_module_exports()
 def _check_cli_help() -> None:
     """Ensure the CLI entry points print help and exit cleanly."""
     subprocess.run(
-        [sys.executable, "-m", "trend_analysis.cli", "--help"],
+        [sys.executable, "-m", "trend.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
     )
     subprocess.run(
-        [sys.executable, "-m", "trend_analysis.cli", "--help"],
+        [sys.executable, "-m", "trend.cli", "--help"],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2261,7 +2261,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",
@@ -2275,7 +2275,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",
@@ -2289,7 +2289,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "trend_analysis.cli",
+        "trend.cli",
         "run",
         "-c",
         "config/demo.yml",

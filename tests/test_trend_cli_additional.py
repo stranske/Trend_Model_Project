@@ -119,8 +119,101 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
 
     cli._handle_exports(cfg, result, structured_log=False, run_id="run42")
 
-    assert export_calls[:2] == ["excel", "data:csv"]
-    assert export_calls[-1] == "log"
+    assert export_calls == ["log", "excel", "data:csv", "log"]
+
+
+def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):
+    manifest_dir = tmp_path / "runs" / "run42"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("version: '1'\n", encoding="utf-8")
+    input_path = tmp_path / "returns.csv"
+    input_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    result = SimpleNamespace(details=None, metrics=pd.DataFrame({"Sharpe": [0.7]}))
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": ["csv"], "filename": "analysis"},
+        sample_split={},
+        model_dump=lambda: {"version": "1"},
+    )
+    recorded: dict[str, object] = {}
+    log_events: list[str] = []
+
+    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_kwargs: manifest_dir)
+    monkeypatch.setattr(cli.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+
+    def fake_write_run_envelope(run_result, **kwargs):
+        recorded["result"] = run_result
+        recorded.update(kwargs)
+        return manifest_dir / "run_envelope.json"
+
+    monkeypatch.setattr(cli, "write_run_envelope", fake_write_run_envelope)
+    monkeypatch.setattr(
+        cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, event, _message, **_fields: log_events.append(event),
+    )
+
+    written = cli._write_trend_run_artifacts(
+        cfg=cfg,
+        result=result,
+        config_path=config_path,
+        input_path=input_path,
+        data_frame=pd.DataFrame({"A": [0.1]}),
+        run_id="run42",
+        structured_log=True,
+    )
+
+    assert written == manifest_dir
+    assert recorded["result"] is result
+    assert recorded["manifest_path"] == manifest_dir / "manifest.json"
+    assert recorded["run_dir"] == manifest_dir
+    assert recorded["config"] == {"version": "1"}
+    assert log_events == ["run_artifacts", "run_envelope"]
+
+
+def test_write_run_artifacts_survives_envelope_failure(monkeypatch, tmp_path):
+    manifest_dir = tmp_path / "runs" / "run42"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("version: '1'\n", encoding="utf-8")
+    input_path = tmp_path / "returns.csv"
+    result = SimpleNamespace(details=None, metrics=pd.DataFrame({"Sharpe": [0.7]}))
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": ["csv"], "filename": "analysis"},
+        sample_split={},
+        model_dump=lambda: {"version": "1"},
+    )
+    log_events: list[str] = []
+
+    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_kwargs: manifest_dir)
+    monkeypatch.setattr(cli.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(cli.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+    monkeypatch.setattr(
+        cli,
+        "write_run_envelope",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("envelope failed")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "maybe_log_step",
+        lambda _enabled, _run_id, event, _message, **_fields: log_events.append(event),
+    )
+
+    written = cli._write_trend_run_artifacts(
+        cfg=cfg,
+        result=result,
+        config_path=config_path,
+        input_path=input_path,
+        data_frame=pd.DataFrame({"A": [0.1]}),
+        run_id="run42",
+        structured_log=True,
+    )
+
+    assert written == manifest_dir
+    assert log_events == ["run_artifacts"]
 
 
 def test_write_bundle_into_directory(monkeypatch, tmp_path):
