@@ -8,7 +8,7 @@ from typing import Mapping
 import pytest
 from pydantic import ValidationError
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 pytest.importorskip("yaml")
 

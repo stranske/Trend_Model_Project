@@ -87,7 +87,6 @@ def test_fallback_config_provides_defaults(fallback_models: ModuleType) -> None:
     # Optional/nullable defaults
     assert cfg.robustness == {}
     assert cfg.model_dump()["robustness"] == {}
-    assert cfg.output is None
 
 
 @pytest.mark.parametrize(
@@ -200,8 +199,8 @@ def test_configuration_state_defaults(fallback_models: ModuleType) -> None:
     assert state.analysis_results is None
 
 
-def test_load_merges_output_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure ``load`` merges legacy ``output`` into the export settings."""
+def test_load_rejects_removed_output_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fallback loader rejects the removed top-level ``output`` section."""
 
     module = _load_config_module_without_pydantic(
         monkeypatch, module_name="tests.config_models_fallback_load"
@@ -222,13 +221,8 @@ def test_load_merges_output_settings(monkeypatch: pytest.MonkeyPatch) -> None:
             "output": {"format": ["CSV", "xlsx"], "path": "reports/summary.xlsx"},
         }
 
-        loaded = module.load(cfg_dict)
-        export_cfg = loaded.export
-        # Formats should be merged case-insensitively and deduplicated.
-        assert export_cfg["formats"] == ["csv", "xlsx"]
-        # Path is split into directory and filename when present.
-        assert export_cfg["directory"].endswith("reports")
-        assert export_cfg["filename"] == "summary.xlsx"
+        with pytest.raises(ValueError, match="output.*unexpected or inert"):
+            module.load(cfg_dict)
     finally:
         sys.modules.pop("tests.config_models_fallback_load", None)
 

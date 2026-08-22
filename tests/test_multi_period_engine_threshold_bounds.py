@@ -226,7 +226,7 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         )
         return {"metrics": pd.DataFrame(), "details": {}, "seed": cfg.seed}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 
@@ -353,7 +353,7 @@ def test_threshold_hold_max_active_positions(monkeypatch: pytest.MonkeyPatch) ->
         )
         return {"metrics": pd.DataFrame(), "details": {}, "seed": cfg.seed}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 

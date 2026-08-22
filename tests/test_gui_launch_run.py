@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -7,7 +8,14 @@ import trend_analysis.gui.app as app
 
 def _stub_store(output_format: str, path: str) -> app.ParamStore:
     store = app.ParamStore()
-    store.cfg = {"output": {"format": output_format, "path": path}}
+    target = Path(path)
+    store.cfg = {
+        "export": {
+            "formats": [output_format],
+            "directory": str(target.parent),
+            "filename": target.name,
+        }
+    }
     return store
 
 
@@ -17,7 +25,7 @@ def test_launch_run_button_uses_exporter(monkeypatch, tmp_path):
     monkeypatch.setattr(app, "load_state", lambda: store)
     monkeypatch.setattr(app, "discover_plugins", lambda: None)
 
-    cfg = SimpleNamespace(output=store.cfg["output"], sample_split={})
+    cfg = SimpleNamespace(export=store.cfg["export"], sample_split={})
     monkeypatch.setattr(app, "build_config_from_store", lambda s: cfg)
 
     metrics = pd.DataFrame({"value": [1.0]})
@@ -39,12 +47,12 @@ def test_launch_run_button_uses_exporter(monkeypatch, tmp_path):
 
     assert "data" in captured
     assert captured["data"]["metrics"].equals(metrics)
-    assert captured["path"] == store.cfg["output"]["path"]
+    assert captured["path"] == str(tmp_path / "report.csv")
     assert store.dirty is False
 
 
 def test_launch_run_button_exports_excel(monkeypatch, tmp_path):
-    store = _stub_store("excel", str(tmp_path / "analysis"))
+    store = _stub_store("xlsx", str(tmp_path / "analysis"))
 
     monkeypatch.setattr(app, "load_state", lambda: store)
     monkeypatch.setattr(app, "discover_plugins", lambda: None)
@@ -55,7 +63,7 @@ def test_launch_run_button_exports_excel(monkeypatch, tmp_path):
         "out_start": "2020-07",
         "out_end": "2020-12",
     }
-    cfg = SimpleNamespace(output=store.cfg["output"], sample_split=sample_split)
+    cfg = SimpleNamespace(export=store.cfg["export"], sample_split=sample_split)
     monkeypatch.setattr(app, "build_config_from_store", lambda s: cfg)
 
     metrics = pd.DataFrame({"value": [1.0]})

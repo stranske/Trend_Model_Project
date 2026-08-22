@@ -96,7 +96,7 @@ def test_exited_manager_excluded_after_exit_date(tmp_path: Path, monkeypatch) ->
 
 
 def test_demo_membership_covers_demo_returns_managers() -> None:
-    from utils.paths import proj_path
+    from trend_analysis.util.paths import proj_path
 
     demo_returns = proj_path() / "demo" / "demo_returns.csv"
     demo_membership = proj_path() / "demo" / "demo_universe_membership.csv"

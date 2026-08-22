@@ -20,7 +20,7 @@ from typing import Iterable, List, Tuple
 import pandas as pd
 
 from trend_analysis.config.bridge import build_config_payload, validate_payload
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 MAX_DRY_RUN_LOOKBACK_PERIODS = 12
 MAX_DRY_RUN_OUT_PERIODS = 3

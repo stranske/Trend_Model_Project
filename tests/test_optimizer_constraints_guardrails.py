@@ -119,6 +119,30 @@ def test_apply_constraints_rejects_non_numeric_group_caps() -> None:
 
 
 def test_apply_constraints_reapplies_max_weight_after_group_caps() -> None:
+    weights = pd.Series(
+        {"TechA": 0.85, "TechB": 0.05, "OtherA": 0.05, "OtherB": 0.05},
+        dtype=float,
+    )
+    constraints = ConstraintSet(
+        max_weight=0.5,
+        group_caps={"Tech": 0.4},
+        groups={
+            "TechA": "Tech",
+            "TechB": "Tech",
+            "OtherA": "Other",
+            "OtherB": "Other",
+        },
+    )
+
+    adjusted = apply_constraints(weights, constraints)
+
+    assert pytest.approx(float(adjusted.sum()), rel=0, abs=1e-12) == 1.0
+    assert (adjusted <= 0.5 + 1e-12).all()
+    assert adjusted.loc[["OtherA", "OtherB"]].sum() == pytest.approx(0.6)
+    assert adjusted.loc[["TechA", "TechB"]].sum() == pytest.approx(0.4)
+
+
+def test_apply_constraints_rejects_jointly_infeasible_group_and_asset_caps() -> None:
     weights = pd.Series({"TechA": 0.9, "TechB": 0.05, "Other": 0.05}, dtype=float)
     constraints = ConstraintSet(
         max_weight=0.5,
@@ -126,11 +150,20 @@ def test_apply_constraints_reapplies_max_weight_after_group_caps() -> None:
         groups={"TechA": "Tech", "TechB": "Tech", "Other": "Other"},
     )
 
-    adjusted = apply_constraints(weights, constraints)
+    with pytest.raises(ConstraintViolation, match="No capacity to redistribute excess weight"):
+        apply_constraints(weights, constraints)
 
-    assert pytest.approx(float(adjusted.sum()), rel=0, abs=1e-12) == 1.0
-    assert (adjusted <= 0.5 + 1e-12).all()
-    assert adjusted.loc["Other"] == pytest.approx(0.5)
+
+def test_group_caps_remain_global_after_sequential_redistribution() -> None:
+    weights = pd.Series({"AssetA": 0.80, "AssetB": 0.15, "AssetC": 0.05})
+    groups = {"AssetA": "A", "AssetB": "B", "AssetC": "C"}
+    caps = {"A": 0.40, "B": 0.25, "C": 0.35}
+
+    adjusted = apply_constraints(weights, ConstraintSet(group_caps=caps, groups=groups))
+
+    assert float(adjusted.sum()) == pytest.approx(1.0)
+    for asset, group in groups.items():
+        assert adjusted.loc[asset] <= caps[group] + 1e-10
 
 
 @pytest.mark.parametrize("cash_weight", [0.0, -0.1, 1.0])

@@ -276,6 +276,10 @@ def single_period_run(
         return pd.to_datetime(f"{s}-01") + pd.offsets.MonthEnd(0)
 
     sdate, edate = _parse_month(start), _parse_month(end)
+    date_timezone = df["Date"].dt.tz
+    if date_timezone is not None:
+        sdate = sdate.tz_localize(date_timezone)
+        edate = edate.tz_localize(date_timezone)
     window = df[(df["Date"] >= sdate) & (df["Date"] <= edate)].set_index("Date")
 
     if window.empty:

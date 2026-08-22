@@ -17,6 +17,26 @@ def test_gui_module_imports():
         pytest.skip("GUI dependencies not available")
 
 
+@pytest.mark.parametrize("formats", [None, [], ["xlsx", None], 1])
+def test_invalid_export_formats_fall_back_to_xlsx(formats):
+    from trend_analysis.gui.app import _normalized_export_formats
+
+    assert _normalized_export_formats(formats) == ["xlsx"]
+
+
+@pytest.mark.parametrize(
+    ("theme", "color_scheme"),
+    [("light", "light"), ("dark", "dark"), ("system", "light dark")],
+)
+def test_theme_script_applies_dom_consumed_color_scheme(theme, color_scheme):
+    from trend_analysis.gui.app import _theme_script
+
+    script = _theme_script(theme)
+    assert f"dataset.trendTheme = '{theme}'" in script
+    assert f"style.colorScheme = '{color_scheme}'" in script
+    assert "--trend-theme" not in script
+
+
 class TestParamStore:
     """Test ParamStore functionality."""
 
@@ -38,7 +58,7 @@ class TestParamStore:
             store = ParamStore()
             store.cfg = {
                 "portfolio": {"selection_mode": "all"},
-                "output": {"format": "excel"},
+                "export": {"formats": ["xlsx"]},
             }
             assert store.cfg["portfolio"]["selection_mode"] == "all"
         except ImportError:
@@ -57,12 +77,12 @@ class TestConfigManagement:
             store = ParamStore()
             store.cfg = {
                 "portfolio": {"selection_mode": "all"},
-                "output": {"format": "excel"},
+                "export": {"formats": ["xlsx"]},
             }
 
             result = app.build_config_dict(store)
             assert result["portfolio"]["selection_mode"] == "all"
-            assert result["output"]["format"] == "excel"
+            assert result["export"]["formats"] == ["xlsx"]
         except ImportError:
             pytest.skip("GUI dependencies not available")
 
@@ -133,12 +153,12 @@ class TestWidgetInteractionPatterns:
             store = ParamStore()
 
             # Simulate dropdown change
-            out = store.cfg.setdefault("output", {})
-            out["format"] = "csv"
+            export_cfg = store.cfg.setdefault("export", {})
+            export_cfg["formats"] = ["csv"]
             if hasattr(store, "dirty"):
                 store.dirty = True
 
-            assert store.cfg["output"]["format"] == "csv"
+            assert store.cfg["export"]["formats"] == ["csv"]
         except ImportError:
             pytest.skip("GUI dependencies not available")
 

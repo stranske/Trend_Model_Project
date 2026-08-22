@@ -153,7 +153,7 @@ def test_run_refactor_preserves_period_parity(monkeypatch) -> None:
             "score_frame": pd.DataFrame(index=manual_funds),
         }
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     df = pd.DataFrame(
         {
@@ -263,7 +263,7 @@ def test_run_refactor_output_schema_and_deliberate_break(monkeypatch) -> None:
             "score_frame": pd.DataFrame(index=tuple(kwargs["manual_funds"])),
         }
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     df = pd.DataFrame(
         {

@@ -13,7 +13,7 @@ Purpose: map the current YAML configuration flow, validation, and runtime entryp
 - Use: `_run_pipeline` in `src/trend/cli.py`, which calls `run_simulation(cfg, returns)` in `src/trend_analysis/api.py`.
 
 ### Streamlit app
-- Entry: `streamlit_app/app.py` (launched by `trend-model gui` or `trend app`).
+- Entry: `streamlit_app/app.py` (launched by `trend app`).
 - YAML presets:
   - Demo runner loads YAML presets from `config/presets/*.yml` via `streamlit_app/components/demo_runner.py` (`load_preset_config`).
 - Guardrails (startup validation):
@@ -68,11 +68,8 @@ Purpose: map the current YAML configuration flow, validation, and runtime entryp
 
 ## Config Preprocessing / Normalization
 
-- Legacy export normalization: `src/trend_analysis/config/models.py` merges legacy `output` into `export` (formats + directory/filename).
-- Wrapper unwrapping: `src/trend_analysis/pipeline_helpers.py` unwraps `__cfg__` wrappers (used by config coverage tooling).
-- Missing-policy fallbacks: `src/trend_analysis/pipeline_entrypoints.py` maps `nan_policy/nan_limit` to `missing_policy/missing_limit` when present.
 - Target vol normalization: `src/trend_analysis/pipeline_helpers.py` returns `None` when `vol_adjust.enabled` is false or target is invalid.
-- Signal normalization: `src/trend_analysis/pipeline_helpers.py` merges `signals` settings with aliases (`trend_window`, `trend_lag`, etc.) and vol defaults.
+- Signal normalization: `src/trend_analysis/pipeline_helpers.py` builds the canonical signal specification and applies volatility settings.
 - Sample split resolution: `src/trend_analysis/pipeline_helpers.py` converts `sample_split` settings into explicit `in_*`/`out_*` boundaries.
 - Preset mutation: `src/trend_analysis/presets.py` can mutate `signals`, `vol_adjust`, and `run.trend_preset` based on named presets.
 
@@ -146,7 +143,7 @@ Legend:
 | `portfolio.constraints.max_weight` | Constrained | 0 < max_weight <= 1.
 | `portfolio.constraints.group_caps` | Constrained | Values 0-1 per group.
 | `portfolio.constraints.max_active_positions` | Constrained | Non-negative int.
-| `portfolio.robustness.shrinkage.method` | Constrained | Allowed: none/ledoit_wolf/oas.
+| `portfolio.robustness.shrinkage.method` | Constrained | Allowed: none/matrix_diagonal/matrix_trace.
 | `portfolio.robustness.condition_check.threshold` | Constrained | Positive float condition number threshold.
 | `portfolio.robustness.condition_check.safe_mode` | Constrained | Allowed: hrp/risk_parity/diagonal_mv.
 | `portfolio.robustness.condition_check.diagonal_loading_factor` | Constrained | Float >= 0.
@@ -174,11 +171,9 @@ Legend:
 | `multi_period.start` | Constrained | YYYY-MM or YYYY-MM-DD.
 | `multi_period.end` | Constrained | YYYY-MM or YYYY-MM-DD.
 | `seed` | Safe | Integer seed, overrides randomness.
-| `__cfg__` | Internal | Wrapper key for config coverage tooling.
-| `output.*` | Derived | Legacy conversion into `export` during load.
 
 ## Notes for NL Layer
 
 - NL modifications should target `Config`-level fields that are validated by `config/models.py` and enforce bounds for constrained fields.
-- Avoid `__cfg__` and `output` keys entirely; they are internal/legacy.
+- The removed top-level `output` section is rejected; use `export`.
 - When in doubt, validate with `trend_analysis.config.model.validate_trend_config` or `trend.config_schema.validate_core_config` depending on scope.

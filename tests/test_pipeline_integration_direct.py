@@ -73,10 +73,6 @@ def _build_demo_config(tmp_path: Path, csv_path: Path) -> dict:
             "formats": ["csv", "json", "txt", "xlsx"],
             "filename": "analysis",
         },
-        "output": {
-            "format": "csv",
-            "path": str(exports_dir / "alias_demo.csv"),
-        },
         "run": {
             "seed": 7,
             "monthly_cost": 0.001,

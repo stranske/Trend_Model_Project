@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend.mc.io import load_nav_paths_frame
+from trend.mc.io import load_nav_paths
 from trend.mc.viz import _load_mc_bundle_frames
 
 pytestmark = [pytest.mark.integration, pytest.mark.mc_viz_integration]
@@ -57,7 +57,7 @@ def test_mc_bundle_nav_paths_parquet_loads() -> None:
     bundle_dir = _fixture_bundle_dir()
     assert (bundle_dir / "nav_paths.parquet").is_file()
 
-    nav_paths = load_nav_paths_frame(bundle_dir)
+    nav_paths = load_nav_paths(bundle_dir)
 
     assert isinstance(nav_paths, pd.DataFrame)
     assert not nav_paths.empty

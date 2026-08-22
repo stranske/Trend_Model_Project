@@ -141,7 +141,6 @@ SOURCE_DIRS = (
     "analysis",
     "src/trend_analysis",
     "src/trend",
-    "src/utils",
     "src/data",
     "src/backtest",
 )

@@ -1053,7 +1053,7 @@ def test_build_config_from_store_uses_config_factory(monkeypatch):
     store = ParamStore()
     store.cfg = {
         "portfolio": {"selection_mode": "rank"},
-        "output": {"format": "csv"},
+        "export": {"formats": ["csv"]},
     }
 
     created: list[SimpleNamespace] = []
@@ -1433,7 +1433,7 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
 
     store = ParamStore()
-    store.cfg = {"output": {"format": "excel"}}
+    store.cfg = {"export": {"formats": ["xlsx"]}}
 
     monkeypatch.setattr(app_module, "load_state", lambda: store)
 
@@ -1445,9 +1445,10 @@ def test_launch_interactions(monkeypatch, tmp_path):
     }
 
     def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
-        output_cfg = store_obj.cfg.get("output", {}).copy()
-        output_cfg.setdefault("path", str(tmp_path / "out"))
-        return SimpleNamespace(output=output_cfg, sample_split=sample_split)
+        export_cfg = store_obj.cfg.get("export", {}).copy()
+        export_cfg.setdefault("directory", str(tmp_path))
+        export_cfg.setdefault("filename", "out")
+        return SimpleNamespace(export=export_cfg, sample_split=sample_split)
 
     monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
 
@@ -1496,7 +1497,7 @@ def test_launch_interactions(monkeypatch, tmp_path):
     store.cfg = {
         "portfolio": {"selection_mode": "random"},
         "vol_adjust": {"enabled": False},
-        "output": {"format": "json"},
+        "export": {"formats": ["json"]},
     }
     replacement_callbacks[0]()
     assert mode.value == "random"
@@ -1508,7 +1509,7 @@ def test_launch_interactions(monkeypatch, tmp_path):
 
     # Simulate the config-loader replacing the entire state mapping after the
     # launch callbacks were registered.
-    store.cfg = {"output": {"format": "excel"}}
+    store.cfg = {"export": {"formats": ["xlsx"]}}
 
     mode.set_value("rank")
     assert store.cfg["portfolio"]["selection_mode"] == "rank"
@@ -1521,17 +1522,17 @@ def test_launch_interactions(monkeypatch, tmp_path):
     assert store.cfg["vol_adjust"]["enabled"] is True
 
     fmt_dd.set_value("json")
-    assert store.cfg["output"]["format"] == "json"
+    assert store.cfg["export"]["formats"] == ["json"]
 
     theme.set_value("dark")
     assert store.theme == "dark" and theme_calls
-    assert "setProperty('--trend-theme','dark')" in theme_calls[-1]
-    assert "' --trend-theme'" not in theme_calls[-1]
+    assert "dataset.trendTheme = 'dark'" in theme_calls[-1]
+    assert "style.colorScheme = 'dark'" in theme_calls[-1]
 
     run_btn.click()
     assert json_calls and save_calls and not store.dirty
 
-    fmt_dd.set_value("excel")
+    fmt_dd.set_value("xlsx")
     run_btn.click()
     assert export_calls
 
@@ -1571,7 +1572,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.widgets, "SelectMultiple", DummyDropdown)
 
     store = ParamStore()
-    store.cfg = {"output": {"format": "excel", "path": str(tmp_path / "out")}}
+    store.cfg = {"export": {"formats": ["xlsx"], "directory": str(tmp_path), "filename": "out"}}
     monkeypatch.setattr(app_module, "load_state", lambda: store)
 
     sample_split = {
@@ -1585,7 +1586,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
         app_module,
         "build_config_from_store",
         lambda store_obj: SimpleNamespace(
-            output=store_obj.cfg.get("output", {}), sample_split=sample_split
+            export=store_obj.cfg.get("export", {}), sample_split=sample_split
         ),
     )
 
@@ -1608,7 +1609,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
 
     assert run_calls, "Expected pipeline.run to be invoked"
     assert saved == [], "save_state should not be called when metrics are empty"
-    assert store.cfg["output"]["format"] == "excel"
+    assert store.cfg["export"]["formats"] == ["xlsx"]
 
 
 def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
@@ -1631,7 +1632,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
 
     store = ParamStore()
-    store.cfg = {"output": {"format": "json", "path": str(tmp_path / "payload")}}
+    store.cfg = {"export": {"formats": ["json"], "directory": str(tmp_path), "filename": "payload"}}
     monkeypatch.setattr(app_module, "load_state", lambda: store)
 
     sample_split = {
@@ -1642,7 +1643,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     }
 
     def build_cfg(store_obj: ParamStore) -> SimpleNamespace:
-        return SimpleNamespace(output=store_obj.cfg.get("output", {}), sample_split=sample_split)
+        return SimpleNamespace(export=store_obj.cfg.get("export", {}), sample_split=sample_split)
 
     monkeypatch.setattr(app_module, "build_config_from_store", build_cfg)
 

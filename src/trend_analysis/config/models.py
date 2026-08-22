@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 # ``models.py`` is executed under different module names in the test suite so we
 # import ``validate_trend_config`` via its fully-qualified path to avoid
@@ -80,7 +80,6 @@ class ConfigProtocol(Protocol):
     robustness: dict[str, Any]
     signals: dict[str, Any]
     export: dict[str, Any]
-    output: dict[str, Any] | None
     run: dict[str, Any]
     strategy: dict[str, Any]
     walk_forward: dict[str, Any]
@@ -385,7 +384,6 @@ if _HAS_PYDANTIC:
         performance: dict[str, Any] = Field(default_factory=dict)
         identity: dict[str, Any] = Field(default_factory=dict)
         extra: dict[str, Any] = Field(default_factory=dict)
-        output: dict[str, Any] | None = None
         run: dict[str, Any] = Field(default_factory=dict)
         multi_period: dict[str, Any] | None = None
         strategy: dict[str, Any] = Field(default_factory=dict)
@@ -590,7 +588,6 @@ else:  # Fallback mode for tests without pydantic
             "performance",
             "identity",
             "extra",
-            "output",
             "run",
             "multi_period",
             "strategy",
@@ -625,7 +622,6 @@ else:  # Fallback mode for tests without pydantic
         performance: Dict[str, Any]
         identity: Dict[str, Any]
         extra: Dict[str, Any]
-        output: Dict[str, Any] | None
         run: Dict[str, Any]
         multi_period: Dict[str, Any] | None
         strategy: Dict[str, Any]
@@ -648,7 +644,6 @@ else:  # Fallback mode for tests without pydantic
                 "performance": {},
                 "identity": {},
                 "extra": {},
-                "output": None,
                 "run": {},
                 "multi_period": None,
                 "strategy": {},
@@ -657,6 +652,9 @@ else:  # Fallback mode for tests without pydantic
             }
 
         def _validate(self) -> None:  # Simple runtime validation
+            unknown = sorted(set(vars(self)) - set(self.ALL_FIELDS))
+            if unknown:
+                raise ValueError(f"Unexpected config field(s): {', '.join(unknown)}")
             if getattr(self, "version", None) is None:
                 raise ValueError("version field is required")
             if not isinstance(self.version, str):
@@ -986,6 +984,18 @@ REQUIRED_SECTIONS = (
 )
 
 
+def _reject_unexpected_top_level_keys(data: Mapping[str, Any]) -> None:
+    """Reject retired or inert top-level keys before fallback normalization."""
+
+    allowed = set(getattr(Config, "ALL_FIELDS", ()))
+    model_fields = getattr(Config, "model_fields", None)
+    if isinstance(model_fields, Mapping):
+        allowed.update(model_fields)
+    unexpected = sorted(set(data) - allowed)
+    if unexpected:
+        raise ValueError(f"{unexpected[0]}: unexpected or inert config key")
+
+
 def _config_from_validated(data: dict[str, Any], validated: Any | None) -> ConfigProtocol:
     if isinstance(validated, Config):
         return validated
@@ -1017,6 +1027,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if not isinstance(cfg, Mapping):
         raise TypeError("cfg must be a mapping or path")
     cfg_dict = dict(cfg)
+    _reject_unexpected_top_level_keys(cfg_dict)
     # Early version validation for mapping-based load to surface version
     # errors directly (tests accept ValueError here) regardless of Pydantic.
     if "version" in cfg_dict:
@@ -1072,33 +1083,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             if not isinstance(data, dict):
                 raise TypeError("Config file must contain a mapping")
 
-    out_cfg = data.pop("output", None)
-    if isinstance(out_cfg, dict):
-        export_cfg = data.setdefault("export", {})
-        fmt = out_cfg.get("format")
-        if fmt:
-            fmt_list = [fmt] if isinstance(fmt, str) else list(fmt)
-            existing = export_cfg.get("formats")
-            if isinstance(existing, str):
-                combined = [str(existing)]
-            elif isinstance(existing, (list, tuple, set)):
-                combined = [str(item) for item in existing]
-            else:
-                combined = []
-            seen = {item.lower() for item in combined}
-            for item in fmt_list:
-                item_str = str(item)
-                key = item_str.lower()
-                if key not in seen:
-                    combined.append(item_str)
-                    seen.add(key)
-            export_cfg["formats"] = combined if combined else [str(v) for v in fmt_list]
-        path_val = out_cfg.get("path")
-        if path_val:
-            p = Path(path_val)
-            export_cfg.setdefault("directory", str(p.parent) if p.parent else ".")
-            export_cfg.setdefault("filename", p.name)
-
+    _reject_unexpected_top_level_keys(data)
     # Version validation (type / whitespace). Let ValueError propagate in fallback.
     if "version" in data and not _HAS_PYDANTIC:
         _validate_version_value(data["version"])  # fallback mode only

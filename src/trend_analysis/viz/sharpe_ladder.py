@@ -153,7 +153,7 @@ def make(
     negative_color: str = DEFAULT_NEGATIVE_COLOR,
     aggregate_duplicates: bool = True,
 ) -> go.Figure:
-    """Backward-compatible wrapper around :func:`build_figure`."""
+    """Stable visualization entry point delegating to :func:`build_figure`."""
 
     return build_figure(
         summary,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -189,15 +189,13 @@ async def preview_config_patch(payload: ConfigPatchRequest) -> dict[str, Any]:
     return {"status": "success", "config": updated, "diff": diff}
 
 
-def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
+def run(host: str = "127.0.0.1", port: int = 8000) -> None:
     """Run the FastAPI server.
 
     Args:
         host: Host to bind to
         port: Port to bind to
 
-    Returns:
-        Tuple of (host, port) for backward compatibility
     """
     import uvicorn
 
@@ -208,7 +206,6 @@ def run(host: str = "127.0.0.1", port: int = 8000) -> Tuple[str, int]:
         reload=False,
         log_level="info",
     )
-    return host, port
 
 
 if __name__ == "__main__":

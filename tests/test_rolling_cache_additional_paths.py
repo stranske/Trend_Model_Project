@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -95,3 +96,44 @@ def test_get_cache_returns_default_singleton(monkeypatch, tmp_path: Path) -> Non
     monkeypatch.setattr(rolling_cache, "_DEFAULT_ROLLING_CACHE", cache)
 
     assert rolling_cache.get_cache() is cache
+
+
+def test_primary_failure_warns_without_leaking_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    primary = tmp_path / "private-cache-name"
+    original_mkdir = Path.mkdir
+
+    def selective_mkdir(path: Path, *args: object, **kwargs: object) -> None:
+        if path == primary:
+            raise PermissionError("private detail")
+        original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", selective_mkdir)
+    with caplog.at_level(logging.WARNING):
+        cache = rolling_cache.RollingCache(cache_dir=primary)
+
+    assert cache.storage_status == "temporary"
+    assert "using temporary storage" in caplog.text
+    assert "private-cache-name" not in caplog.text
+    assert "private detail" not in caplog.text
+
+
+def test_all_storage_failures_warn_and_disable_without_leaking_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    primary = tmp_path / "private-cache-name"
+    monkeypatch.setattr(
+        Path,
+        "mkdir",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PermissionError("private detail")),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        cache = rolling_cache.RollingCache(cache_dir=primary)
+
+    assert cache.storage_status == "disabled"
+    assert not cache.is_enabled()
+    assert "persistent caching is disabled" in caplog.text
+    assert "private-cache-name" not in caplog.text
+    assert "private detail" not in caplog.text

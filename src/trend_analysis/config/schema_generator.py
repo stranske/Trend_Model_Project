@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
 _CONFIG_DIR = proj_path() / "config"
@@ -41,7 +41,6 @@ _TYPE_OVERRIDES: dict[str, list[str] | str] = {
     "signals.zscore": ["boolean", "number", "null"],
     "signals.vol_adjust": ["boolean", "null"],
     "signals.vol_target": ["number", "null"],
-    "output": ["object", "null"],
     "multi_period": ["object", "null"],
     "run.jobs": ["integer", "null"],
     "run.checkpoint_dir": ["string", "null"],
@@ -190,8 +189,6 @@ _MANUAL_DESCRIPTIONS: dict[str, str] = {
     "regime.risk_off_target_vol_multiplier": "Scale target volatility in risk-off regime.",
     "regime.risk_off_fund_count_multiplier": "Scale fund count in risk-off regime.",
     "regime.cache": "Cache regime signals.",
-    "output.format": "Output file format for legacy single-file runners.",
-    "output.path": "Output path or prefix for legacy single-file runners.",
     "run": "Runtime execution settings.",
     "run.seed": "Random seed used for deterministic runs.",
     "run.jobs": "Canonical parallel worker count for a run.",

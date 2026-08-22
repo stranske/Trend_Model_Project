@@ -107,7 +107,7 @@ from trend_analysis.signal_presets import (
 )
 from trend_analysis.universe_catalog import load_universe
 from trend_analysis.util.hash import working_run_id
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def _run_environment_check() -> int:

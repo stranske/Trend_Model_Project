@@ -49,7 +49,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         self.assertNotIn("| head -5 || true", content)
 
         # Verify proper error handling is in place
-        self.assertIn("if [[ $? -ne 0 ]]; then", content)
+        self.assertIn("if ! DIFF_FILES=$(git diff --name-only HEAD~1 2>/dev/null); then", content)
         self.assertIn("::warning::git diff command failed", content)
 
     def test_validate_fast_error_handling(self):
@@ -83,6 +83,14 @@ class TestScriptErrorHandling(unittest.TestCase):
 
         # Verify proper null handling with echo ""
         self.assertIn('|| echo ""', content)
+
+    def test_run_tests_installs_declared_dev_dependencies_with_active_python(self):
+        """A clean test environment must include the baseline harness dependency."""
+        script_path = self.scripts_dir / "run_tests.sh"
+        content = script_path.read_text(encoding="utf-8")
+
+        self.assertIn('python -m pip install -e ".[dev]"', content)
+        self.assertNotIn('pip install --no-deps -e ".[dev]"', content)
 
     def test_scripts_run_without_failure(self):
         """Test that modified scripts run without critical failures."""

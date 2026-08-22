@@ -6,7 +6,7 @@ maintainability and make them easier to modify.
 
 # Default export configuration constants
 DEFAULT_OUTPUT_DIRECTORY = "outputs"
-DEFAULT_OUTPUT_FORMATS = ["excel"]
+DEFAULT_OUTPUT_FORMATS = ["xlsx"]
 
 # Numerical tolerance constants for precision comparisons
 NUMERICAL_TOLERANCE_HIGH = 1e-12  # High precision numerical tolerance

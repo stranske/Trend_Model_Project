@@ -69,7 +69,7 @@ The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
 | Layer / Concern | Canonical Location | Deprecated |
 |-----------------|-------------------|------------|
 | Data ingest & cleaning | `trend_analysis/data.py` | `data_utils.py`, notebook helpers |
-| Portfolio logic & metrics | `trend_analysis/metrics.py` | loops in `run_analysis.py` |
+| Portfolio logic & metrics | `trend_analysis/stages/portfolio.py`, `trend_analysis/metrics/` | duplicated calculations in orchestration modules |
 | Export / I/O | `trend_analysis/export/` | root-level `exports.py` |
 | Domain kernels | `trend_analysis/core/` | standalone `core/` directory |
 | Pipeline orchestration | `trend_analysis/pipeline.py` | duplicated control flow |

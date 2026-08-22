@@ -51,7 +51,6 @@ def _pipeline_bindings(captured: dict[str, object]) -> pipeline_entrypoints.Conf
     return pipeline_entrypoints.ConfigBindings(
         load_csv=fake_load_csv,
         attach_calendar_settings=lambda *_args, **_kwargs: None,
-        unwrap_cfg=lambda cfg: cfg,
         cfg_section=_cfg_section,
         section_get=_section_get,
         cfg_value=lambda cfg, key, default=None: _section_get(cfg, key, default),

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_fallback_loader_activates_when_imports_fail(

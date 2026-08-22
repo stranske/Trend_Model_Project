@@ -131,12 +131,6 @@ def load_nav_paths(
     return validate_nav_paths_df(loaded, required_columns=required_columns)
 
 
-def load_nav_paths_frame(bundle: str | os.PathLike[str]) -> pd.DataFrame | None:
-    """Backward-compatible wrapper for optional NAV-path loading."""
-
-    return load_nav_paths(bundle, missing_parquet=MISSING_NAV_PATHS_RETURN_NONE)
-
-
 def validate_nav_paths_requirement(
     selected_charts: Iterable[str],
     nav_paths_frame: pd.DataFrame | None,

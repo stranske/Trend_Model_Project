@@ -204,7 +204,7 @@ def test_load_config_validates_sections(monkeypatch: pytest.MonkeyPatch) -> None
     assert isinstance(result, models.Config)
 
 
-def test_load_merges_output_formats_and_paths(
+def test_load_rejects_removed_output_formats_and_paths(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     def fake_validate(cfg: dict[str, Any], *, base_path: Path) -> dict[str, Any]:
@@ -219,11 +219,8 @@ def test_load_merges_output_formats_and_paths(
         "path": tmp_path / "reports" / "summary.xlsx",
     }
 
-    cfg = models.load(data)
-    export_cfg = cfg.export  # type: ignore[attr-defined]
-    assert {fmt.lower() for fmt in export_cfg["formats"]} == {"json", "txt", "csv"}
-    assert export_cfg["directory"].endswith("reports")
-    assert export_cfg["filename"] == "summary.xlsx"
+    with pytest.raises(ValueError, match="output"):
+        models.load(data)
 
 
 def test_load_applies_validator_outputs(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -153,7 +153,7 @@ def _wire_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run_analysis(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
         return {"metrics": pd.DataFrame(), "details": {}, "seed": 123}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
 
 def test_multi_period_engine_surfaces_weight_engine_fallback(

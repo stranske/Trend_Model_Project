@@ -1,4 +1,4 @@
-"""Additional unit tests for ``trend_analysis.pipeline`` helper utilities."""
+"""Additional unit tests for canonical pipeline helper utilities."""
 
 from __future__ import annotations
 
@@ -11,24 +11,26 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+import trend_analysis.pipeline_helpers as pipeline_helpers
 from tests._pipeline_test_utils import run_analysis_payload
 from trend.config_schema import CoreConfigError
-from trend_analysis.pipeline import (
+from trend_analysis.pipeline import compute_signal
+from trend_analysis.pipeline_helpers import (
     _build_trend_spec,
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
     _empty_run_full_result,
     _policy_from_config,
-    _prepare_input_data,
-    _preprocessing_summary,
     _resolve_sample_split,
     _section_get,
-    _Stats,
-    _unwrap_cfg,
-    compute_signal,
-    single_period_run,
 )
+from trend_analysis.stages import portfolio as portfolio_stage
+from trend_analysis.stages import preprocessing as preprocessing_stage
+from trend_analysis.stages import selection as selection_stage
+from trend_analysis.stages.portfolio import _Stats
+from trend_analysis.stages.preprocessing import _prepare_input_data, _preprocessing_summary
+from trend_analysis.stages.selection import single_period_run
 from trend_analysis.pipeline_helpers import (
     _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,
@@ -36,9 +38,6 @@ from trend_analysis.pipeline_helpers import (
 from trend_analysis.signals import TrendSpec
 from trend_analysis.util.frequency import FrequencySummary
 from trend_analysis.util.missing import MissingPolicyResult
-
-RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
-
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
@@ -95,15 +94,8 @@ def test_cfg_helpers_handle_mixed_inputs() -> None:
     assert isinstance(section, dict)
     assert section["nested"] == 2
 
-    wrapped = {"__cfg__": {"delta": 4}}
-    unwrapped = _unwrap_cfg(wrapped)
-    assert unwrapped == {"delta": 4}
-
     assert _cfg_section({}, "missing") == {}
     assert _section_get(None, "anything", default=9) == 9
-
-    wrapped_none = {"__cfg__": None}
-    assert _unwrap_cfg(wrapped_none) is wrapped_none
 
     empty = _empty_run_full_result()
     assert set(empty) == {
@@ -453,14 +445,14 @@ def test_prepare_input_data_resamples_and_applies_policy(
     )
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "detect_frequency", lambda series: summary)
+        mp.setattr(preprocessing_stage, "detect_frequency", lambda series: summary)
 
         def fake_apply_missing_policy(data: pd.DataFrame, **kwargs):
             assert kwargs["policy"] == "drop"
             assert kwargs["enforce_completeness"] is True
             return data, fake_result
 
-        mp.setattr(pipeline, "apply_missing_policy", fake_apply_missing_policy)
+        mp.setattr(preprocessing_stage, "apply_missing_policy", fake_apply_missing_policy)
 
         monthly, freq_info, missing_meta, normalised = _prepare_input_data(
             df,
@@ -553,7 +545,7 @@ def test_resolve_sample_split_reports_missing(monkeypatch: pytest.MonkeyPatch) -
     )
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_derive_split_from_periods",
             lambda *args, **kwargs: {"in_start": "2020-01"},
         )
@@ -644,9 +636,9 @@ def test_prepare_input_data_handles_empty_results(
     )
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "detect_frequency", lambda series: summary)
+        mp.setattr(preprocessing_stage, "detect_frequency", lambda series: summary)
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "apply_missing_policy",
             lambda *args, **kwargs: (pd.DataFrame(), result),
         )
@@ -684,7 +676,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
             False,
         )
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_empty)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", prepare_empty)
     assert (
         run_analysis_payload(
             pd.DataFrame({"Date": []}),
@@ -708,7 +700,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
             False,
         )
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_no_values)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", prepare_no_values)
     assert (
         run_analysis_payload(
             pd.DataFrame({"Date": ["2020-01-01"]}),
@@ -782,17 +774,17 @@ def test_run_analysis_rank_selection_with_fallbacks(
         }
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", fake_prepare)
-        mp.setattr(pipeline, "single_period_run", fake_single_period_run)
-        mp.setattr(pipeline, "make_window_key", lambda *args, **kwargs: "key")
-        mp.setattr(pipeline, "get_window_metric_bundle", lambda key: {})
-        mp.setattr(pipeline, "rank_select_funds", fake_rank_select_funds)
-        mp.setattr(pipeline, "compute_trend_signals", fake_trend_signals)
+        mp.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
+        mp.setattr(selection_stage, "single_period_run", fake_single_period_run)
+        mp.setattr(selection_stage, "make_window_key", lambda *args, **kwargs: "key")
+        mp.setattr(selection_stage, "get_window_metric_bundle", lambda key: {})
+        mp.setattr(selection_stage, "rank_select_funds", fake_rank_select_funds)
+        mp.setattr(portfolio_stage, "compute_trend_signals", fake_trend_signals)
         mp.setattr("trend_analysis.plugins.create_weight_engine", boom_engine)
-        mp.setattr(pipeline, "compute_constrained_weights", boom_weights)
-        mp.setattr(pipeline, "realised_volatility", fake_realised_volatility)
-        mp.setattr(pipeline, "information_ratio", fake_information_ratio)
-        mp.setattr(pipeline, "build_regime_payload", fake_regime_payload)
+        mp.setattr(portfolio_stage, "compute_constrained_weights", boom_weights)
+        mp.setattr(portfolio_stage, "realised_volatility", fake_realised_volatility)
+        mp.setattr(portfolio_stage, "information_ratio", fake_information_ratio)
+        mp.setattr(portfolio_stage, "build_regime_payload", fake_regime_payload)
 
         result = run_analysis_payload(
             prepared,
@@ -881,10 +873,10 @@ def test_run_analysis_zero_weight_custom(monkeypatch: pytest.MonkeyPatch) -> Non
         return weights, diag
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", fake_prepare)
-        mp.setattr(pipeline, "single_period_run", fake_single_period_run)
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
+        mp.setattr(selection_stage, "single_period_run", fake_single_period_run)
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
 
         result = run_analysis_payload(
             prepared,
@@ -967,7 +959,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -976,7 +968,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
                 "out_end": "2020-04",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run(cfg)
@@ -1027,7 +1019,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -1036,7 +1028,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
                 "out_end": "2020-04",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run_full(cfg)
@@ -1234,22 +1226,22 @@ def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
             return np.array(seq[:size])
 
     with monkeypatch.context() as mp:
-        mp.setattr(pipeline, "_prepare_input_data", fake_prepare)
+        mp.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *args, **kwargs: pd.DataFrame({"Sharpe": [0.4]}, index=["FundA"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2, 0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
         mp.setattr(np.random, "default_rng", lambda seed=None: DummyRng())
 
         result = run_analysis_payload(
@@ -1317,7 +1309,7 @@ def test_run_analysis_returns_none_when_copy_becomes_empty(
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *args, **kwargs: (pretend, freq_summary, missing_result, False),
         )
@@ -1385,7 +1377,7 @@ def test_run_analysis_returns_none_when_ret_cols_consumed(
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *args, **kwargs: (base, freq_summary, missing_result, False),
         )
@@ -1445,31 +1437,31 @@ def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> 
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
         )
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *a, **k: pd.DataFrame({"Sharpe": [0.5, 0.4]}, index=["FundA", "FundB"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
         mp.setattr("trend_analysis.plugins.create_weight_engine", lambda scheme: DummyEngine())
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "compute_trend_signals",
             lambda *args, **kwargs: pd.DataFrame(args[0]),
         )
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2, 0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = run_analysis_payload(
             prepared,
@@ -1553,34 +1545,34 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *a, **k: (frame, freq_summary, missing_result, False),
         )
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *a, **k: pd.DataFrame({"Sharpe": [0.3]}, index=["FundA"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "compute_trend_signals",
             lambda *args, **kwargs: pd.DataFrame(args[0]),
         )
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
         # Mock _resolve_risk_free_column to bypass stricter coverage validation
         # that was added to harden risk-free fallback logic.
         mp.setattr(
-            pipeline,
+            selection_stage,
             "_resolve_risk_free_column",
             lambda *a, **k: ("RF", ["FundA"], "mock"),
         )
@@ -1641,30 +1633,30 @@ def test_run_analysis_warmup_zeroes_initial_rows(
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
         )
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "compute_trend_signals",
             lambda *args, **kwargs: pd.DataFrame(args[0]),
         )
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2, 0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = run_analysis_payload(
             prepared,
@@ -1725,30 +1717,30 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
         )
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "compute_trend_signals",
             lambda *args, **kwargs: pd.DataFrame(args[0]),
         )
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2, 0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = run_analysis_payload(
             prepared,
@@ -1808,30 +1800,30 @@ def test_run_analysis_handles_benchmark_overrides(
 
     with monkeypatch.context() as mp:
         mp.setattr(
-            pipeline,
+            preprocessing_stage,
             "_prepare_input_data",
             lambda *a, **k: (prepared.copy(), freq_summary, missing_result, False),
         )
         mp.setattr(
-            pipeline,
+            selection_stage,
             "single_period_run",
             lambda *a, **k: pd.DataFrame({"Sharpe": [0.3, 0.2]}, index=["FundA", "FundB"]),
         )
-        mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
-        mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
+        mp.setattr(portfolio_stage, "compute_constrained_weights", fake_weights)
+        mp.setattr(portfolio_stage, "build_regime_payload", lambda **kwargs: {})
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "compute_trend_signals",
             lambda *args, **kwargs: pd.DataFrame(args[0]),
         )
         mp.setattr(
-            pipeline,
+            portfolio_stage,
             "realised_volatility",
             lambda data, window, periods_per_year=None: pd.DataFrame(
                 {col: [0.2, 0.2] for col in data.columns}
             ),
         )
-        mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
+        mp.setattr(portfolio_stage, "information_ratio", lambda *args, **kwargs: 0.0)
 
         result = run_analysis_payload(
             prepared,
@@ -1888,7 +1880,7 @@ def test_run_missing_policy_and_limit_fallbacks(
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -1897,7 +1889,7 @@ def test_run_missing_policy_and_limit_fallbacks(
                 "out_end": "2020-04",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run(cfg)
@@ -1941,7 +1933,7 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -1950,7 +1942,7 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
                 "out_end": "2020-03",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         pipeline.run(cfg)
@@ -1996,7 +1988,7 @@ def test_run_full_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch)
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -2005,7 +1997,7 @@ def test_run_full_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch)
                 "out_end": "2020-04",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run_full(cfg)
@@ -2045,7 +2037,7 @@ def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> N
     with monkeypatch.context() as mp:
         mp.setattr(pipeline, "load_csv", fake_load_csv)
         mp.setattr(
-            pipeline,
+            pipeline_helpers,
             "_resolve_sample_split",
             lambda df, cfg: {
                 "in_start": "2020-01",
@@ -2054,7 +2046,7 @@ def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> N
                 "out_end": "2020-03",
             },
         )
-        mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
+        mp.setattr(pipeline_helpers, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
         _inject_analysis(mp, fake_run_analysis)
 
         pipeline.run_full(cfg)

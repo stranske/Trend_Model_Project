@@ -67,7 +67,7 @@ from trend_analysis.export import (
     summary_frame_from_result,
     workbook_frames_from_results,
 )
-from trend_analysis.pipeline import _compute_stats, calc_portfolio_returns
+from trend_analysis.stages.portfolio import _compute_stats, calc_portfolio_returns
 
 
 def _make_period_result(

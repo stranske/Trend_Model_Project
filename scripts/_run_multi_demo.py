@@ -55,6 +55,11 @@ try:
     from trend_analysis.multi_period.replacer import Rebalancer
     from trend_analysis.script_logging import setup_script_logging
     from trend_analysis.selector import RankSelector, ZScoreSelector
+    from trend_analysis.stages.portfolio import (
+        _Stats as CanonicalStats,
+        calc_portfolio_returns,
+    )
+    from trend_analysis.stages.selection import single_period_run
     from trend_analysis.weighting import (
         AdaptiveBayesWeighting,
         BaseWeighting,
@@ -83,7 +88,7 @@ setup_script_logging(app_name="multi-demo", module_file=__file__)
 # ---------------------------------------------------------------------------
 
 
-class _StatsLike(Protocol):  # minimal protocol matching pipeline._Stats
+class _StatsLike(Protocol):  # minimal protocol matching the canonical portfolio stats
     cagr: float
     vol: float
     sharpe: float
@@ -350,7 +355,7 @@ def _check_plugin_discovery() -> None:
 
 
 def _check_selection_modes(cfg: Config) -> None:
-    """Verify legacy selection modes still operate."""
+    """Verify the supported non-rank selection modes operate."""
     base = cfg.model_dump()
     for mode in ("all", "random", "manual"):
         cfg_copy = Config(**base)
@@ -446,7 +451,7 @@ def _check_misc(
     if df_demo is None:
         raise SystemExit("Failed to load demo CSV in _check_misc")
     df_demo = ensure_datetime(df_demo)
-    sf_single = pipeline.single_period_run(
+    sf_single = single_period_run(
         df_demo[["Date", "Mgr_01", "Mgr_02"]],
         str(cfg.sample_split["in_start"]),
         str(cfg.sample_split["in_end"]),
@@ -457,7 +462,7 @@ def _check_misc(
     ):
         raise SystemExit("single_period_run metadata mismatch")
 
-    pr = pipeline.calc_portfolio_returns(
+    pr = calc_portfolio_returns(
         np.array([0.5, 0.5]),
         df_demo[["Mgr_01", "Mgr_02"]].iloc[:4],
     )
@@ -488,12 +493,8 @@ def _check_misc(
     if len(scores) != 2:
         raise SystemExit("_compute_metric_series failed")
 
-    # The public ``Stats`` compatibility alias was intentionally retired.
-    # Keep the demo's internal structural assertion on the canonical class.
-    from trend_analysis.stages.portfolio import _Stats as CanonicalStats
-
-    if pipeline._Stats is not CanonicalStats:
-        raise SystemExit("pipeline._Stats is not the canonical class")
+    if not fields(CanonicalStats):
+        raise SystemExit("Canonical portfolio stats contract is empty")
 
 
 def _check_config_dump(cfg: Config) -> None:
@@ -836,7 +837,7 @@ def _check_scheduler_extra() -> None:
     }
     try:
         scheduler.generate_periods(bad_cfg)
-    except KeyError:
+    except ValueError:
         pass
     else:  # pragma: no cover - should not happen
         raise SystemExit("generate_periods invalid frequency not raised")
@@ -859,7 +860,7 @@ def _check_rank_metric_registration() -> None:
 def _check_constants() -> None:
     """Validate key constant values to catch accidental changes."""
 
-    if rs.ASCENDING_METRICS != {"MaxDrawdown"}:
+    if rs.ASCENDING_METRICS != {"MaxDrawdown", "Volatility"}:
         raise SystemExit("ASCENDING_METRICS unexpected contents")
     if rs.DEFAULT_METRIC != "AnnualReturn":
         raise SystemExit("DEFAULT_METRIC unexpected value")
@@ -894,7 +895,7 @@ def _check_stats_dataclass() -> None:
         "is_avg_corr",
         "os_avg_corr",
     }
-    actual = {f.name for f in fields(pipeline._Stats)}
+    actual = {f.name for f in fields(CanonicalStats)}
     if actual != expected:
         raise SystemExit("_Stats fields mismatch")
 
@@ -922,8 +923,13 @@ _check_generate_demo_help()
 cfg = load("config/demo.yml")
 regime_cfg = getattr(cfg, "regime", {})
 demo_df = _check_demo_data(cfg)
-if cfg.export.get("filename") != "alias_demo.csv":
-    raise SystemExit("Output alias not parsed")
+if cfg.export.get("directory") != "demo/exports" or cfg.export.get("formats") != [
+    "csv",
+    "xlsx",
+    "json",
+    "txt",
+]:
+    raise SystemExit("Canonical export configuration not parsed")
 results = run_mp(cfg)
 num_periods = len(results)
 periods = scheduler.generate_periods(cfg.model_dump())
@@ -1200,9 +1206,9 @@ if not created:
 
 # Verify case-insensitive exporter dispatch
 mixed_prefix = Path("demo/exports/mixed_case")
-export.export_data(frames, str(mixed_prefix), formats=["CSV", "Excel", "Json", "TXT"])
+export.export_data(frames, str(mixed_prefix), formats=["CSV", "XLSX", "Json", "TXT"])
 if not mixed_prefix.with_suffix(".xlsx").exists():
-    raise SystemExit("Mixed-case Excel export failed")
+    raise SystemExit("Mixed-case XLSX export failed")
 for ext in ("csv", "json", "txt"):
     if not list(mixed_prefix.parent.glob(f"{mixed_prefix.stem}_*.{ext}")):
         raise SystemExit(f"Mixed-case {ext} export missing")
@@ -1293,17 +1299,6 @@ rank_ids = rank_select_funds(
 if not rank_ids:
     raise SystemExit("rank transform produced no funds")
 
-alias_ids = rank_select_funds(
-    window,
-    rs_cfg,
-    inclusion_approach="top_n",
-    n=2,
-    score_by="Sharpe",
-    transform_mode="zscore",
-)
-if not alias_ids:
-    raise SystemExit("transform_mode alias failed")
-
 # verify ranking works with an ascending metric alias
 maxdd_ids = rank_select_funds(
     window,
@@ -1334,7 +1329,7 @@ ew_df = EqualWeight().weight(pd.DataFrame({"metric": [1.0, 2.0, 3.0]}, index=["A
 if not np.isclose(ew_df["weight"].sum(), 1.0, atol=1e-4):
     raise SystemExit("EqualWeight weight sum mismatch")
 
-direct_res = pipeline._run_analysis(
+direct_res = pipeline.run_analysis(
     df_full,
     str(cfg.sample_split["in_start"]),
     str(cfg.sample_split["in_end"]),
@@ -1349,75 +1344,8 @@ direct_res = pipeline._run_analysis(
 if direct_res.value is None or direct_res.value.get("score_frame") is None:
     diag = direct_res.diagnostic
     if diag is not None:
-        raise SystemExit(f"_run_analysis direct call failed ({diag.reason_code}): {diag.message}")
-    raise SystemExit("_run_analysis direct call failed")
-
-# quality_filter and select_funds interfaces
-fund_cfg_cls = getattr(rs, "FundSelectionConfig", None)
-quality_filter_fn = getattr(rs, "quality_filter", None)
-private_quality_filter_fn = getattr(rs, "_quality_filter", None)
-select_funds_fn = getattr(rs, "select_funds", None)
-select_funds_extended_fn = getattr(rs, "select_funds_extended", None)
-if all(
-    (
-        fund_cfg_cls,
-        quality_filter_fn,
-        private_quality_filter_fn,
-        select_funds_fn,
-        select_funds_extended_fn,
-    )
-):
-    qcfg = fund_cfg_cls(max_missing_ratio=0.5)
-    eligible = quality_filter_fn(df_full, qcfg)
-    if not eligible or not set(eligible).issubset(df_full.columns):
-        raise SystemExit("quality_filter failed")
-
-    filtered = private_quality_filter_fn(
-        df_full,
-        [c for c in df_full.columns if c not in {"Date", rf_col}],
-        str(cfg.sample_split["in_start"]),
-        str(cfg.sample_split["out_end"]),
-        qcfg,
-    )
-    if not filtered:
-        raise SystemExit("_quality_filter returned no funds")
-    simple_sel = select_funds_fn(df_full, rf_col, mode="random", n=2)
-    if len(simple_sel) != 2:
-        raise SystemExit("select_funds simple mode failed")
-
-    cols = [c for c in df_full.columns if c not in {"Date", rf_col}]
-    ext_sel = select_funds_fn(
-        df_full,
-        rf_col,
-        cols,
-        str(cfg.sample_split["in_start"]),
-        str(cfg.sample_split["in_end"]),
-        str(cfg.sample_split["out_start"]),
-        str(cfg.sample_split["out_end"]),
-        qcfg,
-        "rank",
-        2,
-        rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
-    )
-    if len(ext_sel) != 2:
-        raise SystemExit("select_funds extended mode failed")
-
-    ext_sel_direct = select_funds_extended_fn(
-        df_full,
-        rf_col,
-        cols,
-        str(cfg.sample_split["in_start"]),
-        str(cfg.sample_split["in_end"]),
-        str(cfg.sample_split["out_start"]),
-        str(cfg.sample_split["out_end"]),
-        qcfg,
-        selection_mode="rank",
-        rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
-    )
-    if len(ext_sel_direct) != 2:
-        raise SystemExit("select_funds_extended direct call failed")
-else:
-    print("Skipping selection API checks; required compatibility symbols are unavailable")
+        raise SystemExit(f"pipeline.run_analysis failed ({diag.reason_code}): {diag.message}")
+    raise SystemExit("pipeline.run_analysis failed")
 
 abw = AdaptiveBayesWeighting(max_w=None)
 pf_abw = _check_schedule(
@@ -1556,7 +1484,7 @@ for obj in _oss.values():
 
 # Reuse the sample split for the convenience wrapper
 split = cfg.sample_split
-# Exercise the convenience wrapper around ``_run_analysis``
+# Exercise the public diagnostics-aware single-analysis entry point.
 analysis_res = pipeline.run_analysis(
     df_full,
     str(split.get("in_start")),
@@ -1568,6 +1496,7 @@ analysis_res = pipeline.run_analysis(
     selection_mode="rank",
     rank_kwargs={"n": 5, "score_by": "Sharpe", "inclusion_approach": "top_n"},
     regime_cfg=regime_cfg,
+    **RUN_KWARGS,
 )
 if not analysis_res or analysis_res.get("score_frame") is None:
     diag = analysis_res.diagnostic
@@ -1591,6 +1520,7 @@ analysis_idx = pipeline.run_analysis(
     getattr(cfg, "run", {}).get("monthly_cost", 0.0),
     indices_list=["Mgr_01", "Mgr_02"],
     regime_cfg=regime_cfg,
+    **RUN_KWARGS,
 )
 if analysis_idx.value is None or not analysis_idx.value.get("benchmark_stats"):
     diag = analysis_idx.diagnostic
@@ -1601,11 +1531,11 @@ if analysis_idx.value is None or not analysis_idx.value.get("benchmark_stats"):
         )
     raise SystemExit("pipeline.run_analysis with indices_list failed")
 
-# Verify custom_weights behaviour using a direct _run_analysis call
+# Verify custom_weights behavior using the supported single-period call.
 cw_cols = ["Date", "Mgr_01", "Mgr_02"]
 if rf_col not in cw_cols and rf_col in df_full.columns:
     cw_cols.insert(1, rf_col)
-cw_res = pipeline._run_analysis(
+cw_res = pipeline.run_analysis(
     df_full[cw_cols],
     str(split.get("in_start")),
     str(split.get("in_end")),
@@ -1622,9 +1552,9 @@ if fw is None:
     diag = cw_res.diagnostic
     if diag is not None:
         raise SystemExit(
-            f"_run_analysis custom_weights failed ({diag.reason_code}): {diag.message}"
+            f"pipeline.run_analysis custom_weights failed ({diag.reason_code}): {diag.message}"
         )
-    raise SystemExit("_run_analysis custom_weights missing fund_weights")
+    raise SystemExit("pipeline.run_analysis custom_weights missing fund_weights")
 expected = {"Mgr_01": 0.6, "Mgr_02": 0.4}
 for key, val in expected.items():
     if key in fw and not np.isclose(fw[key], val, atol=0.05):
@@ -1777,9 +1707,9 @@ _check_notebook_utils()
 
 
 def _check_run_analysis_errors(cfg: Config) -> None:
-    """Exercise error-handling branches in ``_run_analysis``."""
+    """Exercise error-handling branches in ``pipeline.run_analysis``."""
 
-    res = pipeline._run_analysis(
+    res = pipeline.run_analysis(
         None,
         str(cfg.sample_split["in_start"]),
         str(cfg.sample_split["in_end"]),
@@ -1790,15 +1720,15 @@ def _check_run_analysis_errors(cfg: Config) -> None:
         allow_risk_free_fallback=False,
     )
     if res.value is not None:
-        raise SystemExit("_run_analysis returned a payload on missing df")
+        raise SystemExit("pipeline.run_analysis returned a payload on missing df")
     diag = res.diagnostic
     if diag is None:
-        raise SystemExit("_run_analysis missing diagnostic for None df")
+        raise SystemExit("pipeline.run_analysis missing diagnostic for None df")
     if diag.reason_code != "PIPELINE_INPUT_NONE":
         raise SystemExit("Unexpected diagnostic on None df")
 
     try:
-        pipeline._run_analysis(
+        pipeline.run_analysis(
             pd.DataFrame({"A": [0.1, 0.2]}),
             str(cfg.sample_split["in_start"]),
             str(cfg.sample_split["in_end"]),
@@ -1811,7 +1741,7 @@ def _check_run_analysis_errors(cfg: Config) -> None:
     except ValueError:
         pass
     else:
-        raise SystemExit("_run_analysis accepted DataFrame without Date column")
+        raise SystemExit("pipeline.run_analysis accepted DataFrame without Date column")
 
 
 # ------------------------------------------------------------
@@ -2043,6 +1973,19 @@ def _check_module_exports() -> None:
             "ConfigType",
             "DEFAULTS",
             "TrendConfig",
+            "SignalSettings",
+            "ConfigPatch",
+            "PatchOperation",
+            "RiskFlag",
+            "apply_and_diff",
+            "apply_and_validate",
+            "apply_patch",
+            "apply_config_patch",
+            "diff_configs",
+            "ConfigIssue",
+            "ValidationResult",
+            "validate_config",
+            "format_validation_messages",
         },
         "data": {
             "load_csv",
@@ -2076,6 +2019,9 @@ def _check_module_exports() -> None:
             "export_multi_period_metrics",
             "export_bundle",
             "bundle",
+            "SummaryResultContractError",
+            "append_narrative_section",
+            "narrative_frame_from_result",
         },
         "weighting": {
             "BaseWeighting",
@@ -2085,9 +2031,7 @@ def _check_module_exports() -> None:
             "AdaptiveBayesWeighting",
         },
         "pipeline": {
-            "Stats",
-            "calc_portfolio_returns",
-            "single_period_run",
+            "PipelineReasonCode",
             "run_analysis",
             "run",
             "run_full",
@@ -2121,14 +2065,13 @@ def _check_module_exports() -> None:
             "rank_select_funds",
             "selector_cache_stats",
             "clear_window_metric_cache",
-            "select_funds",
+            "selector_cache_scope",
+            "set_window_metric_cache_limit",
             "build_ui",
             "canonical_metric_list",
+            "normalize_metric_scores",
+            "ranking_sort_ascending",
         },
-    }
-
-    optional_map = {
-        "core.rank_selection": {"FundSelectionConfig"},
     }
 
     for name, expected in expected_map.items():
@@ -2137,9 +2080,8 @@ def _check_module_exports() -> None:
         else:
             module = getattr(ta, name)
         actual = set(getattr(module, "__all__", []))
-        optional = optional_map.get(name, set())
         missing = expected - actual
-        unexpected = actual - expected - optional
+        unexpected = actual - expected
         if missing or unexpected:
             raise SystemExit(
                 f"{name} __all__ mismatch (missing={sorted(missing)}, unexpected={sorted(unexpected)})"

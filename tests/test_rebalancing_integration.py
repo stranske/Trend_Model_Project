@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.multi_period.engine import run_schedule
-from trend_analysis.rebalancing import CashPolicy
+from trend_analysis.cash_policy import CashPolicy
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import EqualWeight
 

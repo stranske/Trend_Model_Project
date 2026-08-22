@@ -17,8 +17,8 @@ from trend_analysis.weights.robust_weighting import (
     RobustMeanVariance,
     RobustRiskParity,
     diagonal_loading,
-    ledoit_wolf_shrinkage,
-    oas_shrinkage,
+    matrix_diagonal_shrinkage,
+    matrix_trace_shrinkage,
 )
 
 
@@ -132,15 +132,15 @@ class TestHierarchicalRiskParity:
 
 
 class TestShrinkageUtilities:
-    def test_ledoit_wolf_shrinkage_bounds_intensity(self) -> None:
+    def test_matrix_diagonal_shrinkage_bounds_intensity(self) -> None:
         cov = np.array([[0.05, 0.01], [0.01, 0.04]], dtype=float)
-        shrunk, intensity = ledoit_wolf_shrinkage(cov, n_samples=100)
+        shrunk, intensity = matrix_diagonal_shrinkage(cov, n_samples=100)
         assert shrunk.shape == cov.shape
         assert 0.0 <= intensity <= 1.0
 
-    def test_oas_shrinkage_bounds_intensity(self) -> None:
+    def test_matrix_trace_shrinkage_bounds_intensity(self) -> None:
         cov = np.array([[0.03, 0.002], [0.002, 0.02]], dtype=float)
-        shrunk, intensity = oas_shrinkage(cov, n_samples=80)
+        shrunk, intensity = matrix_trace_shrinkage(cov, n_samples=80)
         assert shrunk.shape == cov.shape
         assert 0.0 <= intensity <= 1.0
 

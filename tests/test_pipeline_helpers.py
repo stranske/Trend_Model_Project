@@ -1,4 +1,4 @@
-"""Focused unit tests for helper utilities in ``trend_analysis.pipeline``."""
+"""Focused unit tests for canonical pipeline helper utilities."""
 
 from __future__ import annotations
 
@@ -7,18 +7,19 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_analysis.pipeline import (
-    _build_sample_windows,
+from trend_analysis.pipeline_helpers import (
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
-    _frequency_label,
     _policy_from_config,
-    _prepare_input_data,
-    _prepare_preprocess_stage,
     _resolve_sample_split,
     _section_get,
-    _unwrap_cfg,
+)
+from trend_analysis.stages.preprocessing import (
+    _build_sample_windows,
+    _frequency_label,
+    _prepare_input_data,
+    _prepare_preprocess_stage,
 )
 from trend_analysis.util.frequency import FrequencySummary
 
@@ -37,11 +38,6 @@ def test_cfg_helpers_handle_mappings_and_objects() -> None:
 
     assert _section_get(Fallback(), "present") == "yes"
     assert _section_get({}, "missing", default="fallback") == "fallback"
-
-
-def test_unwrap_cfg_flattens_nested_mappings() -> None:
-    nested = {"__cfg__": {"__cfg__": {"value": 42}}}
-    assert _unwrap_cfg(nested) == {"value": 42}
 
 
 def test_policy_from_config_merges_defaults() -> None:

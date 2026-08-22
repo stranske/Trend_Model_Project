@@ -39,7 +39,11 @@ def _cov_to_corr(cov: pd.DataFrame) -> pd.DataFrame:
 
 @weight_engine_registry.register("hrp")
 class HierarchicalRiskParity(WeightEngine):
-    """Hierarchical risk parity weighting with enhanced robustness."""
+    """Correlation-aware clustering followed by recursive risk allocation.
+
+    Unlike ``RiskParity`` and ``RobustRiskParity``, this engine uses the full
+    covariance structure to construct a hierarchy before allocating weights.
+    """
 
     def __init__(self) -> None:
         self.diagnostics: dict[str, object] = {}

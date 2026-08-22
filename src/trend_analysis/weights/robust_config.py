@@ -51,7 +51,7 @@ def weight_engine_params_from_robustness(
     logging_cfg = _mapping(robustness_cfg.get("logging"))
 
     shrinkage_enabled = bool(shrinkage_cfg.get("enabled", True))
-    shrinkage_method = str(shrinkage_cfg.get("method", "ledoit_wolf") or "ledoit_wolf")
+    shrinkage_method = str(shrinkage_cfg.get("method", "matrix_diagonal") or "matrix_diagonal")
     if not shrinkage_enabled:
         shrinkage_method = "none"
 

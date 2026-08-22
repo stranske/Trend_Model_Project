@@ -130,8 +130,9 @@ def _apply_group_caps(
     group_caps: Mapping[str, float],
     groups: Mapping[str, str],
     total: float | None = None,
+    max_weight: float | None = None,
 ) -> pd.Series:
-    """Enforce group caps, redistributing excess weight."""
+    """Enforce group caps while redistributing only into feasible headroom."""
 
     w = w.copy()
     if not set(w.index).issubset(groups.keys()):
@@ -159,21 +160,78 @@ def _apply_group_caps(
             raise ConstraintViolation("Group caps sum to less than required allocation")
 
     values = w.to_numpy(dtype=float, copy=True)
+    group_masks = {
+        group: np.array([asset_group == group for asset_group in group_list], dtype=bool)
+        for group in all_groups
+    }
+
+    excess = 0.0
     for group, cap in normalized_caps.items():
-        members_mask = np.array([grp == group for grp in group_list], dtype=bool)
-        if not members_mask.any():
+        members_mask = group_masks.get(group)
+        if members_mask is None or not members_mask.any():
             continue
-        grp_weight = _safe_sum(values[members_mask])
-        if grp_weight <= cap + NUMERICAL_TOLERANCE_HIGH:
+        group_weight = _safe_sum(values[members_mask])
+        if group_weight <= cap + NUMERICAL_TOLERANCE_HIGH:
             continue
-        excess = grp_weight - cap
-        scale = cap / grp_weight
-        values[members_mask] *= scale
-        w = pd.Series(values, index=w.index)
-        others_mask = pd.Series(~members_mask, index=w.index)
-        w = _redistribute(w, others_mask, excess)
-        values = w.to_numpy(dtype=float)
-    return w
+        excess += group_weight - cap
+        values[members_mask] *= cap / group_weight
+
+    for _ in range(max(1, len(values) * max(1, len(all_groups)) * 4)):
+        if excess <= NUMERICAL_TOLERANCE_HIGH:
+            break
+
+        asset_room = np.full(len(values), excess, dtype=float)
+        if max_weight is not None:
+            asset_room = np.maximum(float(max_weight) - values, 0.0)
+
+        group_room: dict[str, float] = {}
+        for group in all_groups:
+            group_cap = normalized_caps.get(group)
+            if group_cap is None:
+                group_room[group] = excess
+            else:
+                group_room[group] = max(group_cap - _safe_sum(values[group_masks[group]]), 0.0)
+
+        eligible = np.array(
+            [
+                asset_room[index] > NUMERICAL_TOLERANCE_HIGH
+                and group_room[group_list[index]] > NUMERICAL_TOLERANCE_HIGH
+                for index in range(len(values))
+            ],
+            dtype=bool,
+        )
+        if not eligible.any():
+            raise ConstraintViolation("No capacity to redistribute excess weight")
+
+        basis = np.where(eligible, values, 0.0)
+        if _safe_sum(basis) <= NUMERICAL_TOLERANCE_HIGH:
+            basis = eligible.astype(float)
+        increments = excess * basis / _safe_sum(basis)
+        increments = np.minimum(increments, asset_room)
+
+        for group, mask in group_masks.items():
+            proposed = _safe_sum(increments[mask])
+            room = group_room[group]
+            if proposed > room + NUMERICAL_TOLERANCE_HIGH:
+                increments[mask] *= room / proposed
+
+        allocated = _safe_sum(increments)
+        if allocated <= NUMERICAL_TOLERANCE_HIGH:
+            raise ConstraintViolation("No capacity to redistribute excess weight")
+        values += increments
+        excess -= allocated
+    else:  # pragma: no cover - defensive convergence guard
+        raise ConstraintViolation("Group-cap projection did not converge")
+
+    result = pd.Series(values, index=w.index, name=w.name)
+    for group, cap in normalized_caps.items():
+        members_mask = group_masks.get(group)
+        if (
+            members_mask is not None
+            and _safe_sum(values[members_mask]) > cap + NUMERICAL_TOLERANCE_HIGH
+        ):
+            raise ConstraintViolation("Group-cap projection violated a group cap")
+    return result
 
 
 def _apply_cash_weight(w: pd.Series, cash_weight: float, max_weight: float | None) -> pd.Series:
@@ -284,11 +342,12 @@ def apply_constraints(
             raise KeyError(f"Missing group mapping for assets: {', '.join(missing_assets)}")
         group_mapping = {asset: constraints.groups[asset] for asset in working.index}
         working = _apply_group_caps(
-            working, constraints.group_caps, group_mapping, total=total_allocation
+            working,
+            constraints.group_caps,
+            group_mapping,
+            total=total_allocation,
+            max_weight=max_weight,
         )
-        # max weight may have been violated again
-        if max_weight is not None:
-            working = _apply_cap(working, max_weight, total=total_allocation)
 
     if cash_weight is not None:
         result = working.copy()

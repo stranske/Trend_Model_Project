@@ -174,6 +174,27 @@ else
 fi
 
 # Function to run quick checks
+run_with_timeout() {
+    local timeout_seconds="$1"
+    shift
+
+    # GNU coreutils is not installed by default on macOS. Use Python so the
+    # documented development gate has identical timeout behaviour on every
+    # supported developer platform.
+    python - "$timeout_seconds" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout_seconds = float(sys.argv[1])
+command = sys.argv[2:]
+try:
+    completed = subprocess.run(command, check=False, timeout=timeout_seconds)
+except subprocess.TimeoutExpired:
+    raise SystemExit(124)
+raise SystemExit(completed.returncode)
+PY
+}
+
 quick_check() {
     local name="$1"
     local command="$2"
@@ -189,7 +210,7 @@ quick_check() {
         echo -e "${BLUE}Running: $command${NC}"
     fi
     
-    if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$output_file" 2>&1; then
+    if run_with_timeout "$CHECK_TIMEOUT" bash -c "$command" > "$output_file" 2>&1; then
         echo -e "${GREEN}✓ $name${NC}"
         rm -f "$output_file" "$fix_file" "$recheck_file"
         return 0
@@ -208,9 +229,9 @@ quick_check() {
         
         if [[ "$FIX_MODE" == true && -n "$fix_command" && $timed_out == false ]]; then
             echo -e "${YELLOW}  Fixing...${NC}"
-            if timeout "$CHECK_TIMEOUT" bash -c "$fix_command" > "$fix_file" 2>&1; then
+            if run_with_timeout "$CHECK_TIMEOUT" bash -c "$fix_command" > "$fix_file" 2>&1; then
                 # Re-check
-                if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$recheck_file" 2>&1; then
+                if run_with_timeout "$CHECK_TIMEOUT" bash -c "$command" > "$recheck_file" 2>&1; then
                     echo -e "${GREEN}✓ $name (fixed)${NC}"
                     rm -f "$output_file" "$fix_file" "$recheck_file"
                     return 0

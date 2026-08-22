@@ -212,7 +212,7 @@ def test_run_combines_price_frames_and_calls_analysis(
         captured.append(df.copy())
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=None, price_frames=frames)
 

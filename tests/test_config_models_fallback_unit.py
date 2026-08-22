@@ -10,7 +10,7 @@ from typing import Any, Generator
 import pytest
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 @pytest.fixture
@@ -100,7 +100,6 @@ def test_fallback_config_coerces_portfolio_controls(
     )
     assert cfg.portfolio["cost_model"]["per_trade_bps"] == pytest.approx(2.5)
     assert cfg.portfolio["max_turnover"] == pytest.approx(1.25)
-    assert cfg.output is None
 
 
 @pytest.mark.parametrize(
@@ -278,9 +277,7 @@ def _write_config_file(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
 
-def test_load_merges_output_settings_and_calls_validator(
-    fallback_models: ModuleType, tmp_path: Path
-) -> None:
+def test_load_rejects_removed_output_settings(fallback_models: ModuleType, tmp_path: Path) -> None:
     cfg_file = tmp_path / "config.yml"
     payload = _base_config_payload(
         export={"formats": "csv"},
@@ -291,19 +288,15 @@ def test_load_merges_output_settings_and_calls_validator(
     )
     _write_config_file(cfg_file, payload)
 
-    cfg = fallback_models.load(cfg_file)  # type: ignore[attr-defined]
-    assert sorted(cfg.export["formats"]) == ["csv", "xlsx"]
-    assert cfg.export["directory"].endswith("exports")
-    assert cfg.export["filename"] == "demo.xlsx"
-
-    assert fallback_models._validate_calls[-1][1] == tmp_path  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="output.*unexpected or inert"):
+        fallback_models.load(cfg_file)  # type: ignore[attr-defined]
 
 
 def test_load_uses_environment_variable_when_path_missing(
     fallback_models: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg_file = tmp_path / "env_config.yml"
-    payload = _base_config_payload(output={"format": "json"})
+    payload = _base_config_payload(export={"formats": ["json"]})
     _write_config_file(cfg_file, payload)
 
     monkeypatch.setenv("TREND_CFG", str(cfg_file))

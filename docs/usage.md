@@ -76,9 +76,10 @@ portfolio:
   top_n: 8
   lookback: 12
 
-output:
-  format: excel  # csv, json, excel
-  path: outputs/analysis
+export:
+  directory: outputs
+  filename: analysis
+  formats: [xlsx, csv, json]
 ```
 
 ## Testing

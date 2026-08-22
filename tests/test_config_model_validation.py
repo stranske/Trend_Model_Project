@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from trend_analysis.config import model as config_model
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_resolve_path_prefers_base_dir_and_errors(tmp_path: Path) -> None:

@@ -5,9 +5,13 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
-
-RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
-
+import trend_analysis.pipeline_helpers as pipeline_helpers
+import trend_analysis.pipeline_runner as pipeline_runner
+from trend_analysis.stages import portfolio as portfolio_stage
+from trend_analysis.stages import preprocessing as preprocessing_stage
+from trend_analysis.stages import selection as selection_stage
+from trend_analysis.util.frequency import FrequencySummary
+from trend_analysis.util.missing import MissingPolicyResult
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
@@ -25,9 +29,9 @@ class DummyCache:
         return compute_fn()
 
 
-def _stats_payload() -> dict[str, pipeline._Stats]:  # type: ignore[attr-defined]
+def _stats_payload() -> dict[str, portfolio_stage._Stats]:
     return {
-        "FundA": pipeline._Stats(  # type: ignore[attr-defined]
+        "FundA": portfolio_stage._Stats(
             cagr=0.1,
             vol=0.2,
             sharpe=1.5,
@@ -59,7 +63,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
         }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
+    monkeypatch.setattr(pipeline_runner, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     cfg = {
         "data": {
@@ -110,7 +114,7 @@ def test_run_full_uses_nan_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
+    monkeypatch.setattr(pipeline_runner, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
 
     cfg = {
         "data": {
@@ -165,9 +169,9 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
     monkeypatch.setattr(
-        pipeline,
+        pipeline_runner,
         "_run_analysis_with_diagnostics",
-        lambda *a, **k: pipeline._empty_run_full_result(),
+        lambda *a, **k: pipeline_helpers._empty_run_full_result(),
     )
 
     cfg = {
@@ -211,7 +215,7 @@ def test_run_full_handles_missing_data_section(monkeypatch: pytest.MonkeyPatch) 
         }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
+    monkeypatch.setattr(pipeline_runner, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     cfg = {
         "data": {"csv_path": "dummy.csv"},
@@ -253,21 +257,22 @@ def test_compute_signal_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_preprocessing_summary_monthly_branch() -> None:
-    summary = pipeline._preprocessing_summary("M", normalised=False, missing_summary="ok")
+    summary = preprocessing_stage._preprocessing_summary(
+        "M", normalised=False, missing_summary="ok"
+    )
     assert "month-end" in summary
     assert "Missing data" in summary
-    daily = pipeline._preprocessing_summary("D", normalised=True, missing_summary=None)
+    daily = preprocessing_stage._preprocessing_summary("D", normalised=True, missing_summary=None)
     assert "monthly" in daily.lower()
 
 
 def test_cfg_section_and_section_get_defaults() -> None:
     cfg = {"present": {"value": 1}}
-    assert pipeline._cfg_section(cfg, "missing") == {}
+    assert pipeline_helpers._cfg_section(cfg, "missing") == {}
     ns = types.SimpleNamespace(answer=42)
-    assert pipeline._section_get(ns, "answer", default=None) == 42
-    assert pipeline._section_get(None, "missing", default="fallback") == "fallback"
-    assert pipeline._unwrap_cfg({"__cfg__": {"__cfg__": None}}) == {"__cfg__": None}
-    empty = pipeline._empty_run_full_result()
+    assert pipeline_helpers._section_get(ns, "answer", default=None) == 42
+    assert pipeline_helpers._section_get(None, "missing", default="fallback") == "fallback"
+    empty = pipeline_helpers._empty_run_full_result()
     assert set(empty) == {
         "out_sample_stats",
         "in_sample_stats",
@@ -279,12 +284,14 @@ def test_cfg_section_and_section_get_defaults() -> None:
 
 def test_derive_split_edge_cases() -> None:
     with pytest.raises(ValueError):
-        pipeline._derive_split_from_periods(
+        pipeline_helpers._derive_split_from_periods(
             pd.PeriodIndex([]), method="date", boundary=None, ratio=0.5
         )
 
     single = pd.period_range("2020-01", periods=1, freq="M")
-    result = pipeline._derive_split_from_periods(single, method="date", boundary=None, ratio=0.5)
+    result = pipeline_helpers._derive_split_from_periods(
+        single, method="date", boundary=None, ratio=0.5
+    )
     assert result["in_start"] == "2020-01"
     assert result["out_end"] == "2020-01"
 
@@ -302,15 +309,15 @@ def test_position_from_signal_tracks_state() -> None:
 
 
 def test_policy_from_config_scalar_defaults() -> None:
-    policy, limit = pipeline._policy_from_config({})
+    policy, limit = pipeline_helpers._policy_from_config({})
     assert policy is None
     assert limit is None
 
-    policy_only, limit_only = pipeline._policy_from_config({"policy": "drop"})
+    policy_only, limit_only = pipeline_helpers._policy_from_config({"policy": "drop"})
     assert policy_only == "drop"
     assert limit_only is None
 
-    none_map, none_limit = pipeline._policy_from_config({"per_asset": []})
+    none_map, none_limit = pipeline_helpers._policy_from_config({"per_asset": []})
     assert none_map is None
     assert none_limit is None
 
@@ -318,7 +325,7 @@ def test_policy_from_config_scalar_defaults() -> None:
 def test_build_trend_spec_uses_vol_adjust_default() -> None:
     cfg = {"signals": {"vol_adjust": True}}
     vol_cfg = {"enabled": True, "target_vol": "not-a-number"}
-    spec = pipeline._build_trend_spec(cfg, vol_cfg)
+    spec = pipeline_helpers._build_trend_spec(cfg, vol_cfg)
     assert spec.vol_adjust is True
     assert spec.vol_target is None
 
@@ -328,7 +335,7 @@ def test_build_trend_spec_uses_vol_adjust_default() -> None:
         "limit": 5,
         "per_asset_limit": {"A": 1},
     }
-    policy_map, limit_map = pipeline._policy_from_config(mixed)
+    policy_map, limit_map = pipeline_helpers._policy_from_config(mixed)
     assert policy_map == {"default": "ffill", "A": "zero"}
     assert limit_map == {"default": 5, "A": 1}
 
@@ -341,12 +348,12 @@ def test_resolve_sample_split_ratio_extremes() -> None:
         }
     )
     cfg = {"ratio": -1.0}
-    split = pipeline._resolve_sample_split(df, cfg)
+    split = pipeline_helpers._resolve_sample_split(df, cfg)
     assert split["in_start"] == "2020-01"
     assert split["out_start"] > split["in_end"]
 
     cfg_high = {"ratio": 2.0}
-    split_high = pipeline._resolve_sample_split(df, cfg_high)
+    split_high = pipeline_helpers._resolve_sample_split(df, cfg_high)
     assert split_high["in_end"] < split_high["out_end"]
     assert split_high["out_start"] == "2020-05"
 
@@ -354,7 +361,7 @@ def test_resolve_sample_split_ratio_extremes() -> None:
 def test_single_period_run_validation() -> None:
     df = pd.DataFrame({"Value": [0.1, 0.2]})
     with pytest.raises(ValueError):
-        pipeline.single_period_run(df, "2020-01", "2020-02")
+        selection_stage.single_period_run(df, "2020-01", "2020-02")
 
     monthly = pd.DataFrame(
         {
@@ -364,7 +371,7 @@ def test_single_period_run_validation() -> None:
     )
     cfg = pipeline.RiskStatsConfig(metrics_to_run=())  # type: ignore[attr-defined]
     with pytest.raises(ValueError):
-        pipeline.single_period_run(monthly, "2020-01", "2020-02", stats_cfg=cfg)
+        selection_stage.single_period_run(monthly, "2020-01", "2020-02", stats_cfg=cfg)
 
 
 class _FailingFreqIndex(pd.DatetimeIndex):
@@ -421,8 +428,8 @@ def test_run_analysis_rank_branch_with_fallbacks(
         }
     )
 
-    freq_summary = pipeline.FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
-    missing_summary = pipeline.MissingPolicyResult(  # type: ignore[attr-defined]
+    freq_summary = FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
+    missing_summary = MissingPolicyResult(  # type: ignore[attr-defined]
         policy={"FundA": "drop", "FundB": "drop"},
         default_policy="drop",
         limit={"FundA": None, "FundB": None},
@@ -435,7 +442,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
     def fake_prepare(*_args, **_kwargs):
         return df, freq_summary, missing_summary, False
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
 
     captured: dict[str, list[str]] = {"funds": []}
 
@@ -443,9 +450,9 @@ def test_run_analysis_rank_branch_with_fallbacks(
         captured["funds"].append(sorted(sub.columns.tolist()))
         return ["FundB"]
 
-    monkeypatch.setattr(pipeline, "rank_select_funds", fake_rank_select)
-    monkeypatch.setattr(pipeline, "get_window_metric_bundle", lambda key: {"key": key})
-    monkeypatch.setattr(pipeline, "make_window_key", lambda *a, **k: "window-key")
+    monkeypatch.setattr(selection_stage, "rank_select_funds", fake_rank_select)
+    monkeypatch.setattr(selection_stage, "get_window_metric_bundle", lambda key: {"key": key})
+    monkeypatch.setattr(selection_stage, "make_window_key", lambda *a, **k: "window-key")
 
     from trend_analysis.risk import RiskDiagnostics  # lazy import to avoid cycles
 
@@ -462,14 +469,16 @@ def test_run_analysis_rank_branch_with_fallbacks(
         )
         return weights, diag
 
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
-        pipeline,
+        portfolio_stage, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        portfolio_stage,
         "compute_trend_signals",
         lambda *_a, **_k: pd.DataFrame({"FundB": [0.0, 0.0]}),
     )
 
-    result = pipeline._run_analysis_with_diagnostics(
+    result = pipeline_runner._run_analysis_with_diagnostics(
         df,
         "2020-01",
         "2020-03",
@@ -504,8 +513,8 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         }
     )
 
-    freq_summary = pipeline.FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
-    missing_summary = pipeline.MissingPolicyResult(  # type: ignore[attr-defined]
+    freq_summary = FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
+    missing_summary = MissingPolicyResult(  # type: ignore[attr-defined]
         policy={"FundA": "drop", "FundB": "drop"},
         default_policy="drop",
         limit={"FundA": None, "FundB": None},
@@ -518,7 +527,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
     def fake_prepare(*_args, **_kwargs):
         return df, freq_summary, missing_summary, False
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
 
     from trend_analysis.risk import RiskDiagnostics
 
@@ -533,14 +542,16 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         )
         return weights, diag
 
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
-        pipeline,
+        portfolio_stage, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        portfolio_stage,
         "compute_trend_signals",
         lambda *_a, **_k: pd.DataFrame({"FundA": [0.0], "FundB": [0.0]}),
     )
 
-    result = pipeline._run_analysis_with_diagnostics(
+    result = pipeline_runner._run_analysis_with_diagnostics(
         df,
         "2020-01",
         "2020-02",
@@ -558,7 +569,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
 
 def test_prepare_input_data_without_value_columns() -> None:
     df = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
-    monthly, summary, missing, normalised = pipeline._prepare_input_data(
+    monthly, summary, missing, normalised = preprocessing_stage._prepare_input_data(
         df, date_col="Date", missing_policy=None, missing_limit=None
     )
     assert monthly.columns.tolist() == ["Date"]
@@ -569,13 +580,13 @@ def test_prepare_input_data_without_value_columns() -> None:
 
 def test_derive_split_ratio_nan_and_full_window() -> None:
     periods = pd.period_range("2020-01", periods=4, freq="M")
-    result = pipeline._derive_split_from_periods(
+    result = pipeline_helpers._derive_split_from_periods(
         periods, method="ratio", boundary=None, ratio=float("nan")
     )
     assert result["in_start"] == "2020-01"
     assert result["out_start"] == "2020-03"
 
-    result_high = pipeline._derive_split_from_periods(
+    result_high = pipeline_helpers._derive_split_from_periods(
         periods, method="ratio", boundary=None, ratio=1.0
     )
     assert result_high["out_start"] == "2020-04"
@@ -584,8 +595,8 @@ def test_derive_split_ratio_nan_and_full_window() -> None:
 def test_run_analysis_returns_none_when_no_value_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    freq_summary = pipeline.FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
-    empty_missing = pipeline.MissingPolicyResult(  # type: ignore[attr-defined]
+    freq_summary = FrequencySummary("M", "Monthly", False, "M", "Monthly")  # type: ignore[attr-defined]
+    empty_missing = MissingPolicyResult(  # type: ignore[attr-defined]
         policy={},
         default_policy="drop",
         limit={},
@@ -599,9 +610,9 @@ def test_run_analysis_returns_none_when_no_value_columns(
         frame = pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")})
         return frame, freq_summary, empty_missing, False
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
 
-    result = pipeline._run_analysis_with_diagnostics(
+    result = pipeline_runner._run_analysis_with_diagnostics(
         pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")}),
         "2020-01",
         "2020-01",
@@ -622,6 +633,6 @@ def test_single_period_run_converts_non_datetime_dates() -> None:
             "Fund": [0.1, 0.2, 0.3],
         }
     )
-    res = pipeline.single_period_run(df, "2020-01", "2020-03")
+    res = selection_stage.single_period_run(df, "2020-01", "2020-03")
     assert isinstance(res, pd.DataFrame)
     assert res.attrs["period"] == ("2020-01", "2020-03")

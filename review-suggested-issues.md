@@ -1,5 +1,11 @@
 # Suggested issues from the iamkayleb repo review
 
+> **Historical planning snapshot.** This file preserves the original issue-drafting
+> evidence and is not the current completion ledger. The exhaustive two-round
+> disposition, including all 120 Collab-Deliverables items and all nine legacy
+> campaign phases, is maintained in
+> [`docs/audits/collab-feedback-closeout.md`](docs/audits/collab-feedback-closeout.md).
+
 Derived from `trend-review-suggested-material-compendium.docx` (iamkayleb's subsystem
 briefs, PRs #8–#53, Jan–May 2026), **after independent verification against the current
 `phase-3` tree** (the review was authored against the `iamkayleb` fork). Each item below was

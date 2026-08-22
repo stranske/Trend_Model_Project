@@ -7,10 +7,11 @@ import pandas as pd
 import pytest
 
 from tests._pipeline_test_utils import run_analysis_payload
-from trend_analysis import pipeline
 from trend_analysis.core import rank_selection as rank_selection_mod
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.engine import optimizer as optimizer_mod
+from trend_analysis.stages import portfolio as portfolio_stage
+from trend_analysis.stages import selection as selection_stage
 
 
 def _base_returns_frame() -> pd.DataFrame:
@@ -74,7 +75,7 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
 
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
+    score_frame = selection_stage.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
@@ -105,7 +106,7 @@ def test_single_period_run_surfaces_avg_corr_failure(
     monkeypatch.setattr(rank_selection_mod, "compute_metric_series_with_cache", boom)
 
     with pytest.raises(RuntimeError, match="AvgCorr"):
-        pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
+        selection_stage.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
 
 def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
@@ -520,7 +521,7 @@ def test_run_analysis_does_not_duplicate_existing_avg_corr(
         frame.attrs["period"] = ("2020-01", "2020-02")
         return frame
 
-    monkeypatch.setattr(pipeline, "single_period_run", fake_single_period_run)
+    monkeypatch.setattr(selection_stage, "single_period_run", fake_single_period_run)
 
     result = run_analysis_payload(
         df,
@@ -552,7 +553,7 @@ def test_run_analysis_avg_corr_corr_failure(monkeypatch: pytest.MonkeyPatch) -> 
 
     def flaky_corr(self, *args, **kwargs):  # type: ignore[override]
         caller = inspect.stack()[1]
-        if caller.filename.endswith("pipeline.py"):
+        if caller.filename.endswith("portfolio.py"):
             raise RuntimeError("corr failure")
         return original_corr(self, *args, **kwargs)
 
@@ -723,7 +724,7 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
-    original_calc = pipeline.calc_portfolio_returns
+    original_calc = portfolio_stage.calc_portfolio_returns
 
     def tagging_calc(weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object) -> pd.Series:
         series = original_calc(weights, returns_df, **kwargs)
@@ -733,15 +734,15 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
             series.attrs["portfolio_role"] = "user_weight"
         return series
 
-    original_ir = pipeline.information_ratio
+    original_ir = portfolio_stage.information_ratio
 
     def flaky_information_ratio(a, b, *args, **kwargs):
         if isinstance(a, pd.Series) and a.attrs.get("portfolio_role") == "equal_weight":
             raise RuntimeError("portfolio IR failure")
         return original_ir(a, b, *args, **kwargs)
 
-    monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
-    monkeypatch.setattr(pipeline, "information_ratio", flaky_information_ratio)
+    monkeypatch.setattr(portfolio_stage, "calc_portfolio_returns", tagging_calc)
+    monkeypatch.setattr(portfolio_stage, "information_ratio", flaky_information_ratio)
 
     result = run_analysis_payload(
         df,
@@ -774,7 +775,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_output(
     def scalar_information_ratio(*_args, **_kwargs):
         return 0.42
 
-    monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
+    monkeypatch.setattr(portfolio_stage, "information_ratio", scalar_information_ratio)
 
     result = run_analysis_payload(
         df,
@@ -832,7 +833,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
 
     calls: list[str] = []
 
-    original_ir = pipeline.information_ratio
+    original_ir = portfolio_stage.information_ratio
 
     def scalar_information_ratio(a, b, *args, **kwargs):
         calls.append(type(a).__name__)
@@ -840,7 +841,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
             return 0.42
         return original_ir(a, b, *args, **kwargs)
 
-    monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
+    monkeypatch.setattr(portfolio_stage, "information_ratio", scalar_information_ratio)
 
     result = run_analysis_payload(
         df,
@@ -901,8 +902,8 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
-    original_ir = pipeline.information_ratio
-    original_calc = pipeline.calc_portfolio_returns
+    original_ir = portfolio_stage.information_ratio
+    original_calc = portfolio_stage.calc_portfolio_returns
 
     def tagging_calc(weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object) -> pd.Series:
         series = original_calc(weights, returns_df, **kwargs)
@@ -919,8 +920,8 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
             return {"role": a.attrs["portfolio_role"]}
         return original_ir(a, b, *args, **kwargs)
 
-    monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
-    monkeypatch.setattr(pipeline, "information_ratio", fake_information_ratio)
+    monkeypatch.setattr(portfolio_stage, "calc_portfolio_returns", tagging_calc)
+    monkeypatch.setattr(portfolio_stage, "information_ratio", fake_information_ratio)
 
     result = run_analysis_payload(
         df,

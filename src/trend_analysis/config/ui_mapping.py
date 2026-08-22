@@ -404,7 +404,9 @@ def build_config_from_ui_state(
     }
 
     shrinkage_enabled = bool(model_state.get("shrinkage_enabled", True))
-    shrinkage_method = str(model_state.get("shrinkage_method", "ledoit_wolf") or "ledoit_wolf")
+    shrinkage_method = str(
+        model_state.get("shrinkage_method", "matrix_diagonal") or "matrix_diagonal"
+    )
 
     robustness_cfg = {
         "shrinkage": {

@@ -201,10 +201,18 @@ def test_unknown_top_level_section_rejected(tmp_path: Path) -> None:
 def test_consumed_optional_top_level_sections_allowed(tmp_path: Path) -> None:
     payload = _valid_payload(tmp_path)
     payload["signals"] = {"window": 10, "lag": 1}
-    payload["output"] = {"path": "report.html", "format": "csv"}
+    payload["export"] = {"directory": "reports", "formats": ["csv"]}
     payload["extra"] = {"scenario": "smoke"}
 
     config_model.validate_trend_config(payload, base_path=tmp_path)
+
+
+def test_removed_output_section_is_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(tmp_path)
+    payload["output"] = {"path": "report.html", "format": "csv"}
+
+    with pytest.raises(ValueError, match="output"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
 
 
 def test_shipped_demo_and_defaults_have_no_section_lint_errors() -> None:

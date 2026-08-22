@@ -1159,8 +1159,6 @@ def export_to_txt(
 
 EXPORTERS: dict[str, Callable[[Mapping[str, pd.DataFrame], str, Formatter | None], None]] = {
     "xlsx": export_to_excel,
-    # ``excel`` is kept for backward compatibility with older configs/UI
-    "excel": export_to_excel,
     "csv": export_to_csv,
     "json": export_to_json,
     "txt": export_to_txt,
@@ -1223,7 +1221,7 @@ def export_execution_metrics(
 
 def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a metrics DataFrame identical to :func:`pipeline.run` output."""
-    from ..pipeline import _Stats  # lazy import to avoid cycle
+    from ..stages.portfolio import _Stats
 
     stats = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
@@ -1240,7 +1238,7 @@ def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a DataFrame mirroring the Phase-1 summary table."""
 
-    from ..pipeline import _Stats  # lazy import to avoid cycle
+    from ..stages.portfolio import _Stats
 
     def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):
@@ -1404,7 +1402,7 @@ def combined_summary_result(
 
     from collections import defaultdict
 
-    from ..pipeline import _compute_stats, calc_portfolio_returns
+    from ..stages.portfolio import _compute_stats, calc_portfolio_returns
 
     results_list = list(results)
     if not results_list:
@@ -1847,8 +1845,8 @@ def export_phase1_multi_metrics(
     """
 
     results_list = list(results)
-    excel_formats = [f for f in formats if f.lower() in {"excel", "xlsx"}]
-    other_formats = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
+    excel_formats = [f for f in formats if f.lower() == "xlsx"]
+    other_formats = [f for f in formats if f.lower() != "xlsx"]
 
     if excel_formats:
         path = str(Path(output_path).with_suffix(".xlsx"))
@@ -1901,8 +1899,8 @@ def export_multi_period_metrics(
         mirroring the single-period "metrics" sheet.
     """
 
-    excel_formats = [f for f in formats if f.lower() in {"excel", "xlsx"}]
-    other_formats = [f for f in formats if f.lower() not in {"excel", "xlsx"}]
+    excel_formats = [f for f in formats if f.lower() == "xlsx"]
+    other_formats = [f for f in formats if f.lower() != "xlsx"]
     excel_data: dict[str, pd.DataFrame] = {}
     other_data: dict[str, pd.DataFrame] = {}
     reset_formatters_excel()
@@ -1994,7 +1992,6 @@ def export_data(
     """Export ``data`` to the specified ``formats``."""
     for fmt in formats:
         fmt_norm = fmt.lower()
-        fmt_norm = "xlsx" if fmt_norm == "excel" else fmt_norm
         exporter = EXPORTERS.get(fmt_norm)
         if exporter is None:
             raise ValueError(f"Unsupported format: {fmt}")

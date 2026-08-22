@@ -18,14 +18,17 @@ fi
 # Set hash seed before Python starts for reproducible results
 export PYTHONHASHSEED=0
 
-pip install --upgrade pip
+python -m pip install --upgrade pip
 if [[ -z "${TREND_MODEL_SITE_CUSTOMIZE:-}" ]]; then
   export TREND_MODEL_SITE_CUSTOMIZE=1
 fi
 # Historically this used `uv pip sync requirements.lock` to enforce lockfile-pinned
 # dependencies; use pip here so test execution does not require a uv executable.
-pip install -r requirements.lock
-pip install --no-deps -e ".[dev]"
+python -m pip install -r requirements.lock
+# requirements.lock intentionally omits app-baseline-kit because its source is
+# an unversioned Workflows git URL. Resolve the declared dev extra after the
+# locked packages so a clean test environment includes that required harness.
+python -m pip install -e ".[dev]"
 
 # Select coverage profile (defaults to "core" if not provided)
 PROFILE="${COVERAGE_PROFILE:-core}"

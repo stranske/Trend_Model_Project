@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from trend_analysis import config
@@ -97,7 +98,7 @@ def test_env_var_override(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("TREND_CFG", raising=False)
 
 
-def test_output_alias(tmp_path: Path) -> None:
+def test_removed_output_alias_is_rejected(tmp_path: Path) -> None:
     cfg_file = tmp_path / "alias.yml"
     csv_path = _make_csv(tmp_path / "data.csv")
     _write_cfg(
@@ -108,17 +109,14 @@ def test_output_alias(tmp_path: Path) -> None:
             "output": {"format": "csv", "path": str(tmp_path / "res")},
         },
     )
-    cfg = config.load(str(cfg_file))
-    assert cfg.export["formats"] == ["csv"]
-    assert cfg.export["directory"] == str(tmp_path)
-    assert cfg.export["filename"] == "res"
+    with pytest.raises(ValueError, match="output: unexpected or inert config key"):
+        config.load(str(cfg_file))
 
 
 def test_empty_version_rejected(tmp_path: Path) -> None:
     cfg_file = tmp_path / "empty_version.yml"
     csv_path = _make_csv(tmp_path / "data.csv")
     _write_cfg(cfg_file, "", csv_path=csv_path)
-    import pytest
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError) as exc_info:
@@ -130,7 +128,6 @@ def test_whitespace_version_rejected(tmp_path: Path) -> None:
     cfg_file = tmp_path / "whitespace_version.yml"
     csv_path = _make_csv(tmp_path / "data.csv")
     _write_cfg(cfg_file, "   ", csv_path=csv_path)
-    import pytest
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError) as exc_info:

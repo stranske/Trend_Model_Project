@@ -69,7 +69,7 @@ def test_missing_policy_skip_flag_and_log(
         ]
         return {"analysis": "ok"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
     caplog.set_level(logging.INFO)
 
     results = mp_engine.run(cfg, df=df)
@@ -96,7 +96,7 @@ def test_missing_policy_applied_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         assert len(frame) == 3
         return {"analysis": "ok"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 

@@ -22,7 +22,7 @@ def test_cash_weight_series_and_returns_include_risk_free(
 ) -> None:
     df = _make_frame()
     monkeypatch.setattr(
-        "trend_analysis.pipeline.compute_trend_signals",
+        "trend_analysis.stages.portfolio.compute_trend_signals",
         lambda signal_inputs, *_args, **_kwargs: pd.DataFrame(
             {"FundA": 0.0, "FundB": np.nan}, index=signal_inputs.index
         ),
@@ -64,7 +64,7 @@ def test_cash_weight_series_and_returns_include_risk_free(
 def test_cash_returns_use_override_rate(monkeypatch: pytest.MonkeyPatch) -> None:
     df = _make_frame()
     monkeypatch.setattr(
-        "trend_analysis.pipeline.compute_trend_signals",
+        "trend_analysis.stages.portfolio.compute_trend_signals",
         lambda signal_inputs, *_args, **_kwargs: pd.DataFrame(
             {"FundA": 0.0, "FundB": np.nan}, index=signal_inputs.index
         ),
@@ -107,7 +107,7 @@ def test_underinvestment_preserves_cash_without_cash_policy(
 ) -> None:
     df = _make_frame()
     monkeypatch.setattr(
-        "trend_analysis.pipeline.compute_trend_signals",
+        "trend_analysis.stages.portfolio.compute_trend_signals",
         lambda signal_inputs, *_args, **_kwargs: pd.DataFrame(
             {"FundA": 0.0, "FundB": 0.0}, index=signal_inputs.index
         ),

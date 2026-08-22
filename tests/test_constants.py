@@ -18,7 +18,7 @@ from trend_analysis.constants import (
 def test_constants_exist():
     """Test that constants are properly defined."""
     assert DEFAULT_OUTPUT_DIRECTORY == "outputs"
-    assert DEFAULT_OUTPUT_FORMATS == ["excel"]
+    assert DEFAULT_OUTPUT_FORMATS == ["xlsx"]
 
     # Test numerical tolerance constants
     assert NUMERICAL_TOLERANCE_HIGH == 1e-12

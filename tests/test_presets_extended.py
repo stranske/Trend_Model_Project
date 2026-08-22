@@ -50,7 +50,9 @@ def test_normalise_helpers_and_build_trend_spec() -> None:
     assert spec.lag == 2
     assert spec.vol_adjust is True
     assert spec.vol_target == pytest.approx(0.25)
-    assert spec.zscore is True
+    # Numeric z-score values are canonical scale factors; only YAML booleans
+    # retain boolean identity.
+    assert spec.zscore == pytest.approx(1.0)
 
 
 def test_trend_preset_helpers_cover_defaults() -> None:

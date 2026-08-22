@@ -200,10 +200,12 @@ jobs:
           # signals.trend_* alias keys during the demo coverage run.
           # Raised 83 -> 85: #5813 api.run_simulation now resolves portfolio costs and
           # weighting through the shared config_contract helpers during demo runs.
+          # Raised 85 -> 86: #5976 legacy gate strengthening migrates output→export in
+          # the GUI path, causing run_simulation to read one additional config key.
           # Approved repo-specific divergence per create-only gate policy.
           python scripts/check_config_coverage.py \
             --config config/demo.yml \
-            --ignored-threshold 85
+            --ignored-threshold 86
 
   summary:
     name: gate-summary

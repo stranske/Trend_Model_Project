@@ -216,7 +216,7 @@ def test_run_with_price_frames_builds_covariance(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}, "out_user_stats": {"sharpe": 0.9}}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, price_frames=price_frames)
 

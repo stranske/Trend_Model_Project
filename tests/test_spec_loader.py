@@ -188,8 +188,7 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
             "weighting": {"name": "equal"},
             "custom_weights": {"A": 0.7},
         },
-        "export": {"directory": "exports", "formats": ["csv"]},
-        "output": {"path": "report.html", "format": "csv"},
+        "export": {"directory": "exports", "formats": ["csv"], "filename": "report.csv"},
         "run": {"seed": 7, "monthly_cost": "0.05"},
         "metrics": {"registry": ("sharpe",)},
         "benchmarks": {"spx": "SPX"},
@@ -207,7 +206,7 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
     assert spec.backtest.manual_list == ("A", "B")
     assert spec.backtest.indices_list == ("IDX",)
     assert spec.backtest.export_directory == (base / "exports").resolve()
-    assert spec.backtest.output_path == (base / "report.html").resolve()
+    assert spec.backtest.export_filename == "report.csv"
     assert spec.backtest.export_formats == ("csv",)
 
     invalid_payload = dict(payload)

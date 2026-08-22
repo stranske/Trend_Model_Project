@@ -92,7 +92,7 @@ def test_run_incremental_covariance_updates(monkeypatch):
         run_calls.append((args, kwargs))
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_incremental = cache_mod.incremental_cov_update
     incremental_calls: list[tuple[pd.Series, pd.Series]] = []
@@ -130,7 +130,7 @@ def test_run_incremental_covariance_coerces_non_positive_shift_steps(
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_incremental = cache_mod.incremental_cov_update
     incremental_calls: list[int] = []
@@ -175,7 +175,7 @@ def test_run_incremental_covariance_shift_detection(monkeypatch):
         run_calls.append((args, kwargs))
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 
@@ -199,7 +199,7 @@ def test_run_incremental_covariance_shift_detection_via_allclose(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_incremental = cache_mod.incremental_cov_update
     incremental_calls: list[int] = []
@@ -237,7 +237,7 @@ def test_run_incremental_covariance_fallback_on_error(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     fallback_calls: list[int] = []
     real_compute = cache_mod.compute_cov_payload
@@ -294,7 +294,7 @@ def test_run_incremental_covariance_handles_bad_shift_and_strings(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 
@@ -346,7 +346,7 @@ def test_run_incremental_covariance_multi_step_update(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_incremental = cache_mod.incremental_cov_update
     incremental_calls: list[tuple[pd.Series, pd.Series]] = []
@@ -399,7 +399,7 @@ def test_run_incremental_covariance_shift_detection_no_match(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_compute = cache_mod.compute_cov_payload
     compute_calls: list[int] = []
@@ -430,7 +430,7 @@ def test_run_incremental_covariance_handles_allclose_failure(monkeypatch):
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     calls: list[str] = []
 
@@ -474,7 +474,7 @@ def test_run_incremental_covariance_column_change_triggers_recompute(monkeypatch
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     original_prepare = mp_engine._prepare_returns_frame
     call_count = {"n": 0}
@@ -535,7 +535,7 @@ def test_run_incremental_covariance_longer_window_forces_full_recompute(
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     real_compute = cache_mod.compute_cov_payload
     compute_calls: list[int] = []
@@ -576,7 +576,7 @@ def test_run_incremental_covariance_handles_cov_cache_import_failure(monkeypatch
     def fake_run_analysis(*args, **kwargs):
         return {"out_ew_stats": {"sharpe": 1.0}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     # Patch CovCache to raise ImportError when accessed
     monkeypatch.setattr(

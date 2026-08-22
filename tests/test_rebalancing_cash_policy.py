@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from trend_analysis.cash_policy import CashPolicy
 from trend_analysis.rebalancing import (
-    CashPolicy,
     DrawdownGuardStrategy,
     DriftBandStrategy,
     PeriodicRebalanceStrategy,

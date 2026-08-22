@@ -112,7 +112,7 @@ def test_incremental_covariance_falls_back_to_full_recompute(
         run_calls.append(args)
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     compute_calls: list[int] = []
 

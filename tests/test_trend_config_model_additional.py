@@ -14,7 +14,7 @@ from trend_analysis.config.model import (
     _resolve_path,
     validate_trend_config,
 )
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_resolve_path_uses_base_dir_and_validates(tmp_path: Path) -> None:

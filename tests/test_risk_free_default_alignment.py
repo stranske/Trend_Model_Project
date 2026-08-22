@@ -11,7 +11,7 @@ from trend_analysis.config import Config
 from trend_analysis.config.model import validate_trend_config
 from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
 from trend_analysis.multi_period import engine as mp_engine
-from trend_analysis.pipeline import _resolve_risk_free_column
+from trend_analysis.stages.selection import _resolve_risk_free_column
 from trend_analysis.util.risk_free import resolve_risk_free_settings
 
 
@@ -161,7 +161,7 @@ def test_entry_points_resolve_risk_free_settings_consistently(
         multi_invocations.append(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_multi_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_multi_run)
     mp_engine.run(multi_cfg, frame)
 
     assert multi_invocations
@@ -229,7 +229,7 @@ def test_missing_risk_free_requires_explicit_flag(
     multi_cfg = _MultiPeriodDummyConfig()
     multi_cfg.data = {"date_column": "Date", "frequency": "M"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", _run_with_risk_free_check)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _run_with_risk_free_check)
 
     with pytest.raises(ValueError) as multi_err:
         mp_engine.run(multi_cfg, frame)

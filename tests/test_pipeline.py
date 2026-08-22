@@ -9,6 +9,8 @@ from trend_analysis import config, pipeline, risk
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.diagnostics import PipelineReasonCode
+from trend_analysis.stages import portfolio as portfolio_stage
+from trend_analysis.stages import preprocessing as preprocessing_stage
 
 pytestmark = pytest.mark.runtime
 
@@ -118,7 +120,9 @@ def test_risk_free_series_used_for_score_frame():
     )
 
     assert res is not None
-    expected_sharpe = pipeline.sharpe_ratio(a.iloc[:2], risk_free=rf.iloc[:2], periods_per_year=12)
+    expected_sharpe = portfolio_stage.sharpe_ratio(
+        a.iloc[:2], risk_free=rf.iloc[:2], periods_per_year=12
+    )
     assert res["score_frame"].loc["A", "Sharpe"] == pytest.approx(expected_sharpe)
 
 
@@ -383,7 +387,7 @@ def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
     )
 
     df_from_csv = pd.read_csv(cfg.data["csv_path"])
-    preprocess = pipeline._prepare_preprocess_stage(
+    preprocess = preprocessing_stage._prepare_preprocess_stage(
         df_from_csv,
         floor_vol=None,
         warmup_periods=0,
@@ -394,7 +398,7 @@ def test_run_full_robustness_condition_threshold_uses_cov_condition(tmp_path):
         allow_risk_free_fallback=False,
     )
     assert not isinstance(preprocess, pipeline.PipelineResult)
-    window = pipeline._build_sample_windows(
+    window = preprocessing_stage._build_sample_windows(
         preprocess,
         in_start="2020-01",
         in_end="2020-06",
@@ -565,7 +569,7 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
     df = _make_two_fund_df()
     df["SPX"] = 0.01
 
-    original_ir = pipeline.information_ratio
+    original_ir = portfolio_stage.information_ratio
     raised = {"flag": False}
 
     def selective_boom(series_a, series_b, *args, **kwargs):
@@ -576,7 +580,7 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
         return original_ir(series_a, series_b, *args, **kwargs)
 
     # Patch the module-level binding in pipeline.py so run_analysis sees our stub
-    monkeypatch.setattr(pipeline, "information_ratio", selective_boom)
+    monkeypatch.setattr(portfolio_stage, "information_ratio", selective_boom)
 
     res = run_analysis_payload(
         df,

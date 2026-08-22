@@ -544,10 +544,7 @@ def test_run_invokes_uvicorn(monkeypatch):
     module = SimpleNamespace(run=lambda *args, **kwargs: calls.append((args, kwargs)))
     monkeypatch.setitem(sys.modules, "uvicorn", module)
 
-    host, port = api_server.run(host="0.0.0.0", port=1234)
-
-    assert host == "0.0.0.0"
-    assert port == 1234
+    assert api_server.run(host="0.0.0.0", port=1234) is None
     assert calls == [
         (
             (app,),

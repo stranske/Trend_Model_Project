@@ -104,11 +104,8 @@ registry = [
 [export]
 directory = "../demo/exports"
 formats = ["csv", "xlsx", "json", "txt"]
+filename = "cli_demo"
 disable_narrative_generation = false
-
-[output]
-format = "csv"                      # default CLI export when --output is used
-path = "../demo/exports/cli_demo.csv"
 
 # ---------------------------------------------------------------------------
 # Execution guardrails and deterministic seed.

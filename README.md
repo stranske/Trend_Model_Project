@@ -244,9 +244,10 @@ portfolio:
 vol_adjust:
   target_vol: 0.10                    # 10% annualized volatility target
 
-output:
-  format: "excel"                     # excel, csv, or json
-  path: "outputs/results"
+export:
+  directory: "outputs"
+  filename: "results"
+  formats: ["xlsx", "csv", "json"]
 ```
 
 See `config/defaults.yml` for the complete schema and `config/presets/` for ready-made strategies.

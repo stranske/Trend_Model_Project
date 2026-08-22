@@ -105,7 +105,7 @@ portfolio:
     # Covariance shrinkage options
     shrinkage:
       enabled: true
-      method: "ledoit_wolf"          # none | ledoit_wolf | oas
+      method: "matrix_diagonal"          # none | matrix_diagonal | matrix_trace
     # Condition number monitoring and safe mode fallback
     condition_check:
       enabled: true

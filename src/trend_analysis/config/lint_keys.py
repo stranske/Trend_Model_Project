@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _DEFAULTS_PATH = proj_path() / "config" / "defaults.yml"
 
@@ -89,7 +89,7 @@ _DYNAMIC_PORTFOLIO_SUBTREES = {
 }
 
 # Top-level config sections recognised by the engine. This mirrors the generated
-# ``config.schema.json`` ``properties`` plus consumed legacy/preset sections.
+# ``config.schema.json`` ``properties`` plus current preset metadata sections.
 # Unknown top-level sections are silent no-ops, so ``lint_config_sections``
 # rejects them (#5543, follow-up to A1/#5389).
 _DECLARED_TOP_LEVEL_SECTIONS = {
@@ -100,7 +100,6 @@ _DECLARED_TOP_LEVEL_SECTIONS = {
     "identity",
     "metrics",
     "multi_period",
-    "output",
     "performance",
     "portfolio",
     "preprocessing",

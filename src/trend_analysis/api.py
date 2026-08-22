@@ -33,13 +33,14 @@ from .config_contract import (
 from .diagnostics import PipelineReasonCode, coerce_pipeline_result
 from .llm.analysis_fleet import record_analysis_run
 from .logging import log_step as _log_step  # lightweight import
-from .pipeline import (
+from .pipeline_helpers import (
     _build_trend_spec,
     _policy_from_config,
     _resolve_sample_split,
     _resolve_target_vol,
-    _run_analysis_with_diagnostics,
 )
+from .pipeline_runner import _run_analysis_with_diagnostics
+from .stages.portfolio import calc_portfolio_returns
 from .risk import periods_per_year_from_code
 from .util.hash import normalise_for_json as _normalise_for_json
 from .util.risk_free import resolve_risk_free_settings
@@ -340,8 +341,6 @@ def _build_multi_period_portfolio(
     Uses the actual fund weights applied during the simulation (not equal weights)
     to compute the weighted portfolio returns for each out-of-sample period.
     """
-    from .pipeline import calc_portfolio_returns
-
     out_series_list: list[pd.Series] = []
 
     for res in period_results:
@@ -405,8 +404,6 @@ def _build_combined_portfolio_series(
         return None
     if in_df.empty or out_df.empty:
         return None
-
-    from .pipeline import calc_portfolio_returns
 
     try:
         in_cols = list(in_df.columns)

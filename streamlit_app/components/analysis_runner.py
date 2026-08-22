@@ -16,7 +16,7 @@ from trend_analysis.config.models import Config
 from trend_analysis.config.patch import ConfigPatch, apply_config_patch
 from trend_analysis.config.ui_mapping import METRIC_REGISTRY, build_config_from_ui_state
 from trend_analysis.signals import TrendSpec as TrendSpecModel
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 from .data_cache import cache_key_for_frame
 from .guardrails import infer_frequency

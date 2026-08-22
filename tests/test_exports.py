@@ -34,12 +34,21 @@ def test_export_data(tmp_path):
     pd.testing.assert_frame_equal(read, df1)
 
 
-def test_export_data_excel_alias(tmp_path):
+def test_export_data_xlsx_format(tmp_path):
     df = pd.DataFrame({"A": [1]})
     data = {"sheet": df}
     out = tmp_path / "alias"
-    export_data(data, str(out), formats=["excel"])
+    export_data(data, str(out), formats=["xlsx"])
     assert (tmp_path / "alias.xlsx").exists()
+
+
+def test_export_data_rejects_retired_excel_alias(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported format: excel"):
+        export_data(
+            {"sheet": pd.DataFrame({"A": [1]})},
+            str(tmp_path / "retired"),
+            formats=["excel"],
+        )
 
 
 def test_export_to_excel_formatters(tmp_path):

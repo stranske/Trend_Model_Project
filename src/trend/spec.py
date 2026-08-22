@@ -74,9 +74,8 @@ class BacktestSpec:
     jobs: int | None
     checkpoint_dir: Path | None
     export_directory: Path | None
+    export_filename: str | None
     export_formats: tuple[str, ...]
-    output_path: Path | None
-    output_format: str | None
     multi_period: Mapping[str, Any]
 
 
@@ -178,7 +177,6 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     missing = _cfg_section(preprocessing, "missing_data") if preprocessing else {}
     run_cfg = _cfg_section(cfg, "run")
     export_cfg = _cfg_section(cfg, "export")
-    output_cfg = _cfg_section(cfg, "output")
     window = SampleWindow(
         in_start=str(_section_get(sample, "in_start", "")),
         in_end=str(_section_get(sample, "in_end", "")),
@@ -194,7 +192,6 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
     manual = _section_get(portfolio, "manual_list")
     indices = _section_get(portfolio, "indices_list")
     export_dir = _maybe_path(_section_get(export_cfg, "directory"), base_path=base_path)
-    output_path = _maybe_path(_section_get(output_cfg, "path"), base_path=base_path)
     checkpoint = _maybe_path(_section_get(run_cfg, "checkpoint_dir"), base_path=base_path)
     cost_cfg = _cfg_section(portfolio, "cost_model")
     per_trade_bps = float(_coerce_float(cost_cfg.get("per_trade_bps"), 0.0) or 0.0)
@@ -239,9 +236,8 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         jobs=_resolve_parallel_jobs(run_cfg),
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
+        export_filename=_section_get(export_cfg, "filename"),
         export_formats=_as_tuple(_section_get(export_cfg, "formats", ())),
-        output_path=output_path,
-        output_format=_section_get(output_cfg, "format"),
         multi_period=multi_period,
     )
 

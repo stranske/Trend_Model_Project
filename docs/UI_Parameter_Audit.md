@@ -343,7 +343,7 @@ The following parameters are excluded from the UI as they are internal system se
 
 **Implementation Notes:**
 - Added collapsible "Expert Settings" section
-- Shrinkage methods: Ledoit-Wolf, OAS, None
+- Shrinkage methods: Matrix-diagonal heuristic, Matrix-trace heuristic, None
 - Leverage cap limits gross exposure
 - Random seed for reproducibility
 

@@ -181,9 +181,11 @@ def model_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     )
 
     from streamlit_app import state as app_state
+    from streamlit_app.components import llm_settings
 
     monkeypatch.setattr(app_state, "initialize_session_state", lambda: None)
     monkeypatch.setattr(app_state, "st", stub)
+    monkeypatch.setattr(llm_settings, "st", stub)
     monkeypatch.setattr(
         app_state,
         "get_uploaded_data",

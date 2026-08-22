@@ -7,6 +7,7 @@ from types import MappingProxyType, SimpleNamespace
 import pytest
 
 from trend_analysis import presets as preset_module
+from trend_analysis.signals import trend_spec_from_mapping
 
 
 def create_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -127,6 +128,21 @@ def test_build_trend_spec_handles_missing_signals() -> None:
     assert spec.window == 63
     assert spec.min_periods is None
     assert spec.vol_adjust is False
+
+
+def test_build_trend_spec_delegates_canonical_signal_parsing() -> None:
+    signals = {
+        "window": "21",
+        "min_periods": "10",
+        "lag": "2",
+        "vol_adjust": False,
+        "vol_target": "0.25",
+        "zscore": "1.5",
+    }
+
+    assert preset_module._build_trend_spec({"signals": signals}) == trend_spec_from_mapping(
+        signals, retain_disabled_vol_target=True
+    )
 
 
 def test_trend_preset_helpers_expose_expected_defaults() -> None:

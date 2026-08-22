@@ -171,7 +171,7 @@ def test_threshold_hold_yields_placeholder_when_universe_empty(
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
 
     run_calls: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
 
@@ -299,7 +299,7 @@ def test_threshold_hold_drops_low_weight_and_replenishes(
     monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
     run_calls: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
 
@@ -405,7 +405,7 @@ def test_threshold_hold_scales_trades_to_respect_turnover_cap(
     monkeypatch.setattr(mp_engine, "compute_regimes", fake_compute_regimes)
 
     run_calls: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
 
@@ -501,7 +501,7 @@ def test_threshold_hold_applies_regime_turnover_cap(
     monkeypatch.setattr(selector_mod, "create_selector_by_name", lambda *a, **k: selector)
 
     run_calls: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(run_calls))
 
     labels: list[str | None] = []
     caps: list[float | None] = []
@@ -710,7 +710,7 @@ def test_threshold_hold_seed_dedupe_and_rebalance_events(
     monkeypatch.setattr(mp_engine, "Rebalancer", ScriptedRebalancer)
 
     run_calls: List[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(run_calls))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(run_calls))
 
     results = mp_engine.run(cfg, df=df)
 
@@ -1020,7 +1020,7 @@ def test_threshold_hold_enforces_bounds_and_replacement_flow(
             "weight_engine_fallback": None,
         }
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 
@@ -1127,7 +1127,7 @@ def test_threshold_hold_weight_bounds_handles_uniform_minimum(monkeypatch):
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
     call_log: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(call_log))
 
     results = mp_engine.run(cfg, df=df)
 
@@ -1238,7 +1238,7 @@ def test_threshold_hold_turnover_cap_scales_then_bounds(monkeypatch):
     monkeypatch.setattr(mp_engine, "Rebalancer", lambda *_: IdentityRebalancer())
 
     call_log: list[Dict[str, Any]] = []
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis(call_log))
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis(call_log))
 
     results = mp_engine.run(cfg, df=df)
 

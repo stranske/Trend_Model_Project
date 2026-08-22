@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.export import combined_summary_result
-from trend_analysis.pipeline import _compute_stats
+from trend_analysis.stages.portfolio import _compute_stats
 
 
 def _period_result(

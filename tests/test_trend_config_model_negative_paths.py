@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_resolve_path_considers_base_dir_parent(tmp_path, monkeypatch):

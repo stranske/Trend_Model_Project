@@ -8,8 +8,8 @@ import pytest
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, rank_select_funds
 from trend_analysis.metrics import METRIC_REGISTRY, alpha, annual_return
-from trend_analysis.pipeline import PipelineResult
-from trend_analysis.pipeline import RiskStatsConfig as PipelineRiskStatsConfig
+from trend_analysis.core.rank_selection import RiskStatsConfig as PipelineRiskStatsConfig
+from trend_analysis.diagnostics import PipelineResult
 from trend_analysis.stages import preprocessing as preprocessing_stage
 from trend_analysis.stages import selection as selection_stage
 

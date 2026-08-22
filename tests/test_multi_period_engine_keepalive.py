@@ -162,7 +162,9 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
         [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
     )
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fake_missing_policy)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_args, **_kwargs: {"summary": "ok"})
+    monkeypatch.setattr(
+        mp_engine, "_run_analysis_with_diagnostics", lambda *_args, **_kwargs: {"summary": "ok"}
+    )
 
     results = mp_engine.run(cfg, df=df)
 
@@ -213,7 +215,7 @@ def test_run_skips_missing_policy_when_price_frames_present(
         [DummyPeriod("2020-01-31", "2020-01-31", "2020-02-29", "2020-02-29")],
     )
     monkeypatch.setattr(mp_engine, "apply_missing_policy", fail_missing_policy)
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(
         cfg,
@@ -293,7 +295,9 @@ def test_threshold_hold_returns_placeholder_for_empty_universe(
         lambda *_a, **_k: StaticSelector(),
     )
     monkeypatch.setattr(mp_engine, "Rebalancer", EmptyRebalancer)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *_a, **_k: {"payload": "unused"})
+    monkeypatch.setattr(
+        mp_engine, "_run_analysis_with_diagnostics", lambda *_a, **_k: {"payload": "unused"}
+    )
 
     results = mp_engine.run(cfg, df=df)
 

@@ -114,15 +114,11 @@ def test_config_constants_match_model_attributes():
         assert isinstance(default_value, dict), f"Field '{field_name}' should default to dict"
 
 
-def test_load_merges_legacy_output_settings() -> None:
-    """Ensure `load` normalizes legacy output into export settings."""
+def test_load_rejects_removed_output_settings() -> None:
+    """The canonical loader rejects the removed top-level output section."""
     cfg = _base_cfg()
     cfg["export"] = {"formats": "csv"}
     cfg["output"] = {"format": ["CSV", "xlsx"], "path": "reports/summary.xlsx"}
 
-    loaded = config.load(cfg)
-    export_cfg = loaded.export
-
-    assert export_cfg["formats"] == ["csv", "xlsx"]
-    assert export_cfg["directory"].endswith("reports")
-    assert export_cfg["filename"] == "summary.xlsx"
+    with pytest.raises(ValueError, match="output"):
+        config.load(cfg)

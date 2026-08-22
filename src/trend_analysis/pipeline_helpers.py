@@ -36,7 +36,6 @@ __all__ = [
     "_resolve_sample_split",
     "_resolve_target_vol",
     "_section_get",
-    "_unwrap_cfg",
     "compute_signal",
     "position_from_signal",
 ]
@@ -361,21 +360,6 @@ def _apply_regime_weight_overrides(
         updated_target = float(target_vol) * multiplier
 
     return updated_target, constraints
-
-
-def _unwrap_cfg(cfg: Mapping[str, Any] | Any) -> Any:
-    current = cfg
-    visited: set[int] = set()
-    while isinstance(current, Mapping) and "__cfg__" in current:
-        marker = id(current)
-        if marker in visited:  # pragma: no cover - defensive cycle guard
-            break
-        visited.add(marker)
-        candidate = current.get("__cfg__")
-        if candidate is None:
-            break
-        current = candidate
-    return current
 
 
 def _empty_run_full_result() -> dict[str, object]:

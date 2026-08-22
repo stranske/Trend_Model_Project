@@ -27,10 +27,10 @@ def _safe_condition_number(cov: NDArrayFloat) -> float:
         return np.inf
 
 
-def ledoit_wolf_shrinkage(
+def matrix_diagonal_shrinkage(
     cov: NDArrayFloat, n_samples: int | None = None
 ) -> tuple[NDArrayFloat, float]:
-    """Apply Ledoit-Wolf shrinkage to covariance matrix.
+    """Apply the covariance-only matrix-diagonal shrinkage heuristic.
 
     Args:
         cov: Covariance matrix to shrink
@@ -53,8 +53,8 @@ def ledoit_wolf_shrinkage(
         # This is an approximation when true sample size is unknown
         n_samples = max(p + 1, int(p * 2))  # Conservative estimate
 
-    # Shrinkage intensity (simplified Ledoit-Wolf approach)
-    # When we don't have access to raw data, use matrix-based approximation
+    # This is deliberately a covariance-only heuristic, not a named statistical
+    # estimator that would require the raw observations and their true count.
     trace_diff = float(np.trace((sample_cov - target) @ (sample_cov - target)))
     trace_sample = float(np.trace(sample_cov @ sample_cov))
 
@@ -71,8 +71,10 @@ def ledoit_wolf_shrinkage(
     return shrunk_cov.astype(float, copy=False), float(intensity)
 
 
-def oas_shrinkage(cov: NDArrayFloat, n_samples: int | None = None) -> tuple[NDArrayFloat, float]:
-    """Apply Oracle Approximating Shrinkage (OAS) to covariance matrix.
+def matrix_trace_shrinkage(
+    cov: NDArrayFloat, n_samples: int | None = None
+) -> tuple[NDArrayFloat, float]:
+    """Apply the covariance-only matrix-trace shrinkage heuristic.
 
     Args:
         cov: Covariance matrix to shrink
@@ -95,14 +97,14 @@ def oas_shrinkage(cov: NDArrayFloat, n_samples: int | None = None) -> tuple[NDAr
         # This is an approximation when true sample size is unknown
         n_samples = max(p + 1, int(p * 2))  # Conservative estimate
 
-    # OAS shrinkage intensity
+    # Matrix-trace heuristic shrinkage intensity
     trace_sample = float(np.trace(sample_cov @ sample_cov))
     trace_target = float(np.trace(target @ target))
 
     if trace_sample == 0:
         intensity = 1.0
     else:
-        # Simplified OAS formula using estimated sample size
+        # Covariance-only trace heuristic using the explicit or estimated count.
         intensity = min(1.0, trace_target / (n_samples * trace_sample))
 
     # Apply shrinkage
@@ -137,7 +139,7 @@ class RobustMeanVariance(WeightEngine):
     def __init__(
         self,
         *,
-        shrinkage_method: Literal["none", "ledoit_wolf", "oas"] = "ledoit_wolf",
+        shrinkage_method: Literal["none", "matrix_diagonal", "matrix_trace"] = "matrix_diagonal",
         condition_threshold: float = 1e12,
         safe_mode: Literal["hrp", "risk_parity", "diagonal_mv"] = "hrp",
         diagonal_loading_factor: float = 1e-6,
@@ -178,17 +180,23 @@ class RobustMeanVariance(WeightEngine):
 
         if self.shrinkage_method == "none":
             return cov.copy(), shrinkage_info
-        elif self.shrinkage_method == "ledoit_wolf":
-            shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
+        elif self.shrinkage_method == "matrix_diagonal":
+            shrunk_cov, intensity = matrix_diagonal_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
             if self.log_shrinkage_intensity:
-                logger.debug(f"Applied Ledoit-Wolf shrinkage with intensity {intensity:.4f}")
+                logger.debug(
+                    "Applied matrix-diagonal heuristic shrinkage with intensity %.4f",
+                    intensity,
+                )
             return shrunk_cov, shrinkage_info
-        elif self.shrinkage_method == "oas":
-            shrunk_cov, intensity = oas_shrinkage(cov)
+        elif self.shrinkage_method == "matrix_trace":
+            shrunk_cov, intensity = matrix_trace_shrinkage(cov)
             shrinkage_info["intensity"] = intensity
             if self.log_shrinkage_intensity:
-                logger.debug(f"Applied OAS shrinkage with intensity {intensity:.4f}")
+                logger.debug(
+                    "Applied matrix-trace heuristic shrinkage with intensity %.4f",
+                    intensity,
+                )
             return shrunk_cov, shrinkage_info
         else:
             raise ValueError(f"Unknown shrinkage method: {self.shrinkage_method}")
@@ -309,7 +317,12 @@ class RobustMeanVariance(WeightEngine):
 
 @weight_engine_registry.register("robust_risk_parity")
 class RobustRiskParity(WeightEngine):
-    """Risk parity weighting with robustness checks."""
+    """Inverse-volatility allocation with observable covariance repairs.
+
+    This remains separate from the lightweight ``RiskParity`` policy because
+    it diagnoses ill-conditioning and records diagonal-loading fallbacks. It
+    is also distinct from correlation-clustering ``HierarchicalRiskParity``.
+    """
 
     def __init__(
         self,

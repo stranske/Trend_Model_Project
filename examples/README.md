@@ -17,7 +17,7 @@ by these examples. The supported interactive surface is `streamlit_app`.
 
 | Script | What it shows | How to run |
 | --- | --- | --- |
-| `examples/demo_robust_weighting.py` | Exercises the robust weighting engines (Ledoit-Wolf/OAS shrinkage, safe-mode fallbacks, logging). | `python examples/demo_robust_weighting.py` |
+| `examples/demo_robust_weighting.py` | Exercises the robust weighting engines (Matrix-diagonal heuristic/Matrix-trace heuristic shrinkage, safe-mode fallbacks, logging). | `python examples/demo_robust_weighting.py` |
 | `examples/debug_fund_selection.py` | Replays the fund-selection pipeline from `config/portfolio_test.yml`, highlighting missing data, risk-free detection, and final ranked picks. | `python examples/debug_fund_selection.py` |
 | `examples/integration_example.py` | Launches the Streamlit app plus the FastAPI/WebSocket proxy, or prints a dry-run summary with `--demo-only`. Requires optional `app` extras. | `python examples/integration_example.py --demo-only` |
 

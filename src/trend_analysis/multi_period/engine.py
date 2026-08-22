@@ -10,7 +10,7 @@ multi-period run path. When ``cfg.portfolio.policy == 'threshold_hold'`` we:
 3) For subsequent periods, update holdings via :class:`Rebalancer` triggers
     using the score-frame z-scores (keep until soft/hard exits, add on entries).
 4) Apply the configured Bayesian weighting scheme to the surviving holdings.
-5) Delegate to ``_run_analysis`` in manual mode with the holdings and weights
+5) Delegate to the canonical pipeline runner in manual mode with the holdings and weights
     to compute scaled returns and all summary statistics, preserving the
     existing result schema expected by exporters/tests.
 """
@@ -48,24 +48,25 @@ from ..core.rank_selection import (
     ranking_sort_ascending,
 )
 from ..data import load_csv
-from ..diagnostics import PipelineResult, coerce_pipeline_result
+from ..diagnostics import coerce_pipeline_result
 from ..metrics.turnover import linear_turnover_cost
-from ..pipeline import (
+from ..pipeline_helpers import (
     _build_trend_spec,
-    _compute_stats,
-    _invoke_analysis_with_diag,
-    _resolve_risk_free_column,
     _resolve_target_vol,
 )
 from ..pipeline_helpers import (
     _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,
 )
+from ..pipeline_runner import _run_analysis_with_diagnostics
 from ..portfolio import apply_weight_policy
-from ..rebalancing import CashPolicy, apply_rebalancing_strategies
+from ..cash_policy import CashPolicy
+from ..rebalancing import apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
 from ..risk import periods_per_year_from_code
 from ..schedules import get_rebalance_dates
+from ..stages.portfolio import _compute_stats
+from ..stages.selection import _resolve_risk_free_column
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..universe import (
     MembershipTable,
@@ -88,9 +89,7 @@ from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
-# ``trend_analysis.typing`` does not exist in this project; keep the structural
-# intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
-# engine remains importable without introducing a new module dependency.
+# Multi-period results are heterogeneous mappings assembled by this engine.
 MultiPeriodPeriodResult = Dict[str, Any]
 
 
@@ -141,15 +140,10 @@ _DEFAULT_LOAD_CSV = load_csv
 logger = logging.getLogger(__name__)
 
 
-# Normalize the diagnostics-aware pipeline entry point for multi-period callers.
-def _run_analysis(*args: Any, **kwargs: Any) -> PipelineResult:
-    return _invoke_analysis_with_diag(*args, **kwargs)
-
-
 def _call_pipeline_with_diag(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
-    """Execute ``_run_analysis`` and normalise its result."""
+    """Execute the canonical diagnostics-aware pipeline and normalise its result."""
 
-    payload, diag = coerce_pipeline_result(_run_analysis(*args, **kwargs))
+    payload, diag = coerce_pipeline_result(_run_analysis_with_diagnostics(*args, **kwargs))
     if payload is None:
         return DiagnosticResult(
             value=None,
@@ -681,7 +675,7 @@ def _apply_turnover_and_cost(
         final_w, max_active_positions, protected=min_tenure_guard
     )
 
-    # Prepare custom weights mapping in percent for _run_analysis.
+    # Prepare custom weights mapping in percent for the canonical pipeline runner.
     # We keep the internal turnover-cap/bounds logic here, but reconcile the
     # change log against the *actual* weights returned by the pipeline.
     eps = 1e-12
@@ -1724,7 +1718,7 @@ def run(
     -------
     list[dict[str, object]]
         One result dictionary per generated period.  Each result is the
-        full output of ``_run_analysis`` augmented with a ``period`` key
+        full pipeline output augmented with a ``period`` key
         for reference.
     """
 

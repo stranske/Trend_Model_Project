@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
-from trend_analysis.pipeline import single_period_run
+from trend_analysis.stages.selection import single_period_run
 
 
 def make_df():
@@ -38,6 +38,16 @@ def test_single_period_run_string_dates():
     df = make_df()[["Date", "A", "B"]]
     df["Date"] = df["Date"].astype(str)
     sf = single_period_run(df, "2020-01", "2020-03")
+    assert sf.attrs["insample_len"] == 3
+    assert sf.attrs["period"] == ("2020-01", "2020-03")
+
+
+def test_single_period_run_timezone_aware_dates():
+    df = make_df()[["Date", "A", "B"]]
+    df["Date"] = pd.to_datetime(df["Date"], utc=True)
+
+    sf = single_period_run(df, "2020-01", "2020-03")
+
     assert sf.attrs["insample_len"] == 3
     assert sf.attrs["period"] == ("2020-01", "2020-03")
 

@@ -142,7 +142,7 @@ def test_cost_model_bps_feed_multi_period_transaction_cost(
     )
     monkeypatch.setattr(
         mp_engine,
-        "_run_analysis",
+        "_run_analysis_with_diagnostics",
         lambda *_args, **_kwargs: {"out_user_stats": {}, "out_ew_stats": {}},
     )
 
@@ -174,7 +174,7 @@ def test_cost_model_bps_feed_non_threshold_pipeline_cost(
         monthly_costs.append(float(args[6]))
         return {"out_user_stats": {}, "out_ew_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=_returns_frame())
 

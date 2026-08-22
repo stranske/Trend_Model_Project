@@ -23,6 +23,7 @@ REMOVED_WHEEL_PREFIXES = (
     "examples/legacy_streamlit_app/",
     "examples/demo_" + "turnover_cap.py",
     "examples/portfolio_" + "analysis_report.py",
+    "utils/",
 )
 EXPECTED_CONSOLE_SCRIPTS = {
     "trend": "trend.cli:main",
@@ -32,8 +33,8 @@ EXPECTED_CONSOLE_SCRIPTS = {
 
 def _build_wheel(destination: Path) -> Path:
     # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata. Build
-    # from tracked files so this contract remains safe when the full suite runs
-    # under pytest-xdist and other tests create untracked build artifacts. The
+    # from tracked files plus non-ignored candidate additions so this contract
+    # remains safe when the full suite creates ignored build artifacts. The
     # Gate interpreter need not itself expose the PEP 517 backend, so build in a
     # small isolated environment with the project's pinned build tools.
     build_root = destination / "source"
@@ -46,19 +47,36 @@ def _build_wheel(destination: Path) -> Path:
         capture_output=True,
         text=True,
     )
-    tracked_files = subprocess.run(
-        ["git", "ls-files", "-z"],
+    candidate_files = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            ".",
+            ":(exclude)build/**",
+            ":(exclude)dist/**",
+        ],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
     ).stdout.split(b"\0")
-    for raw_path in tracked_files:
+    for raw_path in candidate_files:
         if not raw_path:
             continue
         relative_path = Path(raw_path.decode("utf-8"))
+        # ``git ls-files`` includes staged or worktree deletions until commit
+        # and may report an untracked nested checkout as one directory entry.
+        # Build the wheel from regular files in the actual candidate tree.
+        source_path = REPO_ROOT / relative_path
+        if not source_path.is_file():
+            continue
         target_path = build_root / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(REPO_ROOT / relative_path, target_path)
+        shutil.copy2(source_path, target_path)
 
     subprocess.run(
         [
@@ -82,6 +100,27 @@ def _build_wheel(destination: Path) -> Path:
     return wheels[0]
 
 
+def test_wheel_builder_skips_non_file_candidates(tmp_path: Path, monkeypatch) -> None:
+    """Missing paths and nested-checkout directories must not break the source copy."""
+
+    original_run = subprocess.run
+
+    def run_with_missing_path(command, *args, **kwargs):
+        result = original_run(command, *args, **kwargs)
+        if command[:3] == ["git", "ls-files", "--cached"]:
+            return subprocess.CompletedProcess(
+                command,
+                result.returncode,
+                stdout=result.stdout + b"tests/missing-tracked-file.py\0tests\0",
+                stderr=result.stderr,
+            )
+        return result
+
+    monkeypatch.setattr(subprocess, "run", run_with_missing_path)
+
+    assert _build_wheel(tmp_path).exists()
+
+
 def test_wheel_contains_only_supported_entry_points_and_no_retired_surfaces(tmp_path: Path) -> None:
     """Build a wheel and inspect its files/metadata instead of trusting setup config alone."""
 
@@ -101,3 +140,27 @@ def test_wheel_contains_only_supported_entry_points_and_no_retired_surfaces(tmp_
         parser.read_string(archive.read(metadata_paths[0]).decode("utf-8"))
 
     assert dict(parser["console_scripts"]) == EXPECTED_CONSOLE_SCRIPTS
+
+    python = tmp_path / "wheel-build-env" / "bin" / "python"
+    subprocess.run(
+        [python, "-m", "pip", "install", "--force-reinstall", "--no-deps", str(wheel)],
+        # Keep checkout metadata and any relative PYTHONPATH out of pip's
+        # installed-distribution discovery. The assertion below must exercise
+        # this wheel, not an editable install visible from the repository root.
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    isolated = subprocess.run(
+        [
+            python,
+            "-c",
+            "import importlib.util; from trend_analysis.util.paths import proj_path; "
+            "assert importlib.util.find_spec('utils') is None; assert proj_path()",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert isolated.returncode == 0, isolated.stderr
