@@ -144,6 +144,8 @@ def _export_frame(frame: pd.DataFrame, path: Path, fmt: str) -> None:
 
 
 def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if "fold" in frame.columns:
+        raise ValueError("legacy fold column is not supported; use fold_id")
     missing_cols = [col for col in AGGREGATION_PATH_COLUMNS if col not in frame.columns]
     if missing_cols:
         frame = frame.copy()
@@ -175,20 +177,6 @@ def _reorder_path_frame(frame: pd.DataFrame) -> pd.DataFrame:
     elif "path_hash" in frame.columns:
         frame = frame.copy()
         frame["path"] = frame["path_hash"]
-    if "fold" in frame.columns and "fold_id" in frame.columns:
-        frame = frame.copy()
-        frame["fold"] = frame["fold"].where(frame["fold"].notna(), frame["fold_id"])
-    elif "fold" in frame.columns and "fold_id" not in frame.columns:
-        pass
-    elif "fold_id" in frame.columns:
-        frame = frame.copy()
-        frame["fold"] = frame["fold_id"]
-    if "fold" in frame.columns and "fold_label" in frame.columns:
-        frame = frame.copy()
-        frame["fold"] = frame["fold"].where(frame["fold"].notna(), frame["fold_label"])
-    elif "fold" not in frame.columns and "fold_label" in frame.columns:
-        frame = frame.copy()
-        frame["fold"] = frame["fold_label"]
     base_cols = list(AGGREGATION_PATH_COLUMNS)
     excluded = set(RESULT_BASE_COLUMNS)
     excluded.update({"path_id", "fold_id", "strategy_name", "paths", "folds"})
@@ -225,21 +213,9 @@ def _reorder_schema_frame(frame: pd.DataFrame, schema: Sequence[str]) -> pd.Data
 
 
 def _build_summary_quantiles_frame(quantiles_frame: pd.DataFrame) -> pd.DataFrame:
-    fold_col = None
-    has_fold_id = "fold_id" in quantiles_frame.columns
-    has_fold = "fold" in quantiles_frame.columns
-    fold_id_has_values = has_fold_id and (
-        quantiles_frame.empty or quantiles_frame["fold_id"].notna().any()
-    )
-    fold_has_values = has_fold and (quantiles_frame.empty or quantiles_frame["fold"].notna().any())
-    if fold_id_has_values:
-        fold_col = "fold_id"
-    elif fold_has_values:
-        fold_col = "fold"
-    elif has_fold_id:
-        fold_col = "fold_id"
-    elif has_fold:
-        fold_col = "fold"
+    if "fold" in quantiles_frame.columns:
+        raise ValueError("legacy fold column is not supported; use fold_id")
+    fold_col = "fold_id" if "fold_id" in quantiles_frame.columns else None
 
     if quantiles_frame.empty:
         base_cols = ["strategy", "metric"]

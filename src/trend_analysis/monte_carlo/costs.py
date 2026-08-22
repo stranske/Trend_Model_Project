@@ -5,12 +5,12 @@ Canonical schema:
       kind: regime_stochastic
       calm:
         trade_cost_bps:
-          dist: lognormal
+          kind: lognormal
           mean: 6
           sigma: 0.25
       stress:
         trade_cost_bps:
-          dist: lognormal
+          kind: lognormal
           mean: 18
           sigma: 0.35
         slippage_multiplier: 1.5
@@ -141,9 +141,8 @@ class CostProcess:
     """Sample per-period transaction costs conditional on regime.
 
     `from_config` accepts the canonical `kind: regime_stochastic` shape with
-    top-level regime blocks (`calm`, `stress`, etc.) containing `trade_cost_bps`.
-    Legacy aliases remain supported (`regimes`, `distribution`, `dist`, numeric
-    shorthand).
+    top-level regime blocks (`calm`, `stress`, etc.) containing a
+    `trade_cost_bps` mapping whose distribution discriminator is `kind`.
     """
 
     def __init__(
@@ -183,21 +182,25 @@ class CostProcess:
         if "enabled" in config and not bool(config.get("enabled")):
             return None
 
+        kind = config.get("kind")
+        if kind != "regime_stochastic":
+            raise ValueError("costs.kind must be 'regime_stochastic'")
+
+        legacy_keys = {"regimes", "default", "distribution", "allow_unknown"} & set(config)
+        if legacy_keys:
+            keys = ", ".join(sorted(legacy_keys))
+            raise ValueError(
+                f"unsupported legacy costs key(s): {keys}; place regime mappings directly under costs"
+            )
+
         default_regime = str(config.get("default_regime") or "calm").strip() or "calm"
         regimes: dict[str, RegimeCostSpec] = {}
 
-        regimes_cfg = config.get("regimes")
-        if isinstance(regimes_cfg, Mapping):
-            for label, spec in regimes_cfg.items():
-                regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
-
-        top_level_regimes = _extract_top_level_regimes(config)
-        for label, spec in top_level_regimes.items():
-            regimes[str(label)] = _parse_regime_spec(spec, name=str(label))
+        for label, spec in _extract_top_level_regimes(config).items():
+            regimes[label] = _parse_regime_spec(spec, name=label)
 
         if not regimes:
-            fallback_spec = config.get("default") or config.get("distribution") or config
-            regimes[default_regime] = _parse_regime_spec(fallback_spec, name=default_regime)
+            raise ValueError("costs must define at least one top-level regime mapping")
 
         return cls(regimes, default_regime=default_regime)
 
@@ -297,14 +300,15 @@ def _coerce_turnover_series(turnover: pd.Series | float | None, index: pd.Index)
 
 
 def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
-    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
-        return RegimeCostSpec(
-            distribution=FixedCostDistribution(kind="fixed", value=float(spec)),
-            slippage_multiplier=1.0,
-        )
     if not isinstance(spec, Mapping):
-        raise ValueError(f"regime '{name}' spec must be a mapping or number")
-    dist_cfg = spec.get("trade_cost_bps", spec.get("distribution", spec))
+        raise ValueError(f"regime '{name}' spec must be a mapping with trade_cost_bps")
+    unexpected = set(spec) - {"trade_cost_bps", "slippage_multiplier"}
+    if unexpected:
+        keys = ", ".join(sorted(str(key) for key in unexpected))
+        raise ValueError(f"regime '{name}' has unsupported key(s): {keys}")
+    if "trade_cost_bps" not in spec:
+        raise ValueError(f"regime '{name}' must define trade_cost_bps")
+    dist_cfg = spec["trade_cost_bps"]
     distribution = _parse_distribution(dist_cfg, regime=name)
     slippage = _coerce_float(
         spec.get("slippage_multiplier", 1.0), "slippage_multiplier", minimum=0.0
@@ -313,21 +317,35 @@ def _parse_regime_spec(spec: Any, *, name: str) -> RegimeCostSpec:
 
 
 def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
-    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
-        return FixedCostDistribution(kind="fixed", value=float(spec))
     if not isinstance(spec, Mapping):
-        raise ValueError(f"distribution for regime '{regime}' must be a mapping or number")
-    kind = str(spec.get("kind") or spec.get("dist") or "fixed").strip().lower()
+        raise ValueError(
+            f"trade_cost_bps for regime '{regime}' must be a mapping with a kind field"
+        )
+    if "dist" in spec or "distribution" in spec:
+        raise ValueError(
+            f"trade_cost_bps for regime '{regime}' uses a legacy discriminator; use kind"
+        )
+    if "kind" not in spec:
+        raise ValueError(f"trade_cost_bps for regime '{regime}' must define kind")
+    kind = str(spec["kind"]).strip().lower()
     clip_min = _coerce_optional_float(spec.get("clip_min"), "clip_min")
     clip_max = _coerce_optional_float(spec.get("clip_max"), "clip_max")
 
     if kind == "fixed":
-        value = _coerce_float(spec.get("value", spec.get("bps", 0.0)), "value")
+        unexpected = set(spec) - {"kind", "value", "clip_min", "clip_max"}
+        if unexpected:
+            raise ValueError(f"fixed distribution has unsupported key(s): {sorted(unexpected)}")
+        if "value" not in spec:
+            raise ValueError("fixed distribution must define value")
+        value = _coerce_float(spec["value"], "value")
         return FixedCostDistribution(kind=kind, value=value, clip_min=clip_min, clip_max=clip_max)
 
     if kind == "normal":
+        unexpected = set(spec) - {"kind", "mean", "std", "clip_min", "clip_max"}
+        if unexpected:
+            raise ValueError(f"normal distribution has unsupported key(s): {sorted(unexpected)}")
         mean = _coerce_float(spec.get("mean", 0.0), "mean")
-        std = _coerce_float(spec.get("std", spec.get("sigma", 0.0)), "std", minimum=0.0)
+        std = _coerce_float(spec.get("std", 0.0), "std", minimum=0.0)
         return NormalCostDistribution(
             kind=kind,
             mean=mean,
@@ -337,10 +355,20 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
         )
 
     if kind == "lognormal":
+        unexpected = set(spec) - {
+            "kind",
+            "mean",
+            "sigma",
+            "log_mean",
+            "clip_min",
+            "clip_max",
+        }
+        if unexpected:
+            raise ValueError(f"lognormal distribution has unsupported key(s): {sorted(unexpected)}")
         mean = _coerce_float(spec.get("mean", 0.0), "mean", minimum=0.0)
         sigma = _coerce_float(spec.get("sigma", 1.0), "sigma", minimum=0.0)
-        if "mu" in spec or "log_mean" in spec:
-            log_mean = _coerce_float(spec.get("mu", spec.get("log_mean")), "log_mean")
+        if "log_mean" in spec:
+            log_mean = _coerce_float(spec["log_mean"], "log_mean")
             mean = float(np.exp(log_mean + 0.5 * sigma * sigma))
         else:
             log_mean = _lognormal_mu_from_arithmetic_mean(mean, sigma)
@@ -363,22 +391,13 @@ def _lognormal_mu_from_arithmetic_mean(mean_bps: float, sigma: float) -> float:
 
 
 def _extract_top_level_regimes(config: Mapping[str, Any]) -> dict[str, Any]:
-    reserved = {
-        "kind",
-        "enabled",
-        "default_regime",
-        "allow_unknown",
-        "regimes",
-        "default",
-        "distribution",
-    }
+    reserved = {"kind", "enabled", "default_regime"}
     top_level: dict[str, Any] = {}
     for key, value in config.items():
         label = str(key).strip()
         if not label or label in reserved:
             continue
-        if isinstance(value, Mapping) and (
-            "trade_cost_bps" in value or "distribution" in value or "slippage_multiplier" in value
-        ):
-            top_level[label] = value
+        if not isinstance(value, Mapping):
+            raise ValueError(f"costs.{label} must be a regime mapping with trade_cost_bps")
+        top_level[label] = value
     return top_level

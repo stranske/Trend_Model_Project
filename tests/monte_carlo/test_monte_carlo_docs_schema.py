@@ -68,24 +68,9 @@ def test_monte_carlo_cost_examples_use_canonical_shape() -> None:
             assert "dist" not in distribution
 
 
-def test_backward_compatibility_table_lists_legacy_keys_with_statuses() -> None:
+def test_documentation_states_that_legacy_cost_shapes_are_rejected() -> None:
     text = DOC_PATH.read_text(encoding="utf-8")
-    assert "\n## Backward Compatibility\n" in text
-
-    required_rows = {
-        "`costs.regimes.<name>`": "`supported`",
-        "`costs.regimes.<name>.distribution`": "`supported`",
-        "`costs.<name>.distribution`": "`supported`",
-        "`costs.<name>.trade_cost_bps.dist`": "`supported`",
-        "`costs.<name>.trade_cost_bps.std`": "`supported`",
-        "`costs.regimes.<name>: <number>`": "`supported`",
-        "`costs.default`": "`deprecated`",
-    }
-    for legacy_key, status in required_rows.items():
-        row_pattern = rf"\|\s*{re.escape(legacy_key)}\s*\|\s*{re.escape(status)}\s*\|"
-        assert re.search(row_pattern, text), f"missing compatibility row for {legacy_key}"
-
-    assert "`costs.regimes.calm.distribution.kind: fixed`" in text
-    assert "`costs.calm.trade_cost_bps.kind: fixed`" in text
-    assert "`costs.regimes.calm: 6`" in text
-    assert "`costs.calm.trade_cost_bps.value: 6`" in text
+    assert "\n## Rejected legacy cost shapes\n" in text
+    assert "rejects nested `costs.regimes`" in text
+    assert "`distribution` and `dist` aliases" in text
+    assert "numeric shorthand" in text

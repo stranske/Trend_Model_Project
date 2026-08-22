@@ -842,7 +842,7 @@ def test_build_download_payloads_parquet_content(
     assert parquet_bytes[:4] == b"PAR1"
     loaded = pd.read_parquet(BytesIO(parquet_bytes))
     assert not loaded.empty
-    assert set(loaded.columns) >= {"strategy", "path", "fold", "terminal_wealth"}
+    assert set(loaded.columns) >= {"strategy", "path", "fold_id", "terminal_wealth"}
 
 
 def test_build_download_payloads_zip_bundle_content(

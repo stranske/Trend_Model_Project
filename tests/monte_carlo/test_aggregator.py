@@ -65,15 +65,15 @@ def test_build_path_frame_schema_and_values() -> None:
     )
     assert path_frame.loc[0, "strategy"] == "A"
     assert path_frame.loc[0, "path"] == 1
-    assert path_frame.loc[0, "fold"] == 1
+    assert path_frame.loc[0, "fold_id"] == 1
     assert path_frame.loc[0, "metric"] == pytest.approx(1.0)
 
 
 def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
     results_frame = pd.DataFrame(
         [
-            {"fold": 0, "path": 10, "strategy": "A", "metric": 1.0},
-            {"fold": 0, "path": 11, "strategy": "A", "metric": 2.0},
+            {"fold_id": 0, "path": 10, "strategy": "A", "metric": 1.0},
+            {"fold_id": 0, "path": 11, "strategy": "A", "metric": 2.0},
         ]
     )
 
@@ -81,9 +81,9 @@ def test_build_path_frame_excludes_path_and_fold_from_metrics() -> None:
 
     assert "metric" in path_frame.columns
     assert "path" in path_frame.columns
-    assert "fold" in path_frame.columns
+    assert "fold_id" in path_frame.columns
     assert list(path_frame.columns).count("path") == 1
-    assert list(path_frame.columns).count("fold") == 1
+    assert list(path_frame.columns).count("fold_id") == 1
 
 
 def test_build_path_frame_excludes_numeric_strategy_from_metrics() -> None:
@@ -132,7 +132,7 @@ def test_build_path_frame_excludes_seed_and_ids_from_metrics() -> None:
 
     assert list(path_frame.columns) == list(AGGREGATION_PATH_COLUMNS) + ["metric"]
     assert "seed" not in path_frame.columns
-    assert "fold" in path_frame.columns
+    assert "fold_id" in path_frame.columns
     assert "path" in path_frame.columns
 
 
@@ -160,7 +160,7 @@ def test_summary_frames_ignore_paths_and_folds_columns() -> None:
         [
             {
                 "strategy": "A",
-                "fold": 1,
+                "fold_id": 1,
                 "path": 10,
                 "metric": 1.0,
                 "paths": 5,
@@ -168,7 +168,7 @@ def test_summary_frames_ignore_paths_and_folds_columns() -> None:
             },
             {
                 "strategy": "A",
-                "fold": 1,
+                "fold_id": 1,
                 "path": 11,
                 "metric": 3.0,
                 "paths": 5,
@@ -225,7 +225,7 @@ def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
         {
             "strategy": pd.Series(dtype=str),
             "path": pd.Series(dtype=int),
-            "fold": pd.Series(dtype=int),
+            "fold_id": pd.Series(dtype=int),
             "metric": pd.Series(dtype=float),
         }
     )
@@ -238,8 +238,8 @@ def test_build_path_frame_preserves_metric_schema_on_empty_input() -> None:
 def test_build_path_frame_includes_numeric_string_metrics() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": "1.5", "note": "x"},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": "2.5", "note": "y"},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": "1.5", "note": "x"},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": "2.5", "note": "y"},
         ]
     )
 
@@ -252,8 +252,8 @@ def test_build_path_frame_includes_numeric_string_metrics() -> None:
 def test_build_path_frame_excludes_boolean_metrics() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "flag": True},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "flag": False},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0, "flag": True},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": 2.0, "flag": False},
         ]
     )
 
@@ -266,8 +266,8 @@ def test_build_path_frame_excludes_boolean_metrics() -> None:
 def test_build_path_frame_coerces_string_metrics_to_numeric() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": "1.5"},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": "2.5"},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": "1.5"},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": "2.5"},
         ]
     )
 
@@ -280,8 +280,8 @@ def test_build_path_frame_coerces_string_metrics_to_numeric() -> None:
 def test_build_breach_frame_coerces_numeric_columns() -> None:
     path_frame = pd.DataFrame(
         [
-            {"strategy": "A", "fold": 0, "path": 1, "metric": "1.0"},
-            {"strategy": "A", "fold": 0, "path": 2, "metric": "2.0"},
+            {"strategy": "A", "fold_id": 0, "path": 1, "metric": "1.0"},
+            {"strategy": "A", "fold_id": 0, "path": 2, "metric": "2.0"},
         ]
     )
 
@@ -295,8 +295,8 @@ def test_build_breach_frame_coerces_numeric_columns() -> None:
 def test_build_breach_frame_rejects_boolean_thresholds() -> None:
     path_frame = pd.DataFrame(
         [
-            {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
-            {"strategy": "A", "fold": 0, "path": 2, "metric": 2.0},
+            {"strategy": "A", "fold_id": 0, "path": 1, "metric": 1.0},
+            {"strategy": "A", "fold_id": 0, "path": 2, "metric": 2.0},
         ]
     )
 
@@ -307,8 +307,8 @@ def test_build_breach_frame_rejects_boolean_thresholds() -> None:
 def test_build_breach_frame_accepts_percent_thresholds() -> None:
     path_frame = pd.DataFrame(
         [
-            {"strategy": "A", "fold": 0, "path": 1, "metric": 0.01},
-            {"strategy": "A", "fold": 0, "path": 2, "metric": 0.10},
+            {"strategy": "A", "fold_id": 0, "path": 1, "metric": 0.01},
+            {"strategy": "A", "fold_id": 0, "path": 2, "metric": 0.10},
         ]
     )
 
@@ -321,8 +321,8 @@ def test_build_breach_frame_accepts_percent_thresholds() -> None:
 def test_build_expected_shortfall_frame_coerces_numeric_columns() -> None:
     path_frame = pd.DataFrame(
         [
-            {"strategy": "A", "fold": 0, "path": 1, "metric": "1.0"},
-            {"strategy": "A", "fold": 0, "path": 2, "metric": "3.0"},
+            {"strategy": "A", "fold_id": 0, "path": 1, "metric": "1.0"},
+            {"strategy": "A", "fold_id": 0, "path": 2, "metric": "3.0"},
         ]
     )
 
@@ -339,8 +339,8 @@ def test_build_expected_shortfall_frame_coerces_numeric_columns() -> None:
 def test_build_path_frame_fills_missing_strategy() -> None:
     results_frame = pd.DataFrame(
         [
-            {"fold": 0, "path": 10, "metric": 1.0},
-            {"fold": 0, "path": 11, "metric": 2.0},
+            {"fold_id": 0, "path": 10, "metric": 1.0},
+            {"fold_id": 0, "path": 11, "metric": 2.0},
         ]
     )
 
@@ -413,10 +413,10 @@ def test_build_path_frame_fills_missing_path_and_fold() -> None:
         AGGREGATION_PATH_COLUMNS
     )
     assert path_frame["path"].isna().all()
-    assert path_frame["fold"].isna().all()
+    assert path_frame["fold_id"].isna().all()
 
 
-def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
+def test_build_path_frame_does_not_translate_fold_label_to_fold_id() -> None:
     results_frame = pd.DataFrame(
         [
             {"strategy": "A", "path_id": 10, "fold_label": "Fold-1", "metric": 1.0},
@@ -426,7 +426,14 @@ def test_build_path_frame_uses_fold_label_when_fold_id_missing() -> None:
 
     path_frame = build_path_frame(results_frame)
 
-    assert path_frame.loc[0, "fold"] == "Fold-1"
+    assert pd.isna(path_frame.loc[0, "fold_id"])
+
+
+def test_build_path_frame_rejects_legacy_fold_column() -> None:
+    results_frame = pd.DataFrame([{"strategy": "A", "path_id": 10, "fold": 1, "metric": 1.0}])
+
+    with pytest.raises(ValueError, match="use fold_id"):
+        build_path_frame(results_frame)
 
 
 def test_build_path_frame_uses_path_hash_when_path_id_missing() -> None:
@@ -448,7 +455,7 @@ def test_path_frame_schema_includes_numeric_metrics_only() -> None:
             {
                 "strategy": "A",
                 "path": 1,
-                "fold": 0,
+                "fold_id": 0,
                 "metric": 1.0,
                 "metric_str": "2.0",
                 "note": "x",
@@ -467,14 +474,14 @@ def test_path_frame_schema_excludes_boolean_metrics() -> None:
             {
                 "strategy": "A",
                 "path": 1,
-                "fold": 0,
+                "fold_id": 0,
                 "metric": 1.0,
                 "flag": True,
             },
             {
                 "strategy": "A",
                 "path": 2,
-                "fold": 0,
+                "fold_id": 0,
                 "metric": 2.0,
                 "flag": False,
             },
@@ -490,8 +497,8 @@ def test_path_frame_schema_excludes_boolean_metrics() -> None:
 def test_build_path_frame_sorts_mixed_strategy_types() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 2, "fold": 0, "metric": 1.0},
-            {"strategy": 1, "path": 1, "fold": 0, "metric": 2.0},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": 1.0},
+            {"strategy": 1, "path": 1, "fold_id": 0, "metric": 2.0},
         ]
     )
 
@@ -615,9 +622,9 @@ def test_build_quantiles_frame_reports_metric_a_and_b() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
-                {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
-                {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+                {"strategy": "A", "fold_id": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+                {"strategy": "A", "fold_id": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+                {"strategy": "A", "fold_id": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
             ]
         )
     )
@@ -635,12 +642,12 @@ def test_build_quantiles_frame_groups_by_strategy_and_fold() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
-                {"strategy": "A", "fold": 0, "path": 2, "metric": 3.0},
-                {"strategy": "A", "fold": 1, "path": 3, "metric": 2.0},
-                {"strategy": "A", "fold": 1, "path": 4, "metric": 4.0},
-                {"strategy": "B", "fold": 0, "path": 5, "metric": 10.0},
-                {"strategy": "B", "fold": 0, "path": 6, "metric": 12.0},
+                {"strategy": "A", "fold_id": 0, "path": 1, "metric": 1.0},
+                {"strategy": "A", "fold_id": 0, "path": 2, "metric": 3.0},
+                {"strategy": "A", "fold_id": 1, "path": 3, "metric": 2.0},
+                {"strategy": "A", "fold_id": 1, "path": 4, "metric": 4.0},
+                {"strategy": "B", "fold_id": 0, "path": 5, "metric": 10.0},
+                {"strategy": "B", "fold_id": 0, "path": 6, "metric": 12.0},
             ]
         )
     )
@@ -663,11 +670,11 @@ def test_build_quantiles_frame_ignores_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
-                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
-                {"strategy": "A", "path": 5, "fold": 0, "metric": 3.0},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold_id": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold_id": 0, "metric": 3.0},
             ]
         )
     )
@@ -682,9 +689,9 @@ def test_build_quantiles_frame_reports_zero_paths_for_all_non_finite_metric() ->
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "metric2": float("nan")},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "metric2": float("inf")},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": 3.0, "metric2": float("-inf")},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0, "metric2": float("nan")},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": 2.0, "metric2": float("inf")},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": 3.0, "metric2": float("-inf")},
             ]
         )
     )
@@ -706,14 +713,14 @@ def test_build_quantiles_frame_all_non_finite_metrics_report_zero_paths() -> Non
                 {
                     "strategy": "A",
                     "path": 1,
-                    "fold": 0,
+                    "fold_id": 0,
                     "metric": float("nan"),
                     "metric2": float("inf"),
                 },
                 {
                     "strategy": "A",
                     "path": 2,
-                    "fold": 0,
+                    "fold_id": 0,
                     "metric": float("-inf"),
                     "metric2": float("nan"),
                 },
@@ -733,9 +740,9 @@ def test_build_quantiles_frame_handles_string_metrics() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": "1.0"},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": "3.0"},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": "5.0"},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": "1.0"},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": "3.0"},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": "5.0"},
             ]
         )
     )
@@ -751,8 +758,8 @@ def test_build_quantiles_frame_ignores_boolean_metrics() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "flag": True},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": 3.0, "flag": False},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0, "flag": True},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": 3.0, "flag": False},
             ]
         )
     )
@@ -837,8 +844,8 @@ def test_summary_frames_fill_missing_path_columns() -> None:
 def test_build_quantiles_frame_derives_fold_id_from_fold() -> None:
     path_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": 2.0},
         ]
     )
 
@@ -1000,7 +1007,7 @@ def test_aggregate_monte_carlo_results_uses_strategy_name_and_ids() -> None:
     )
     assert aggregation.path_frame.loc[0, "strategy"] == "Alpha"
     assert aggregation.path_frame.loc[0, "path"] == 10
-    assert aggregation.path_frame.loc[0, "fold"] == 2
+    assert aggregation.path_frame.loc[0, "fold_id"] == 2
     quantile_row = aggregation.quantiles_frame.loc[
         aggregation.quantiles_frame["metric"] == "metric"
     ]
@@ -1028,9 +1035,9 @@ def test_aggregate_monte_carlo_results_reports_expected_shortfall_values() -> No
 def test_aggregate_monte_carlo_results_reports_metric_a_and_b_quantiles() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "fold": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
-            {"strategy": "A", "fold": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
-            {"strategy": "A", "fold": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
+            {"strategy": "A", "fold_id": 0, "path": 1, "metric_a": 1.0, "metric_b": 2.0},
+            {"strategy": "A", "fold_id": 0, "path": 2, "metric_a": 3.0, "metric_b": 4.0},
+            {"strategy": "A", "fold_id": 0, "path": 3, "metric_a": 5.0, "metric_b": 6.0},
         ]
     )
 
@@ -1074,7 +1081,7 @@ def test_aggregate_monte_carlo_results_empty_input_preserves_schemas() -> None:
         {
             "strategy": pd.Series(dtype=str),
             "path": pd.Series(dtype=int),
-            "fold": pd.Series(dtype=int),
+            "fold_id": pd.Series(dtype=int),
             "metric": pd.Series(dtype=float),
         }
     )
@@ -1115,14 +1122,14 @@ def test_build_breach_frame_groups_by_strategy_and_fold() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "fold": 0, "path": 1, "metric": 1.0},
-                {"strategy": "A", "fold": 0, "path": 2, "metric": 3.0},
-                {"strategy": "A", "fold": 1, "path": 3, "metric": 2.0},
-                {"strategy": "A", "fold": 1, "path": 4, "metric": 4.0},
-                {"strategy": "B", "fold": 0, "path": 5, "metric": 0.0},
-                {"strategy": "B", "fold": 0, "path": 6, "metric": 2.0},
-                {"strategy": "B", "fold": 1, "path": 7, "metric": 5.0},
-                {"strategy": "B", "fold": 1, "path": 8, "metric": 6.0},
+                {"strategy": "A", "fold_id": 0, "path": 1, "metric": 1.0},
+                {"strategy": "A", "fold_id": 0, "path": 2, "metric": 3.0},
+                {"strategy": "A", "fold_id": 1, "path": 3, "metric": 2.0},
+                {"strategy": "A", "fold_id": 1, "path": 4, "metric": 4.0},
+                {"strategy": "B", "fold_id": 0, "path": 5, "metric": 0.0},
+                {"strategy": "B", "fold_id": 0, "path": 6, "metric": 2.0},
+                {"strategy": "B", "fold_id": 1, "path": 7, "metric": 5.0},
+                {"strategy": "B", "fold_id": 1, "path": 8, "metric": 6.0},
             ]
         )
     )
@@ -1265,11 +1272,11 @@ def test_build_breach_frame_ignores_non_finite_metric_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
-                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
-                {"strategy": "A", "path": 5, "fold": 0, "metric": 2.0},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold_id": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold_id": 0, "metric": 2.0},
             ]
         )
     )
@@ -1283,8 +1290,8 @@ def test_build_breach_frame_ignores_non_finite_metric_values() -> None:
 def test_build_breach_frame_ignores_non_numeric_metrics() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "note": "x"},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "note": "y"},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": 2.0, "note": "y"},
         ]
     )
     path_frame = build_path_frame(results_frame)
@@ -1465,11 +1472,11 @@ def test_build_expected_shortfall_ignores_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": float("nan")},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": float("inf")},
-                {"strategy": "A", "path": 4, "fold": 0, "metric": float("-inf")},
-                {"strategy": "A", "path": 5, "fold": 0, "metric": 5.0},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 4, "fold_id": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 5, "fold_id": 0, "metric": 5.0},
             ]
         )
     )
@@ -1484,9 +1491,9 @@ def test_build_expected_shortfall_handles_all_non_finite_values() -> None:
     path_frame = build_path_frame(
         pd.DataFrame(
             [
-                {"strategy": "A", "path": 1, "fold": 0, "metric": float("nan")},
-                {"strategy": "A", "path": 2, "fold": 0, "metric": float("inf")},
-                {"strategy": "A", "path": 3, "fold": 0, "metric": float("-inf")},
+                {"strategy": "A", "path": 1, "fold_id": 0, "metric": float("nan")},
+                {"strategy": "A", "path": 2, "fold_id": 0, "metric": float("inf")},
+                {"strategy": "A", "path": 3, "fold_id": 0, "metric": float("-inf")},
             ]
         )
     )
@@ -1501,8 +1508,8 @@ def test_build_expected_shortfall_handles_all_non_finite_values() -> None:
 def test_build_expected_shortfall_ignores_non_numeric_metrics() -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "metric": 1.0, "note": "x"},
-            {"strategy": "A", "path": 2, "fold": 0, "metric": 2.0, "note": "y"},
+            {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold_id": 0, "metric": 2.0, "note": "y"},
         ]
     )
     path_frame = build_path_frame(results_frame)
@@ -1578,7 +1585,7 @@ def test_aggregation_frame_schemas_empty_input_includes_metric_columns() -> None
         {
             "strategy": pd.Series(dtype=str),
             "path": pd.Series(dtype=int),
-            "fold": pd.Series(dtype=int),
+            "fold_id": pd.Series(dtype=int),
             "metric": pd.Series(dtype=float),
         }
     )
@@ -1657,7 +1664,7 @@ def test_export_aggregation_results_prefers_strategy_name_for_numeric_strategy(
                 "strategy": 1,
                 "strategy_name": "Alpha",
                 "path": 1,
-                "fold": 0,
+                "fold_id": 0,
                 "metric": 1.0,
             }
         ]
@@ -1912,8 +1919,8 @@ def test_export_aggregation_results_path_summary_schema(tmp_path) -> None:
 def test_export_aggregation_results_path_summary_schema_without_metrics(tmp_path) -> None:
     results_frame = pd.DataFrame(
         [
-            {"strategy": "A", "path": 1, "fold": 0, "note": "x"},
-            {"strategy": "A", "path": 2, "fold": 0, "note": "y"},
+            {"strategy": "A", "path": 1, "fold_id": 0, "note": "x"},
+            {"strategy": "A", "path": 2, "fold_id": 0, "note": "y"},
         ]
     )
 
@@ -1951,7 +1958,7 @@ def test_export_aggregation_results_adds_missing_path_columns(tmp_path) -> None:
 
 def test_export_aggregation_results_uses_strategy_name(tmp_path) -> None:
     path_frame = pd.DataFrame(
-        {"strategy_name": ["Alpha"], "path": [1], "fold": [0], "metric": [1.0]}
+        {"strategy_name": ["Alpha"], "path": [1], "fold_id": [0], "metric": [1.0]}
     )
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
     breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
@@ -1977,7 +1984,7 @@ def test_export_aggregation_results_prefers_strategy_name_when_strategy_missing(
             "strategy": [pd.NA],
             "strategy_name": ["Alpha"],
             "path": [1],
-            "fold": [0],
+            "fold_id": [0],
             "metric": [1.0],
         }
     )
@@ -2007,7 +2014,7 @@ def test_export_aggregation_results_prefers_strategy_name_over_numeric_strategy(
             "strategy": [1],
             "strategy_name": ["Alpha"],
             "path": [1],
-            "fold": [0],
+            "fold_id": [0],
             "metric": [1.0],
         }
     )
@@ -2031,7 +2038,7 @@ def test_export_aggregation_results_prefers_strategy_name_over_numeric_strategy(
 
 def test_export_aggregation_results_uses_path_hash(tmp_path) -> None:
     path_frame = pd.DataFrame(
-        {"strategy": ["Alpha"], "fold": [0], "path_hash": ["hash-1"], "metric": [1.0]}
+        {"strategy": ["Alpha"], "fold_id": [0], "path_hash": ["hash-1"], "metric": [1.0]}
     )
     quantiles_frame = pd.DataFrame(columns=list(QUANTILE_COLUMNS))
     breach_frame = pd.DataFrame(columns=list(BREACH_COLUMNS))
@@ -2051,7 +2058,7 @@ def test_export_aggregation_results_uses_path_hash(tmp_path) -> None:
     assert path_summary.loc[0, "path"] == "hash-1"
 
 
-def test_export_aggregation_results_uses_fold_label(tmp_path) -> None:
+def test_export_aggregation_results_does_not_translate_fold_label(tmp_path) -> None:
     path_frame = pd.DataFrame(
         {"strategy": ["Alpha"], "path": [1], "fold_label": ["Fold-1"], "metric": [1.0]}
     )
@@ -2070,7 +2077,7 @@ def test_export_aggregation_results_uses_fold_label(tmp_path) -> None:
     path_summary = pd.read_csv(exported["path_summary_csv"])
 
     assert "fold_label" not in path_summary.columns
-    assert path_summary.loc[0, "fold"] == "Fold-1"
+    assert pd.isna(path_summary.loc[0, "fold_id"])
 
 
 def test_export_aggregation_results_summary_schemas(tmp_path) -> None:
@@ -2157,7 +2164,7 @@ def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> No
         [
             {
                 "strategy": "A",
-                "fold": 2,
+                "fold_id": 2,
                 "metric": "metric",
                 "quantile": 0.5,
                 "value": 1.5,
@@ -2175,45 +2182,16 @@ def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> No
     exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
     summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
 
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
-    assert summary_quantiles.loc[0, "fold"] == 2
+    assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
+    assert summary_quantiles.loc[0, "fold_id"] == 2
 
 
-def test_export_summary_quantiles_prefers_fold_when_fold_id_all_nan(tmp_path) -> None:
-    quantiles_frame = pd.DataFrame(
-        [
-            {
-                "strategy": "A",
-                "fold_id": np.nan,
-                "fold": 7,
-                "metric": "metric",
-                "quantile": 0.5,
-                "value": 1.5,
-                "paths": 3,
-            }
-        ]
-    )
-    aggregation = MonteCarloAggregationResults(
-        path_frame=pd.DataFrame(columns=list(AGGREGATION_PATH_COLUMNS)),
-        quantiles_frame=quantiles_frame,
-        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
-        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
-    )
-
-    exported = export_aggregation_results(aggregation, tmp_path, formats=["csv"])
-    summary_quantiles = pd.read_csv(exported["summary_quantiles_csv"])
-
-    assert list(summary_quantiles.columns) == ["strategy", "fold", "metric", "q50"]
-    assert summary_quantiles.loc[0, "fold"] == 7
-
-
-def test_export_summary_quantiles_prefers_fold_id_when_populated(tmp_path) -> None:
+def test_export_summary_quantiles_uses_fold_id_when_populated(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
             {
                 "strategy": "A",
                 "fold_id": 3,
-                "fold": 9,
                 "metric": "metric",
                 "quantile": 0.5,
                 "value": 1.5,

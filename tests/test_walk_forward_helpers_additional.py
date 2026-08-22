@@ -171,7 +171,7 @@ def test_evaluate_parameter_grid_builds_records_and_summary() -> None:
     assert not folds.empty
     assert not summary.empty
     assert set(summary.columns).issuperset({"mean_cagr", "mean_sharpe", "folds"})
-    assert folds["fold"].iloc[0] == 1
+    assert folds["fold_id"].iloc[0] == 1
 
 
 def test_evaluate_parameter_grid_rejects_empty_returns() -> None:
