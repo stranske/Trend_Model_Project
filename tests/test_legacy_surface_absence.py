@@ -101,6 +101,10 @@ REMOVED_TEST_ONLY_SYMBOLS = {
     },
     "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
 }
+REMOVED_GUI_SYMBOLS = {
+    "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
+    "streamlit_app/components/analysis_runner.py": {"Model" + "Settings"},
+}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -340,6 +344,35 @@ def test_test_only_runtime_seam_gate_detects_deliberate_restoration(tmp_path: Pa
     )
 
     removed = {"_inject_" + "cash_returns", "selector_cache_" + "hits"}
+    assert _removed_symbol_offenders(candidate, removed) == removed
+
+
+def test_gui_compatibility_adapters_remain_absent() -> None:
+    """GUI state must use the canonical Config and current model-state contracts."""
+
+    offenders: list[str] = []
+    for relative_path, removed_names in REMOVED_GUI_SYMBOLS.items():
+        returned = sorted(_removed_symbol_offenders(REPO_ROOT / relative_path, removed_names))
+        offenders.extend(f"{relative_path}: {name}" for name in returned)
+
+    demo_runner = REPO_ROOT / "streamlit_app/components/demo_runner.py"
+    dead_state_key = "model_" + "settings"
+    if dead_state_key in demo_runner.read_text(encoding="utf-8"):
+        offenders.append(f"streamlit_app/components/demo_runner.py: {dead_state_key}")
+
+    assert not offenders, "GUI compatibility adapters returned:\n" + "\n".join(offenders)
+
+
+def test_gui_compatibility_gate_detects_deliberate_restoration(tmp_path: Path) -> None:
+    """Deliberate-break proof: a restored translator is detected by the AST scan."""
+
+    candidate = tmp_path / "gui.py"
+    candidate.write_text(
+        "def _normalize_gui_store_cfg(cfg):\n    return cfg\n",
+        encoding="utf-8",
+    )
+
+    removed = {"_normalize_gui_" + "store_cfg"}
     assert _removed_symbol_offenders(candidate, removed) == removed
 
 

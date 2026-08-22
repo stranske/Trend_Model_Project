@@ -67,9 +67,13 @@ def test_build_config_from_store():
         "version": "1",
         "data": {"csv_path": "foo.csv"},
         "preprocessing": {},
-        "vol_adjust": {},
+        "vol_adjust": {"enabled": False},
         "sample_split": {},
-        "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+        "portfolio": {
+            "selection_mode": "rank",
+            "rank": {"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+        },
         "metrics": {},
         "export": {},
         "run": {},
@@ -77,6 +81,9 @@ def test_build_config_from_store():
     store = gui.ParamStore(cfg=cfg)
     out = gui.build_config_from_store(store)
     assert out.data["csv_path"] == "foo.csv"
+    assert out.portfolio["selection_mode"] == "rank"
+    assert out.portfolio["rank"]["n"] == 2
+    assert out.vol_adjust["enabled"] is False
 
 
 def test_manual_override_fallback(monkeypatch):

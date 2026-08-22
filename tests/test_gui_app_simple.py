@@ -36,8 +36,11 @@ class TestParamStore:
             from trend_analysis.gui.store import ParamStore
 
             store = ParamStore()
-            store.cfg = {"mode": "test", "output": {"format": "excel"}}
-            assert store.cfg == {"mode": "test", "output": {"format": "excel"}}
+            store.cfg = {
+                "portfolio": {"selection_mode": "all"},
+                "output": {"format": "excel"},
+            }
+            assert store.cfg["portfolio"]["selection_mode"] == "all"
         except ImportError:
             pytest.skip("GUI dependencies not available")
 
@@ -52,10 +55,14 @@ class TestConfigManagement:
             from trend_analysis.gui.store import ParamStore
 
             store = ParamStore()
-            store.cfg = {"mode": "test", "output": {"format": "excel"}}
+            store.cfg = {
+                "portfolio": {"selection_mode": "all"},
+                "output": {"format": "excel"},
+            }
 
             result = app.build_config_dict(store)
-            assert result == {"mode": "test", "output": {"format": "excel"}}
+            assert result["portfolio"]["selection_mode"] == "all"
+            assert result["output"]["format"] == "excel"
         except ImportError:
             pytest.skip("GUI dependencies not available")
 
@@ -69,7 +76,12 @@ class TestStateHandling:
             from trend_analysis.gui.store import ParamStore
 
             store = ParamStore()
-            store.cfg = {"mode": "rank", "portfolio": {"weighting": {"name": "equal"}}}
+            store.cfg = {
+                "portfolio": {
+                    "selection_mode": "rank",
+                    "weighting": {"name": "equal"},
+                }
+            }
 
             # Test that nested config is properly handled
             assert store.cfg["portfolio"]["weighting"]["name"] == "equal"
@@ -84,11 +96,12 @@ class TestStateHandling:
             store = ParamStore()
 
             # Simulate state changes that should trigger updates
-            store.cfg["mode"] = "manual"
+            portfolio = store.cfg.setdefault("portfolio", {})
+            portfolio["selection_mode"] = "manual"
             if hasattr(store, "dirty"):
                 store.dirty = True
                 assert store.dirty is True
-            assert store.cfg["mode"] == "manual"
+            assert store.cfg["portfolio"]["selection_mode"] == "manual"
         except ImportError:
             pytest.skip("GUI dependencies not available")
 
@@ -104,11 +117,11 @@ class TestWidgetInteractionPatterns:
             store = ParamStore()
 
             # Simulate checkbox change
-            store.cfg["use_vol_adjust"] = True
+            store.cfg.setdefault("vol_adjust", {})["enabled"] = True
             if hasattr(store, "dirty"):
                 store.dirty = True
 
-            assert store.cfg["use_vol_adjust"] is True
+            assert store.cfg["vol_adjust"]["enabled"] is True
         except ImportError:
             pytest.skip("GUI dependencies not available")
 

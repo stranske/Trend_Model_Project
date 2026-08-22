@@ -956,7 +956,10 @@ def test_build_config_dict_populates_defaults():
     """Non-minimal configs should receive expected default sections."""
 
     store = ParamStore()
-    store.cfg = {"mode": "rank", "data": {"csv_path": "demo.csv"}}
+    store.cfg = {
+        "portfolio": {"selection_mode": "rank"},
+        "data": {"csv_path": "demo.csv"},
+    }
 
     cfg = app_module.build_config_dict(store)
 
@@ -979,7 +982,10 @@ def test_build_config_from_store_uses_config_factory(monkeypatch):
     """build_config_from_store should honour the Config factory."""
 
     store = ParamStore()
-    store.cfg = {"mode": "rank", "output": {"format": "csv"}}
+    store.cfg = {
+        "portfolio": {"selection_mode": "rank"},
+        "output": {"format": "csv"},
+    }
 
     created: list[SimpleNamespace] = []
 
@@ -1155,8 +1161,15 @@ def test_build_rank_options_observers(monkeypatch):
     w1.value = 0.4
     _call_observer(w1._observers[0], {"new": 0.4}, store)
 
-    assert store.cfg["rank"]["inclusion_approach"] == "threshold"
+    assert store.cfg["portfolio"]["rank"]["inclusion_approach"] == "threshold"
     assert blended.layout.display == "flex"
+
+    # Uploading a new configuration replaces ``store.cfg``. Later widget
+    # events must update that current mapping rather than a stale closure.
+    store.cfg = {}
+    n_text.value = 6
+    _call_observer(n_text._observers[0], {"new": 6}, store)
+    assert store.cfg["portfolio"]["rank"]["n"] == 6
 
 
 def test_build_manual_override_datagrid(monkeypatch):
@@ -1376,19 +1389,21 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "display", lambda payload: theme_calls.append(payload))
 
     container = app_module.launch()
-    _, mode, vol_adj, use_rank, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
+    _, mode, vol_adj, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
+
+    # Simulate the config-loader replacing the entire state mapping after the
+    # launch callbacks were registered.
+    store.cfg = {"output": {"format": "excel"}}
 
     mode.set_value("rank")
-    assert store.cfg["mode"] == "rank" and rank_box.layout.display == "flex"
-
-    use_rank.set_value(True)
+    assert store.cfg["portfolio"]["selection_mode"] == "rank"
     assert rank_box.layout.display == "flex"
 
     mode.set_value("manual")
     assert manual_box.layout.display == "flex"
 
     vol_adj.set_value(True)
-    assert store.cfg["use_vol_adjust"] is True
+    assert store.cfg["vol_adjust"]["enabled"] is True
 
     fmt_dd.set_value("json")
     assert store.cfg["output"]["format"] == "json"
@@ -1472,7 +1487,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "save_state", lambda store_obj: saved.append(store_obj))
 
     container = app_module.launch()
-    _, _, _, _, _, _, _, _, _, _, run_btn = container.children
+    _, _, _, _, _, _, _, _, _, run_btn = container.children
 
     run_btn.click()
 

@@ -14,7 +14,6 @@ import yaml
 
 from ..config import Config
 from ..config.models import DEFAULTS
-from ..config.models import Config as ConfigModel
 from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
@@ -352,9 +351,6 @@ def reset_weight_state(store: ParamStore) -> None:
         WEIGHT_STATE_FILE.unlink()
 
 
-_GUI_STORE_KEYS = frozenset({"mode", "rank", "use_ranking", "use_vol_adjust"})
-
-
 def _as_dict(v: Any) -> Dict[str, Any]:
     return dict(v) if isinstance(v, dict) else {}
 
@@ -382,42 +378,9 @@ def _ensure_mapping_sections(cfg: Dict[str, Any]) -> None:
         cfg["multi_period"] = _as_dict(cfg.get("multi_period"))
 
 
-def _normalize_gui_store_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Translate legacy GUI store keys into the strict top-level Config schema."""
-    normalized = dict(cfg)
-    portfolio = _as_dict(normalized.get("portfolio"))
-
-    mode = normalized.pop("mode", None)
-    if mode is not None and "selection_mode" not in portfolio:
-        portfolio["selection_mode"] = mode
-
-    rank = normalized.pop("rank", None)
-    if isinstance(rank, dict):
-        existing_rank = portfolio.get("rank")
-        portfolio["rank"] = (
-            {**_as_dict(existing_rank), **rank} if isinstance(existing_rank, dict) else dict(rank)
-        )
-
-    for gui_key in _GUI_STORE_KEYS:
-        normalized.pop(gui_key, None)
-
-    if portfolio:
-        normalized["portfolio"] = portfolio
-
-    # ``Config`` remains an injectable factory for GUI tests and callers; use
-    # the concrete schema class to identify the strict top-level fields.
-    allowed = set(ConfigModel.ALL_FIELDS)
-    return {key: value for key, value in normalized.items() if key in allowed}
-
-
 def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     """Return the config dictionary kept in ``store`` as a plain dict."""
     cfg = dict(store.cfg)
-
-    # If user provided a minimal config, don't inject defaults so tests that
-    # assert exact equality pass; otherwise ensure expected mapping sections.
-    if set(cfg.keys()) <= {"mode", "output"}:
-        return cfg
 
     _ensure_mapping_sections(cfg)
     return cfg
@@ -455,8 +418,6 @@ def _ensure_version(cfg: Dict[str, Any]) -> None:
 def build_config_from_store(store: ParamStore) -> ConfigType:
     """Convert ``store`` into a :class:`Config` object."""
     cfg: Dict[str, Any] = build_config_dict(store)
-    cfg = _normalize_gui_store_cfg(cfg)
-    _ensure_mapping_sections(cfg)
     _ensure_version(cfg)
     return Config(**cfg)
 
@@ -573,7 +534,7 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
     assert widgets is not None
     from ..core.rank_selection import METRIC_REGISTRY
 
-    rank_cfg = store.cfg.setdefault("rank", {})
+    rank_cfg = store.cfg.setdefault("portfolio", {}).setdefault("rank", {})
 
     incl_dd = widgets.Dropdown(
         options=["top_n", "top_pct", "threshold"],
@@ -627,12 +588,13 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
         blended_box = widgets.VBox()
 
     def _store_rank(_: Any = None, *, store: ParamStore) -> None:
-        rank_cfg["inclusion_approach"] = incl_dd.value
-        rank_cfg["score_by"] = metric_dd.value
-        rank_cfg["n"] = int(n_int.value)
-        rank_cfg["pct"] = float(pct_flt.value)
-        rank_cfg["threshold"] = float(thresh_f.value)
-        rank_cfg["blended_weights"] = {
+        current_rank_cfg = store.cfg.setdefault("portfolio", {}).setdefault("rank", {})
+        current_rank_cfg["inclusion_approach"] = incl_dd.value
+        current_rank_cfg["score_by"] = metric_dd.value
+        current_rank_cfg["n"] = int(n_int.value)
+        current_rank_cfg["pct"] = float(pct_flt.value)
+        current_rank_cfg["threshold"] = float(thresh_f.value)
+        current_rank_cfg["blended_weights"] = {
             m1_dd.value: w1_sl.value,
             m2_dd.value: w2_sl.value,
             m3_dd.value: w3_sl.value,
@@ -834,17 +796,12 @@ def launch() -> widgets.Widget:
 
     mode = widgets.Dropdown(
         options=["all", "random", "manual", "rank"],
-        value=store.cfg.get("mode", "all"),
+        value=_as_dict(store.cfg.get("portfolio")).get("selection_mode", "all"),
         description="Mode",
     )
     vol_adj = widgets.Checkbox(
-        value=store.cfg.get("use_vol_adjust", False),
+        value=_as_dict(store.cfg.get("vol_adjust")).get("enabled", True),
         description="Vol-Adj",
-        indent=False,
-    )
-    use_ranking = widgets.Checkbox(
-        value=store.cfg.get("use_ranking", False),
-        description="Use Ranking",
         indent=False,
     )
     theme = widgets.ToggleButtons(
@@ -872,17 +829,13 @@ def launch() -> widgets.Widget:
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 
     def on_mode(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["mode"] = change["new"]
+        store.cfg.setdefault("portfolio", {})["selection_mode"] = change["new"]
         store.dirty = True
 
     mode.observe(lambda ch, store=store: on_mode(ch, store=store), names="value")
 
     def on_vol(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["use_vol_adjust"] = bool(change["new"])
-        store.dirty = True
-
-    def on_rank(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["use_ranking"] = bool(change["new"])
+        store.cfg.setdefault("vol_adjust", {})["enabled"] = bool(change["new"])
         store.dirty = True
 
     def on_fmt(change: dict[str, Any], *, store: ParamStore) -> None:
@@ -926,7 +879,6 @@ def launch() -> widgets.Widget:
         store.dirty = False
 
     vol_adj.observe(lambda ch, store=store: on_vol(ch, store=store), names="value")
-    use_ranking.observe(lambda ch, store=store: on_rank(ch, store=store), names="value")
     fmt_dd.observe(lambda ch, store=store: on_fmt(ch, store=store), names="value")
     run_btn.on_click(lambda btn, store=store: on_run(btn, store=store))
     reset_btn.on_click(lambda _: reset_weight_state(store))
@@ -937,11 +889,10 @@ def launch() -> widgets.Widget:
 
     def _toggle_boxes(change: dict[str, Any], *, store: ParamStore) -> None:
         mode_val = change["new"] if isinstance(change, dict) else mode.value
-        rank_box.layout.display = "flex" if mode_val == "rank" or use_ranking.value else "none"
+        rank_box.layout.display = "flex" if mode_val == "rank" else "none"
         manual_box.layout.display = "flex" if mode_val == "manual" else "none"
 
     mode.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
-    use_ranking.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
     _toggle_boxes({"new": mode.value}, store=store)
 
     step0 = _build_step0(store)
@@ -951,7 +902,6 @@ def launch() -> widgets.Widget:
             step0,
             mode,
             vol_adj,
-            use_ranking,
             rank_box,
             manual_box,
             weight_box,

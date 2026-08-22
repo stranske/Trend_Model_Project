@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterable, Mapping, MutableMapping, Tuple
 
 import pandas as pd
 
-from streamlit_app.components.analysis_runner import ModelSettings
 from streamlit_app.components.data_schema import (
     SchemaMeta,
     infer_benchmarks,
@@ -316,21 +315,7 @@ def _update_session_state(
         k: float(v) for k, v in (overrides.get("metric_weights", {}) or {}).items()
     }
 
-    model_settings = ModelSettings(
-        lookback_periods=lookback,
-        rebalance_frequency=str(setup.sim_config.get("freq", "monthly")),
-        selection_count=selection_count,
-        risk_target=risk_target,
-        weighting_name=weighting_name,
-        cooldown_periods=int(overrides.get("cooldown_periods", 3)),
-        min_history_periods=int(overrides.get("min_track_months", 24)),
-        metric_weights=metric_weights_dict,
-        trend_spec=trend_payload if isinstance(trend_payload, Mapping) else {},
-        benchmark=setup.benchmark,
-    )
-    state["model_settings"] = model_settings
-
-    # Set model_state dict for Results page compatibility
+    # Set the current model-state snapshot consumed by the Results page.
     state["model_state"] = {
         "preset": setup.config_state.get("preset_name", "Baseline"),
         "trend_spec": trend_payload if isinstance(trend_payload, Mapping) else {},

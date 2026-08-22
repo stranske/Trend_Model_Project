@@ -301,8 +301,10 @@ def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
     store = ParamStore(
         cfg={
             "version": "1.0",
-            "mode": "all",
-            "portfolio": {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}},
+            "portfolio": {
+                "selection_mode": "all",
+                "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+            },
             "output": {"format": "csv", "path": str(tmp_path / "out")},
         }
     )
