@@ -94,6 +94,10 @@ def test_validation_report_propagates_metadata() -> None:
     validated = ValidatedMarketData(frame=frame, metadata=metadata)
     report = _validation_report(validated)
     assert report["is_valid"] is True
+    assert report["issues"] == []
+    assert report["frequency"] == metadata.frequency_label
+    assert report["date_range"] == metadata.date_range
+    assert report["mode"] == metadata.mode.value
     assert report["metadata"] is metadata
     assert report["warnings"]
 
