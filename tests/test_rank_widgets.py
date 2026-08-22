@@ -46,7 +46,6 @@ def _unpack_rank_controls(ui):
         random_n_int,
         vol_ck,
         target_vol,
-        use_rank_ck,
         next_btn_1,
         rank_box,
         manual_box,
@@ -59,7 +58,6 @@ def _unpack_rank_controls(ui):
         "random_n_int": random_n_int,
         "vol_ck": vol_ck,
         "target_vol": target_vol,
-        "use_rank_ck": use_rank_ck,
         "next_btn_1": next_btn_1,
         "rank_box": rank_box,
         "manual_box": manual_box,
@@ -148,7 +146,7 @@ def test_rank_widgets_manual_flow(monkeypatch, tmp_path) -> None:
     assert controls["target_vol"].layout.display == "none"
 
     controls["mode_dd"].value = "rank"
-    assert controls["use_rank_ck"].value is True
+    assert controls["rank_box"].layout.display == "flex"
 
     controls["mode_dd"].value = "manual"
     assert controls["manual_box"].layout.display == "flex"

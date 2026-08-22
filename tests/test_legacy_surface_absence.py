@@ -101,6 +101,10 @@ REMOVED_TEST_ONLY_SYMBOLS = {
     },
     "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
 }
+REMOVED_GUI_SYMBOLS = {
+    "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
+    "streamlit_app/components/analysis_runner.py": {"Model" + "Settings"},
+}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -142,6 +146,36 @@ def _textual_import_modules(text: str) -> list[str]:
 
 def _is_archived(path: Path) -> bool:
     return any(path.is_relative_to(root) for root in ARCHIVE_ROOTS)
+
+
+def _static_string(node: ast.AST) -> str | None:
+    """Return a statically composed string literal, if one is recoverable."""
+
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_string(node.left)
+        right = _static_string(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _mapping_key_write_offenders(path: Path, retired_keys: set[str]) -> set[str]:
+    """Find direct subscript assignments that restore retired mapping keys."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    offenders: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Subscript):
+                key = _static_string(target.slice)
+                if key in retired_keys:
+                    offenders.add(key)
+    return offenders
 
 
 def _include_text_file(path: Path) -> bool:
@@ -341,6 +375,44 @@ def test_test_only_runtime_seam_gate_detects_deliberate_restoration(tmp_path: Pa
 
     removed = {"_inject_" + "cash_returns", "selector_cache_" + "hits"}
     assert _removed_symbol_offenders(candidate, removed) == removed
+
+
+def test_gui_compatibility_adapters_remain_absent() -> None:
+    """GUI state must use the canonical Config and current model-state contracts."""
+
+    offenders: list[str] = []
+    for relative_path, removed_names in REMOVED_GUI_SYMBOLS.items():
+        returned = sorted(_removed_symbol_offenders(REPO_ROOT / relative_path, removed_names))
+        offenders.extend(f"{relative_path}: {name}" for name in returned)
+
+    demo_runner = REPO_ROOT / "streamlit_app/components/demo_runner.py"
+    dead_state_key = "model_" + "settings"
+    if dead_state_key in demo_runner.read_text(encoding="utf-8"):
+        offenders.append(f"streamlit_app/components/demo_runner.py: {dead_state_key}")
+
+    retired_keys = {"mode", "rank", "use_" + "ranking", "use_vol_" + "adjust"}
+    for key in sorted(
+        _mapping_key_write_offenders(REPO_ROOT / "src/trend_analysis/gui/app.py", retired_keys)
+    ):
+        offenders.append(f"src/trend_analysis/gui/app.py: writes retired key {key}")
+
+    assert not offenders, "GUI compatibility adapters returned:\n" + "\n".join(offenders)
+
+
+def test_gui_compatibility_gate_detects_deliberate_restoration(tmp_path: Path) -> None:
+    """Deliberate-break proof: a restored translator is detected by the AST scan."""
+
+    candidate = tmp_path / "gui.py"
+    candidate.write_text(
+        "def _normalize_gui_store_cfg(cfg):\n    return cfg\n",
+        encoding="utf-8",
+    )
+
+    removed = {"_normalize_gui_" + "store_cfg"}
+    assert _removed_symbol_offenders(candidate, removed) == removed
+
+    candidate.write_text("store.cfg['mo' + 'de'] = 'rank'\n", encoding="utf-8")
+    assert _mapping_key_write_offenders(candidate, {"mode"}) == {"mode"}
 
 
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:

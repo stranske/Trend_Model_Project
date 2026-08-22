@@ -131,8 +131,6 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     target_vol = widgets.BoundedFloatText(
         value=1.0, min=0.05, max=3.0, step=0.01, description="Target Vol:"
     )
-    use_rank_ck = widgets.Checkbox(value=True, description="Apply ranking?")
-
     incl_dd = widgets.Dropdown(
         options=["top_n", "top_pct", "threshold"], value="top_n", description="Approach"
     )
@@ -164,6 +162,7 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     )
 
     def _update_rank_vis(*_: Any) -> None:
+        rank_box.layout.display = "flex" if mode_dd.value == "rank" else "none"
         blended_box.layout.display = "flex" if metric_dd.value == "blended" else "none"
         incl = incl_dd.value
         topn_int.layout.display = "flex" if incl == "top_n" else "none"
@@ -176,23 +175,12 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     def _update_target_vol(*_: Any) -> None:
         target_vol.layout.display = "flex" if vol_ck.value else "none"
 
-    def _toggle_rank_fields(*_: Any) -> None:
-        rank_box.layout.display = "flex" if use_rank_ck.value else "none"
-
-    def _on_mode_change(change: dict[str, Any]) -> None:
-        _update_random_vis()
-        _toggle_rank_fields()
-        use_rank_ck.value = use_rank_ck.value or change["new"] == "rank"
-
     incl_dd.observe(_update_rank_vis, names="value")
     metric_dd.observe(_update_rank_vis, names="value")
-    mode_dd.observe(_on_mode_change, names="value")
-    use_rank_ck.observe(_toggle_rank_fields, names="value")
     vol_ck.observe(_update_target_vol, names="value")
 
     _update_rank_vis()
     _update_random_vis()
-    _toggle_rank_fields()
     _update_target_vol()
 
     # -------------------- Step 3: manual override --------------------
@@ -257,7 +245,6 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
 
     mode_dd.observe(_on_mode, names="value")
     _on_mode({"new": mode_dd.value})
-    use_rank_ck.observe(lambda ch: _update_rank_vis(), names="value")
     vol_ck.observe(lambda ch: _update_target_vol(), names="value")
 
     # -------------------- Step 4: run button + output --------------------
@@ -265,7 +252,6 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     manual_funds: list[str] = []
 
     rank_kwargs: dict[str, Callable[[], Any]] = {
-        "use_ranking": lambda: use_rank_ck.value or mode_dd.value == "rank",
         "inclusion_approach": lambda: incl_dd.value,
         "n": lambda: int(topn_int.value),
         "pct": lambda: float(pct_flt.value),
@@ -386,7 +372,6 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
             random_n_int,
             vol_ck,
             target_vol,
-            use_rank_ck,
             next_btn_1,
             rank_box,
             manual_box,

@@ -29,22 +29,6 @@ from .universe_membership_input import (
 from .upload_guard import DEFAULT_UPLOAD_DIR
 
 
-@dataclass(frozen=True)
-class ModelSettings:
-    """Compatibility shim for legacy demo code expecting ``ModelSettings``."""
-
-    lookback_periods: int
-    rebalance_frequency: str
-    selection_count: int
-    risk_target: float
-    weighting_name: str
-    cooldown_periods: int
-    min_history_periods: int
-    metric_weights: Mapping[str, float]
-    trend_spec: Mapping[str, Any]
-    benchmark: str | None = None
-
-
 @dataclass
 class AnalysisPayload:
     """Container describing the data required to run the analysis."""

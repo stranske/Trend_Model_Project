@@ -14,7 +14,6 @@ import yaml
 
 from ..config import Config
 from ..config.models import DEFAULTS
-from ..config.models import Config as ConfigModel
 from ..diagnostics import coerce_pipeline_result
 from .plugins import discover_plugins, iter_plugins
 from .store import ParamStore
@@ -321,17 +320,21 @@ def load_state() -> ParamStore:
     store = ParamStore()
     try:
         if STATE_FILE.exists():
-            store = ParamStore.from_yaml(STATE_FILE)
+            loaded_store = ParamStore.from_yaml(STATE_FILE)
+            loaded_store.cfg = _validate_loaded_gui_config(loaded_store.cfg)
+            store = loaded_store
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load state: {exc}")
     try:
         if WEIGHT_STATE_FILE.exists():
             with WEIGHT_STATE_FILE.open("rb") as fh:
                 data = pickle.load(fh)
-            if isinstance(data, dict) and "adaptive_bayes_posteriors" in data:
-                store.weight_state = data["adaptive_bayes_posteriors"]
-            else:  # back-compat with old format
-                store.weight_state = data
+            if not isinstance(data, dict) or "adaptive_bayes_posteriors" not in data:
+                raise ValueError("weight state must use the adaptive_bayes_posteriors mapping")
+            posterior_state = data["adaptive_bayes_posteriors"]
+            if not isinstance(posterior_state, dict):
+                raise ValueError("adaptive_bayes_posteriors must be a mapping")
+            store.weight_state = posterior_state
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load weight state: {exc}")
     return store
@@ -350,9 +353,6 @@ def reset_weight_state(store: ParamStore) -> None:
     store.weight_state = None
     if WEIGHT_STATE_FILE.exists():  # pragma: no cover - file may not exist
         WEIGHT_STATE_FILE.unlink()
-
-
-_GUI_STORE_KEYS = frozenset({"mode", "rank", "use_ranking", "use_vol_adjust"})
 
 
 def _as_dict(v: Any) -> Dict[str, Any]:
@@ -382,42 +382,9 @@ def _ensure_mapping_sections(cfg: Dict[str, Any]) -> None:
         cfg["multi_period"] = _as_dict(cfg.get("multi_period"))
 
 
-def _normalize_gui_store_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Translate legacy GUI store keys into the strict top-level Config schema."""
-    normalized = dict(cfg)
-    portfolio = _as_dict(normalized.get("portfolio"))
-
-    mode = normalized.pop("mode", None)
-    if mode is not None and "selection_mode" not in portfolio:
-        portfolio["selection_mode"] = mode
-
-    rank = normalized.pop("rank", None)
-    if isinstance(rank, dict):
-        existing_rank = portfolio.get("rank")
-        portfolio["rank"] = (
-            {**_as_dict(existing_rank), **rank} if isinstance(existing_rank, dict) else dict(rank)
-        )
-
-    for gui_key in _GUI_STORE_KEYS:
-        normalized.pop(gui_key, None)
-
-    if portfolio:
-        normalized["portfolio"] = portfolio
-
-    # ``Config`` remains an injectable factory for GUI tests and callers; use
-    # the concrete schema class to identify the strict top-level fields.
-    allowed = set(ConfigModel.ALL_FIELDS)
-    return {key: value for key, value in normalized.items() if key in allowed}
-
-
 def build_config_dict(store: ParamStore) -> Dict[str, Any]:
     """Return the config dictionary kept in ``store`` as a plain dict."""
     cfg = dict(store.cfg)
-
-    # If user provided a minimal config, don't inject defaults so tests that
-    # assert exact equality pass; otherwise ensure expected mapping sections.
-    if set(cfg.keys()) <= {"mode", "output"}:
-        return cfg
 
     _ensure_mapping_sections(cfg)
     return cfg
@@ -455,8 +422,6 @@ def _ensure_version(cfg: Dict[str, Any]) -> None:
 def build_config_from_store(store: ParamStore) -> ConfigType:
     """Convert ``store`` into a :class:`Config` object."""
     cfg: Dict[str, Any] = build_config_dict(store)
-    cfg = _normalize_gui_store_cfg(cfg)
-    _ensure_mapping_sections(cfg)
     _ensure_version(cfg)
     return Config(**cfg)
 
@@ -474,7 +439,27 @@ def _clear_grid_error_border(grid: Any) -> None:
         clear_border()
 
 
-def _build_step0(store: ParamStore) -> widgets.Widget:
+_RETIRED_GUI_TOP_LEVEL_KEYS = frozenset({"mode", "rank", "use_ranking", "use_vol_adjust"})
+
+
+def _validate_loaded_gui_config(raw: Any) -> dict[str, Any]:
+    """Reject non-canonical GUI configuration before replacing live state."""
+
+    if not isinstance(raw, dict):
+        raise ValueError("configuration must be a YAML mapping")
+    retired = sorted(_RETIRED_GUI_TOP_LEVEL_KEYS.intersection(raw))
+    if retired:
+        names = ", ".join(retired)
+        raise ValueError(
+            f"retired top-level configuration key(s): {names}; "
+            "use portfolio.selection_mode, portfolio.rank, and vol_adjust.enabled"
+        )
+    return raw
+
+
+def _build_step0(
+    store: ParamStore, *, on_config_replaced: Callable[[], None] | None = None
+) -> widgets.Widget:
     """Return widgets for Step 0 (config loader/editor)."""
 
     _load_notebook_deps()
@@ -498,7 +483,9 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
             new = event["new"]
             try:
                 parsed = yaml.safe_load(new)
-                store.cfg[key] = parsed
+                candidate = dict(store.cfg)
+                candidate[key] = parsed
+                store.cfg = _validate_loaded_gui_config(candidate)
                 grid_df.iloc[event["row"], 1] = parsed
                 store.dirty = True
             except Exception:
@@ -524,11 +511,17 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_upload(change: dict[str, Any], *, store: ParamStore) -> None:
         if change["new"]:
-            item = next(iter(upload.value.values()))
-            store.cfg = yaml.safe_load(item["content"].decode("utf-8"))
-            store.dirty = True
-            reset_weight_state(store)
-            refresh_grid()
+            try:
+                item = next(iter(upload.value.values()))
+                loaded = yaml.safe_load(item["content"].decode("utf-8"))
+                store.cfg = _validate_loaded_gui_config(loaded)
+                store.dirty = True
+                reset_weight_state(store)
+                refresh_grid()
+                if on_config_replaced is not None:
+                    on_config_replaced()
+            except (TypeError, ValueError, yaml.YAMLError) as exc:
+                warnings.warn(f"Invalid uploaded configuration: {exc}")
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
@@ -536,15 +529,17 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         path = cfg_dir / f"{name}.yml"
         try:
             content = path.read_text()
-            store.cfg = yaml.safe_load(content)
+            store.cfg = _validate_loaded_gui_config(yaml.safe_load(content))
             store.dirty = True
             reset_weight_state(store)
             refresh_grid()
+            if on_config_replaced is not None:
+                on_config_replaced()
         except FileNotFoundError:
             warnings.warn(f"Template config file not found: {path}")
         except PermissionError:
             warnings.warn(f"Permission denied reading template config: {path}")
-        except yaml.YAMLError as exc:
+        except (TypeError, ValueError, yaml.YAMLError) as exc:
             warnings.warn(f"Invalid YAML in template config {path}: {exc}")
         except Exception as exc:
             warnings.warn(f"Failed to load template config {path}: {exc}")
@@ -573,7 +568,7 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
     assert widgets is not None
     from ..core.rank_selection import METRIC_REGISTRY
 
-    rank_cfg = store.cfg.setdefault("rank", {})
+    rank_cfg = store.cfg.setdefault("portfolio", {}).setdefault("rank", {})
 
     incl_dd = widgets.Dropdown(
         options=["top_n", "top_pct", "threshold"],
@@ -627,12 +622,13 @@ def _build_rank_options(store: ParamStore) -> widgets.Widget:
         blended_box = widgets.VBox()
 
     def _store_rank(_: Any = None, *, store: ParamStore) -> None:
-        rank_cfg["inclusion_approach"] = incl_dd.value
-        rank_cfg["score_by"] = metric_dd.value
-        rank_cfg["n"] = int(n_int.value)
-        rank_cfg["pct"] = float(pct_flt.value)
-        rank_cfg["threshold"] = float(thresh_f.value)
-        rank_cfg["blended_weights"] = {
+        current_rank_cfg = store.cfg.setdefault("portfolio", {}).setdefault("rank", {})
+        current_rank_cfg["inclusion_approach"] = incl_dd.value
+        current_rank_cfg["score_by"] = metric_dd.value
+        current_rank_cfg["n"] = int(n_int.value)
+        current_rank_cfg["pct"] = float(pct_flt.value)
+        current_rank_cfg["threshold"] = float(thresh_f.value)
+        current_rank_cfg["blended_weights"] = {
             m1_dd.value: w1_sl.value,
             m2_dd.value: w2_sl.value,
             m3_dd.value: w3_sl.value,
@@ -689,12 +685,15 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
         def _on_edit(event: dict[str, Any], *, store: ParamStore) -> None:
             fund = df.loc[event["row"], "Fund"]
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_weights = current_port.setdefault("custom_weights", {})
+            current_manual = current_port.setdefault("manual_list", list(current_weights))
             if event.get("column") == 1:  # Include
                 include_val = bool(event.get("new"))
-                if include_val and fund not in manual:
-                    manual.append(fund)
-                elif not include_val and fund in manual:
-                    manual.remove(fund)
+                if include_val and fund not in current_manual:
+                    current_manual.append(fund)
+                elif not include_val and fund in current_manual:
+                    current_manual.remove(fund)
             elif event.get("column") == 2:  # Weight
                 new_val = event.get("new")
                 if new_val is None:
@@ -705,7 +704,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                         raise ValueError
                 except (TypeError, ValueError):
                     return
-                weights[fund] = weight_val
+                current_weights[fund] = weight_val
                 df.loc[event["row"], "Weight"] = weight_val
             store.dirty = True
 
@@ -724,7 +723,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
         ]
 
         def _on_select(change: dict[str, Any], *, store: ParamStore) -> None:
-            manual[:] = list(change["new"])
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_port["manual_list"] = list(change["new"])
             store.dirty = True
 
         def _on_weight(change: dict[str, Any], fund: str, *, store: ParamStore) -> None:
@@ -734,7 +734,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                     raise ValueError
             except Exception:
                 return
-            weights[fund] = val
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_port.setdefault("custom_weights", {})[fund] = val
             store.dirty = True
 
         select.observe(lambda ch, store=store: _on_select(ch, store=store), names="value")
@@ -800,11 +801,15 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     adv_box = widgets.VBox([hl, os_sl, mw_sl, pt_sl])
 
     def _store_weight(_: Any = None, *, store: ParamStore) -> None:
-        weight_cfg["name"] = method_dd.value
-        params["half_life"] = int(hl.value)
-        params["obs_sigma"] = float(os_sl.value)
-        params["max_w"] = float(mw_sl.value)
-        params["prior_tau"] = float(pt_sl.value)
+        current_weight_cfg = store.cfg.setdefault("portfolio", {}).setdefault(
+            "weighting", {"name": "equal", "params": {}}
+        )
+        current_params = current_weight_cfg.setdefault("params", {})
+        current_weight_cfg["name"] = method_dd.value
+        current_params["half_life"] = int(hl.value)
+        current_params["obs_sigma"] = float(os_sl.value)
+        current_params["max_w"] = float(mw_sl.value)
+        current_params["prior_tau"] = float(pt_sl.value)
         store.dirty = True
 
     method_dd.observe(lambda ch, store=store: _store_weight(ch, store=store), names="value")
@@ -834,17 +839,12 @@ def launch() -> widgets.Widget:
 
     mode = widgets.Dropdown(
         options=["all", "random", "manual", "rank"],
-        value=store.cfg.get("mode", "all"),
+        value=_as_dict(store.cfg.get("portfolio")).get("selection_mode", "all"),
         description="Mode",
     )
     vol_adj = widgets.Checkbox(
-        value=store.cfg.get("use_vol_adjust", False),
+        value=_as_dict(store.cfg.get("vol_adjust")).get("enabled", True),
         description="Vol-Adj",
-        indent=False,
-    )
-    use_ranking = widgets.Checkbox(
-        value=store.cfg.get("use_ranking", False),
-        description="Use Ranking",
         indent=False,
     )
     theme = widgets.ToggleButtons(
@@ -872,17 +872,13 @@ def launch() -> widgets.Widget:
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")
 
     def on_mode(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["mode"] = change["new"]
+        store.cfg.setdefault("portfolio", {})["selection_mode"] = change["new"]
         store.dirty = True
 
     mode.observe(lambda ch, store=store: on_mode(ch, store=store), names="value")
 
     def on_vol(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["use_vol_adjust"] = bool(change["new"])
-        store.dirty = True
-
-    def on_rank(change: dict[str, Any], *, store: ParamStore) -> None:
-        store.cfg["use_ranking"] = bool(change["new"])
+        store.cfg.setdefault("vol_adjust", {})["enabled"] = bool(change["new"])
         store.dirty = True
 
     def on_fmt(change: dict[str, Any], *, store: ParamStore) -> None:
@@ -926,7 +922,6 @@ def launch() -> widgets.Widget:
         store.dirty = False
 
     vol_adj.observe(lambda ch, store=store: on_vol(ch, store=store), names="value")
-    use_ranking.observe(lambda ch, store=store: on_rank(ch, store=store), names="value")
     fmt_dd.observe(lambda ch, store=store: on_fmt(ch, store=store), names="value")
     run_btn.on_click(lambda btn, store=store: on_run(btn, store=store))
     reset_btn.on_click(lambda _: reset_weight_state(store))
@@ -937,21 +932,32 @@ def launch() -> widgets.Widget:
 
     def _toggle_boxes(change: dict[str, Any], *, store: ParamStore) -> None:
         mode_val = change["new"] if isinstance(change, dict) else mode.value
-        rank_box.layout.display = "flex" if mode_val == "rank" or use_ranking.value else "none"
+        rank_box.layout.display = "flex" if mode_val == "rank" else "none"
         manual_box.layout.display = "flex" if mode_val == "manual" else "none"
 
     mode.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
-    use_ranking.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
     _toggle_boxes({"new": mode.value}, store=store)
 
-    step0 = _build_step0(store)
+    def _refresh_config_widgets() -> None:
+        """Reflect a replacement config in the controls that remain mounted."""
+
+        portfolio_cfg = _as_dict(store.cfg.get("portfolio"))
+        mode.value = portfolio_cfg.get("selection_mode", "all")
+        vol_adj.value = _as_dict(store.cfg.get("vol_adjust")).get("enabled", True)
+        fmt_dd.value = _as_dict(store.cfg.get("output")).get("format", "excel")
+
+        rank_box.children = _build_rank_options(store).children
+        manual_box.children = _build_manual_override(store).children
+        weight_box.children = _build_weighting_options(store).children
+        _toggle_boxes({"new": mode.value}, store=store)
+
+    step0 = _build_step0(store, on_config_replaced=_refresh_config_widgets)
 
     container = widgets.VBox(
         [
             step0,
             mode,
             vol_adj,
-            use_ranking,
             rank_box,
             manual_box,
             weight_box,
