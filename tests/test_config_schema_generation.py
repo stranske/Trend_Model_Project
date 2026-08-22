@@ -98,6 +98,8 @@ def test_schema_matches_volatility_window_runtime_bounds() -> None:
 
     compact_window = _compact_schema(schema)["properties"]["vol_adjust"]["properties"]["window"]
     assert compact_window["required"] == ["length"]
+    assert compact_window["properties"]["length"]["minimum"] == 1
+    assert compact_window["properties"]["lambda"]["exclusiveMinimum"] == 0
     assert compact_window["properties"]["lambda"]["exclusiveMaximum"] == 1
 
 

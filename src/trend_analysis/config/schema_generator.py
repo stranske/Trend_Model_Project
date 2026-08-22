@@ -674,6 +674,7 @@ def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
         "properties",
         "required",
         "items",
+        "minimum",
         "exclusiveMinimum",
         "exclusiveMaximum",
     }
