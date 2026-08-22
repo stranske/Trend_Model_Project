@@ -35,7 +35,9 @@ def configure_matplotlib_config_dir(
     if existing:
         return Path(existing)
 
-    resolved_mode = (mode or os.environ.get(_TREND_MPLCONFIGDIR_MODE_ENV, "auto")).strip().lower()
+    resolved_mode = (
+        (mode or os.environ.get(_TREND_MPLCONFIGDIR_MODE_ENV, "auto")).strip().lower()
+    )
     if resolved_mode in {"off", "false", "0", "disable"}:
         return None
 
@@ -127,6 +129,7 @@ for _name in _EAGER_SUBMODULES:
     except ImportError:
         # Missing optional dependency chain; submodule simply not exposed.
         continue
+
 
 def __getattr__(attr: str) -> ModuleType:  # pragma: no cover - thin lazy loader
     target = _LAZY_SUBMODULES.get(attr)

@@ -45,9 +45,7 @@ def test_metrics_package_has_no_explicit_compatibility_bindings() -> None:
         target.id
         for node in tree.body
         if isinstance(node, (ast.Assign, ast.AnnAssign))
-        for target in (
-            node.targets if isinstance(node, ast.Assign) else [node.target]
-        )
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
         if isinstance(target, ast.Name)
     }
     assert retired.isdisjoint(assigned_names)
