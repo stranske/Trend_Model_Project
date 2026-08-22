@@ -758,6 +758,7 @@ def _infer_explain_run_id(
 ) -> str:
     if run_id:
         return run_id
+
     def _mapping(value: Any) -> Mapping[str, Any]:
         return value if isinstance(value, Mapping) else {}
 
