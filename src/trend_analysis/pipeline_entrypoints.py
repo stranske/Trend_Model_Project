@@ -200,7 +200,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
             empty.attrs["diagnostic"] = diag
         return empty
 
-    res = cast(AnalysisResult, normalized.value)
+    res = normalized.value
     stats = cast(dict[str, Any], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
     for label, ir_map in cast(dict[str, dict[str, float]], res.get("benchmark_ir", {})).items():
