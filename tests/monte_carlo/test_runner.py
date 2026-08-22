@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,21 @@ from trend_analysis.monte_carlo.results import (
 from trend_analysis.monte_carlo.runner import MonteCarloRunner
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.strategy import StrategyVariant
+
+
+def test_utc_output_timestamp_uses_aware_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    requested_timezones: list[object] = []
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls, tz: object) -> datetime:
+            requested_timezones.append(tz)
+            return datetime(2026, 8, 22, 7, 3, 4, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(runner_module, "datetime", FixedDatetime)
+
+    assert runner_module._utc_output_timestamp() == "20260822-070304"
+    assert requested_timezones == [timezone.utc]
 
 
 def _price_history() -> pd.DataFrame:

@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -986,6 +987,43 @@ def test_chain_resource_signature_changes_with_llm_key(model_module: ModuleType)
     sig_two = model_module._chain_resource_signature(chain_cache_key, llm_key_two)
 
     assert sig_one != sig_two
+
+
+def test_model_timestamps_are_aware_utc_and_preserve_wire_format(
+    model_module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    requested_timezones: list[object] = []
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls, tz: object) -> datetime:
+            requested_timezones.append(tz)
+            return datetime(2026, 8, 22, 7, 3, 4, tzinfo=timezone.utc)
+
+        @classmethod
+        def utcnow(cls) -> datetime:
+            raise AssertionError("Model timestamps must use aware UTC construction")
+
+    monkeypatch.setattr(model_module, "datetime", FixedDatetime)
+    stamp = model_module._utc_timestamp()
+    parsed = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    assert stamp.endswith("Z")
+    assert parsed.utcoffset() == timezone.utc.utcoffset(parsed)
+    assert requested_timezones == [timezone.utc]
+
+    sentinel = "2026-08-22T07:03:04Z"
+    monkeypatch.setattr(model_module, "_utc_timestamp", lambda: sentinel)
+    stub = model_module.st
+    stub.session_state.clear()
+    model_module._record_config_change({"before": {"a": 1}, "after": {"a": 2}})
+    model_module._record_preview_timing(
+        {"timings": {"chain_cache_key": {}}}, total_seconds=0.1
+    )
+    model_module._record_chain_cache_stats({}, chain_build_seconds=0.1)
+
+    assert stub.session_state[model_module._CONFIG_HISTORY_KEY][0]["timestamp"] == sentinel
+    assert stub.session_state[model_module._CONFIG_PREVIEW_TIMINGS_KEY][0]["timestamp"] == sentinel
+    assert stub.session_state[model_module._CONFIG_CHAIN_STATS_KEY]["timestamp"] == sentinel
 
 
 def test_record_preview_timing_tracks_chain_reuse(model_module: ModuleType) -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import itertools
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -428,6 +428,12 @@ def _maybe_render_heatmap(summary: pd.DataFrame, output: Path) -> None:
     plt.close(fig)
 
 
+def _utc_run_timestamp() -> str:
+    """Return the stable, filename-safe timestamp for a walk-forward run."""
+
+    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+
+
 def persist_artifacts(
     settings: WalkForwardSettings,
     folds: pd.DataFrame,
@@ -436,7 +442,7 @@ def persist_artifacts(
     config_path: Path,
 ) -> Path:
     settings.run.output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = _utc_run_timestamp()
     run_dir = settings.run.output_dir / f"{settings.run.name}-{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
 

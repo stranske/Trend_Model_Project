@@ -31,7 +31,7 @@ import logging
 import math
 import random
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence, SupportsFloat, cast
 
@@ -85,6 +85,12 @@ __all__ = ["MonteCarloRunner", "evaluate_strategies_for_path"]
 
 _STRATEGY_SELECTION_SEED_TAG = "__strategy_selection__"
 _TURNOVER_GUARD_PATH = "strategy_set.guards.max_turnover"
+
+
+def _utc_output_timestamp() -> str:
+    """Return the stable, filename-safe UTC timestamp for MC outputs."""
+
+    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 # nav_paths schema requirements:
 # - DataFrame index: datetime-like period ends (DatetimeIndex preferred).
 # - Values: float NAVs normalized to start at 1.0 for each path.
@@ -2214,7 +2220,7 @@ class MonteCarloRunner:
         export_aggregation_results(aggregation, output_dir, formats=formats)
 
     def _resolve_output_dir(self, template: str) -> Path:
-        now = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        now = _utc_output_timestamp()
         rendered = template.format(scenario_name=self.scenario.name, timestamp=now)
         return Path(rendered)
 
