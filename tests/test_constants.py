@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from trend import cli
+from trend import cli_owned_commands as owned
 from trend_analysis.constants import (
     DEFAULT_OUTPUT_DIRECTORY,
     DEFAULT_OUTPUT_FORMATS,
@@ -32,12 +33,11 @@ def test_numerical_tolerance_constants_hierarchy():
 
 
 def test_constants_are_used_in_cli():
-    """Test that cli uses the constants."""
-    # Check that the constants are imported and available in the module
-    assert hasattr(cli, "DEFAULT_OUTPUT_DIRECTORY")
-    assert hasattr(cli, "DEFAULT_OUTPUT_FORMATS")
-    assert cli.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
-    assert cli.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
+    """Test that cli-owned command helpers use the constants."""
+    assert hasattr(owned, "DEFAULT_OUTPUT_DIRECTORY")
+    assert hasattr(owned, "DEFAULT_OUTPUT_FORMATS")
+    assert owned.DEFAULT_OUTPUT_DIRECTORY == DEFAULT_OUTPUT_DIRECTORY
+    assert owned.DEFAULT_OUTPUT_FORMATS == DEFAULT_OUTPUT_FORMATS
 
 
 def _write_cfg(path: Path, csv: Path) -> None:

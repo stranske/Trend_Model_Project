@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from trend.cli import (
+from trend.cli_owned_commands import (
     _build_explain_artifact_payload,
     _finalize_explanation_text,
     _infer_explain_run_id,
