@@ -5,7 +5,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from trend.input_validation import InputSchema, InputValidationError, validate_input
+from trend.input_validation import (
+    InputSchema,
+    InputValidationError,
+    correct_invalid_dates,
+    validate_input,
+)
+from trend_analysis.io.date_correction import analyze_date_column
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -77,3 +83,66 @@ def test_validate_input_supports_custom_schema() -> None:
     result = validate_input(df, schema)
     assert "RET" in result.columns
     assert result.index.name == "DATE"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected", "action"),
+    [
+        ("11/31/2017", "11/30/2017", "fixed"),
+        ("2017-11-31", "2017-11-30", "fixed"),
+        ("12/00/2020", "12/01/2020", "fixed"),
+        ("12/35/2020", None, "dropped"),
+        ("12/31/2201", None, "dropped"),
+        ("not-a-date", None, "dropped"),
+    ],
+)
+def test_date_correction_matches_canonical_engine(
+    value: str, expected: str | None, action: str
+) -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", value], "ret": [0.1, 0.2]}, index=[10, 20])
+
+    corrected, corrections = correct_invalid_dates(frame, "Date")
+    canonical = analyze_date_column(frame.reset_index(drop=True), "Date")
+
+    assert len(corrections) == 1
+    assert corrections[0]["action"] == action
+    assert corrections[0]["corrected"] == expected
+    assert len(corrected) == (2 if action == "fixed" else 1)
+    assert corrected.index.tolist() == ([10, 20] if action == "fixed" else [10])
+    assert canonical.has_corrections if action == "fixed" else canonical.has_unfixable
+
+
+def test_date_correction_drops_empty_row_using_canonical_engine() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "", "2020-03-31"], "ret": [0.1, 0.2, 0.3]})
+
+    corrected, corrections = correct_invalid_dates(frame, "Date")
+
+    assert corrected["Date"].tolist() == ["2020-01-31", "2020-03-31"]
+    assert corrections == [{"row": 2, "original": "", "corrected": None, "action": "dropped"}]
+
+
+def test_date_correction_matches_canonical_overflow_tolerance() -> None:
+    corrected, corrections = correct_invalid_dates(
+        pd.DataFrame({"Date": ["2020-01-31", "01/35/2020"]}), "Date"
+    )
+
+    assert len(corrected) == 1
+    assert corrections[0]["action"] == "dropped"
+
+
+def test_correct_invalid_dates_drop_action() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "not-a-date"], "ret": [0.1, 0.2]})
+
+    corrected, corrections = correct_invalid_dates(frame, "Date", action="drop")
+
+    assert corrected["Date"].tolist() == ["2020-01-31"]
+    assert corrections == [
+        {"row": 2, "original": "not-a-date", "corrected": None, "action": "dropped"}
+    ]
+
+
+def test_correct_invalid_dates_raise_action() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "not-a-date"], "ret": [0.1, 0.2]})
+
+    with pytest.raises(InputValidationError, match="Unable to parse 'Date' at row 2"):
+        correct_invalid_dates(frame, "Date", action="raise")

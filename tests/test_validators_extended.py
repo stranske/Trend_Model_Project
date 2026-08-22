@@ -6,18 +6,16 @@ import io
 from datetime import datetime
 
 import pandas as pd
-import pytest
 
 from trend_analysis.io.market_data import (
     MarketDataMetadata,
     MarketDataMode,
-    MarketDataValidationError,
     MissingPolicyFillDetails,
+    classify_frequency,
 )
 from trend_analysis.io.validators import (
     _read_uploaded_file,
     _ValidationSummary,
-    detect_frequency,
 )
 
 
@@ -56,21 +54,10 @@ def test_validation_summary_emits_all_warning_types() -> None:
     assert any("policy applied" in warning for warning in warnings)
 
 
-def test_detect_frequency_handles_irregular_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_classify_frequency_uses_canonical_market_data_api() -> None:
     index = pd.date_range("2023-01-01", periods=3, freq="D")
-
-    with monkeypatch.context() as mp:
-        mp.setattr(
-            "trend_analysis.io.validators.classify_frequency",
-            lambda idx: (_ for _ in ()).throw(
-                MarketDataValidationError("Irregular spacing", issues=["irregular cadence"])
-            ),
-        )
-        label = detect_frequency(pd.DataFrame(index=index))
-
-    assert "irregular" in label.lower()
+    info = classify_frequency(index)
+    assert info["label"] == "daily"
 
 
 def test_read_uploaded_file_without_name() -> None:

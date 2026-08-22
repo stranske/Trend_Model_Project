@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -40,6 +41,14 @@ RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
+
+
+def _inject_analysis(
+    monkeypatch: pytest.MonkeyPatch, invoke_analysis_with_diag: Callable[..., object]
+) -> None:
+    """Use the explicit ConfigBindings seam instead of a private runner patch."""
+    bindings = replace(pipeline._bindings(), invoke_analysis_with_diag=invoke_analysis_with_diag)
+    monkeypatch.setattr(pipeline, "_bindings", lambda: bindings)
 
 
 class DummyMapping(Mapping[str, Any]):
@@ -968,7 +977,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run(cfg)
 
@@ -1028,7 +1037,7 @@ def test_run_full_passes_through_results(monkeypatch: pytest.MonkeyPatch) -> Non
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run_full(cfg)
 
@@ -1889,7 +1898,7 @@ def test_run_missing_policy_and_limit_fallbacks(
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run(cfg)
 
@@ -1942,7 +1951,7 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         pipeline.run(cfg)
 
@@ -1997,7 +2006,7 @@ def test_run_full_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch)
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         result = pipeline.run_full(cfg)
 
@@ -2046,7 +2055,7 @@ def test_run_full_respects_explicit_policy(monkeypatch: pytest.MonkeyPatch) -> N
             },
         )
         mp.setattr(pipeline, "_build_trend_spec", lambda cfg, vol: SimpleNamespace())
-        mp.setattr(pipeline, "_run_analysis", fake_run_analysis)
+        _inject_analysis(mp, fake_run_analysis)
 
         pipeline.run_full(cfg)
 

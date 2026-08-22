@@ -2,8 +2,12 @@
 errors."""
 
 import pandas as pd
+import pytest
 
-from trend_analysis.io.validators import validate_returns_schema
+from trend_analysis.io.market_data import (
+    MarketDataValidationError,
+    validate_market_data,
+)
 
 
 class TestMalformedDateValidation:
@@ -18,7 +22,7 @@ class TestMalformedDateValidation:
                 "Date": [
                     "2023-01-31",
                     "invalid-date",
-                    "2023-03-31",
+                    "2023-02-28",
                     "another-bad-date",
                 ],
                 "Fund1": [0.01, 0.02, 0.03, 0.04],
@@ -26,10 +30,10 @@ class TestMalformedDateValidation:
             }
         )
         with caplog.at_level(logging.WARNING):
-            validate_returns_schema(df)
+            validated = validate_market_data(df)
 
-        # Malformed rows are dropped - check logs for warnings
         assert "Dropped row" in caplog.text
+        assert validated.metadata.rows == 2
 
     def test_valid_dates_pass_validation(self):
         """Test that valid dates still pass validation."""
@@ -41,11 +45,8 @@ class TestMalformedDateValidation:
             }
         )
 
-        result = validate_returns_schema(df)
-
-        # Should pass validation with valid dates
-        assert result.is_valid
-        assert len(result.issues) == 0
+        validated = validate_market_data(df)
+        assert validated.metadata.rows == 3
 
     def test_mixed_valid_and_malformed_dates(self, caplog):
         """Test behavior with mixed valid and malformed dates - bad rows are dropped."""
@@ -53,17 +54,16 @@ class TestMalformedDateValidation:
 
         df = pd.DataFrame(
             {
-                "Date": ["2023-01-31", "not-a-date", "2023-03-31"],
+                "Date": ["2023-01-31", "not-a-date", "2023-02-28"],
                 "Fund1": [0.01, 0.02, 0.03],
             }
         )
 
         with caplog.at_level(logging.WARNING):
-            validate_returns_schema(df)
+            validated = validate_market_data(df)
 
-        # With new behavior, malformed rows are dropped and validation continues
-        # Check that a warning was logged about the dropped row
         assert "Dropped row" in caplog.text
+        assert validated.metadata.rows == 2
 
     def test_all_malformed_dates(self, caplog):
         """Test behavior when all dates are malformed - all rows dropped."""
@@ -77,11 +77,10 @@ class TestMalformedDateValidation:
         )
 
         with caplog.at_level(logging.WARNING):
-            result = validate_returns_schema(df)
+            with pytest.raises(MarketDataValidationError):
+                validate_market_data(df)
 
-        # All rows should be dropped as malformed
-        # Validation fails because no data remains
-        assert not result.is_valid or "Dropped row" in caplog.text
+        assert "Dropped row" in caplog.text
 
     def test_empty_date_values_handled(self, caplog):
         """Test that empty/null date values are dropped with warning."""
@@ -89,13 +88,13 @@ class TestMalformedDateValidation:
 
         df = pd.DataFrame(
             {
-                "Date": ["2023-01-31", "", "2023-03-31", None],
+                "Date": ["2023-01-31", "2023-02-28", "2023-03-31", None],
                 "Fund1": [0.01, 0.02, 0.03, 0.04],
             }
         )
 
         with caplog.at_level(logging.WARNING):
-            validate_returns_schema(df)
+            validated = validate_market_data(df)
 
-        # Empty/null dates should be dropped
         assert "Dropped row" in caplog.text
+        assert validated.metadata.rows == 3

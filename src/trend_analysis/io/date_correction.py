@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 
@@ -129,6 +130,21 @@ def _try_correct_date(value: str) -> tuple[str, str] | None:
     return None
 
 
+def _has_supported_year(value: str) -> bool:
+    """Return whether a recognized date format stays within the repair range."""
+    value = str(value).strip()
+    for pattern, extractor, _formatter in _DATE_PATTERNS:
+        match = pattern.match(value)
+        if not match:
+            continue
+        try:
+            year, _month, _day = extractor(match)
+        except (ValueError, IndexError):
+            return False
+        return 1900 <= year <= 2100
+    return True
+
+
 def _is_empty_or_nan(value: str) -> bool:
     if pd.isna(value):
         return True
@@ -172,10 +188,12 @@ def analyze_date_column(
     droppable_empty: list[int] = []
 
     raw_dates = df[date_column].astype(str)
-    parsed = pd.to_datetime(raw_dates, errors="coerce")
+    parsed = pd.to_datetime(raw_dates, errors="coerce", format="mixed")
 
     failed_mask = parsed.isna()
-    failed_indices = df.index[failed_mask].tolist()
+    unsupported_year_mask = df[date_column].map(lambda value: not _has_supported_year(str(value)))
+    combined_mask = failed_mask.to_numpy() | unsupported_year_mask.to_numpy()
+    failed_indices = np.flatnonzero(combined_mask).tolist()
 
     trailing_empty = _find_trailing_empty_rows(df, date_column, failed_indices)
     trailing_set = set(trailing_empty)

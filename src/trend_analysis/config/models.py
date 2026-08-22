@@ -257,20 +257,12 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
 
 
 if _HAS_PYDANTIC:
-    # Cache class identity across re-imports to keep isinstance checks stable
-    import builtins as _bi
-
-    _cached = getattr(_bi, "_TREND_CONFIG_CLASS", None)
-    _runtime_base = BaseModel if _cached is None else _cached
-    if _cached is None:
-        setattr(_bi, "_TREND_CONFIG_CLASS", _runtime_base)
-
     if TYPE_CHECKING:  # pragma: no cover - typing aid only
         from pydantic import BaseModel as _TypedPydanticBaseModel
 
         PydanticConfigBase = _TypedPydanticBaseModel
     else:
-        PydanticConfigBase = cast(type[BaseModel], _runtime_base)
+        PydanticConfigBase = cast(type[BaseModel], BaseModel)
 
     # Provide a typed decorator wrapper to satisfy mypy in strict mode
     from typing import Callable, TypeVar
@@ -543,10 +535,6 @@ if _HAS_PYDANTIC:
             return _validate_signal_settings_mapping(v)
 
     # Field constants are already defined as class variables above
-
-    # Only cache when creating a fresh class
-    if _cached is None:
-        setattr(_bi, "_TREND_CONFIG_CLASS", _PydanticConfigImpl)
 
     # Compute class-level field lists post definition (works for v1/v2)
     _fields_map = getattr(_PydanticConfigImpl, "model_fields", {})

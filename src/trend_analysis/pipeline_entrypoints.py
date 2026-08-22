@@ -179,8 +179,16 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
         allow_risk_free_fallback=allow_risk_free_fallback,
         weight_engine_params=weight_engine_params,
     )
-    diag = diag_res.diagnostic
-    if diag_res.value is None:
+    if isinstance(diag_res, PipelineResult):
+        normalized = diag_res
+    elif isinstance(diag_res, DiagnosticResult):
+        normalized = PipelineResult(value=diag_res.value, diagnostic=diag_res.diagnostic)
+    else:
+        payload, diagnostic = coerce_pipeline_result(diag_res)
+        normalized = PipelineResult(value=payload, diagnostic=diagnostic)
+
+    diag = normalized.diagnostic
+    if normalized.value is None:
         if diag:
             logger.warning(
                 "pipeline.run aborted (%s): %s",
@@ -192,10 +200,10 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
             empty.attrs["diagnostic"] = diag
         return empty
 
-    res = diag_res.value
-    stats = res["out_sample_stats"]
+    res = normalized.value
+    stats = cast(dict[str, Any], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-    for label, ir_map in res.get("benchmark_ir", {}).items():
+    for label, ir_map in cast(dict[str, dict[str, float]], res.get("benchmark_ir", {})).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
             {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
