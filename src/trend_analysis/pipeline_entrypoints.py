@@ -14,7 +14,7 @@ from .config_contract import (
     resolve_portfolio_weighting_name,
     resolve_portfolio_weighting_params,
 )
-from .diagnostics import PipelineResult, coerce_pipeline_result
+from .diagnostics import AnalysisResult, PipelineResult, coerce_pipeline_result
 from .util.risk_free import resolve_risk_free_settings
 
 logger = logging.getLogger("trend_analysis.pipeline")
@@ -200,10 +200,10 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
             empty.attrs["diagnostic"] = diag
         return empty
 
-    res = normalized.value
-    stats = res["out_sample_stats"]
+    res = cast(AnalysisResult, normalized.value)
+    stats = cast(dict[str, Any], res["out_sample_stats"])
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
-    for label, ir_map in res.get("benchmark_ir", {}).items():
+    for label, ir_map in cast(dict[str, dict[str, float]], res.get("benchmark_ir", {})).items():
         col = f"ir_{label}"
         df[col] = pd.Series(
             {k: v for k, v in ir_map.items() if k not in {"equal_weight", "user_weight"}}
