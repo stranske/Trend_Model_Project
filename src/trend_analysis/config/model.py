@@ -596,6 +596,8 @@ class RiskSettings(BaseModel):
             target = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             raise ValueError("vol_adjust.target_vol must be numeric.") from exc
+        if not math.isfinite(target):
+            raise ValueError("vol_adjust.target_vol must be finite.")
         if target <= 0:
             raise ValueError("vol_adjust.target_vol must be greater than zero.")
         return target

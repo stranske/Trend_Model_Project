@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import json
 import logging
+import math
 import re
 from copy import deepcopy
 from dataclasses import dataclass
@@ -54,7 +55,11 @@ class VolatilityTargetRiskPolicy:
     def requires_confirmation(self, target_vol: object) -> bool:
         """Return whether a proposed decimal annualized target needs review."""
 
-        return isinstance(target_vol, (int, float)) and target_vol > self.confirmation_threshold
+        return (
+            isinstance(target_vol, (int, float))
+            and math.isfinite(target_vol)
+            and target_vol > self.confirmation_threshold
+        )
 
 
 VOLATILITY_TARGET_RISK_POLICY = VolatilityTargetRiskPolicy(confirmation_threshold=0.15)
@@ -505,6 +510,13 @@ def _increases_leverage(op: PatchOperation, dotpath: str) -> bool:
 
 def _is_broad_scope(op: PatchOperation) -> bool:
     if op.op == "append":
+        return False
+    if (
+        op.op == "merge"
+        and _to_dotpath(op.path) == "vol_adjust"
+        and isinstance(op.value, dict)
+        and set(op.value) == {"target_vol"}
+    ):
         return False
     return _path_depth(op.path) <= 1
 
