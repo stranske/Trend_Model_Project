@@ -1,4 +1,5 @@
 from trend_analysis.multi_period.scheduler import generate_periods
+import pytest
 
 
 def test_generate_periods_includes_truncated_final_window():
@@ -62,3 +63,18 @@ def test_generate_periods_stops_when_no_oos_available():
 
     periods = generate_periods(cfg)
     assert periods == []
+
+
+def test_generate_periods_rejects_unknown_frequency():
+    cfg = {
+        "multi_period": {
+            "frequency": "BAD",
+            "in_sample_len": 1,
+            "out_sample_len": 1,
+            "start": "2020-01",
+            "end": "2020-12",
+        }
+    }
+
+    with pytest.raises(ValueError, match="Unsupported multi-period frequency"):
+        generate_periods(cfg)

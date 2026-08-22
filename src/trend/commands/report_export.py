@@ -34,7 +34,7 @@ from trend_analysis.util.json_compat import (
     json_compatible,
     json_primitive,
 )
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 logger = logging.getLogger(__name__)
 

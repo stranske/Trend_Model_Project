@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 # ``models.py`` is executed under different module names in the test suite so we
 # import ``validate_trend_config`` via its fully-qualified path to avoid

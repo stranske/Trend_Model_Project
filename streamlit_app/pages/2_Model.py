@@ -2338,7 +2338,7 @@ PRESET_CONFIGS = {
         "regime_proxy": "SPX",
         # Robustness & Expert settings
         "shrinkage_enabled": True,
-        "shrinkage_method": "ledoit_wolf",
+        "shrinkage_method": "matrix_diagonal",
         "random_seed": 42,
         # Robustness fallbacks
         "condition_threshold": 1.0e12,
@@ -2415,7 +2415,7 @@ PRESET_CONFIGS = {
         "regime_proxy": "SPX",
         # Robustness & Expert settings - more conservative
         "shrinkage_enabled": True,
-        "shrinkage_method": "ledoit_wolf",
+        "shrinkage_method": "matrix_diagonal",
         "random_seed": 42,
         # Robustness fallbacks - conservative: stricter threshold
         "condition_threshold": 1.0e10,
@@ -2492,7 +2492,7 @@ PRESET_CONFIGS = {
         "regime_proxy": "SPX",
         # Robustness & Expert settings - more flexibility
         "shrinkage_enabled": True,
-        "shrinkage_method": "ledoit_wolf",
+        "shrinkage_method": "matrix_diagonal",
         "random_seed": 42,
         # Robustness fallbacks - aggressive: higher tolerance
         "condition_threshold": 1.0e14,
@@ -2594,7 +2594,7 @@ HELP_TEXT = {
     "regime_proxy": "Market index used to detect risk-on/risk-off regimes.",
     # Robustness & Expert settings
     "shrinkage_enabled": "Apply covariance matrix shrinkage to improve stability.",
-    "shrinkage_method": "Shrinkage method: Ledoit-Wolf or Oracle Approximating Shrinkage.",
+    "shrinkage_method": "Covariance-only matrix-diagonal or matrix-trace shrinkage heuristic.",
     "random_seed": "Random seed for reproducibility. Change for different random selections.",
     # Entry/Exit thresholds
     "z_entry_soft": "Z-score threshold for fund entry consideration. Higher = stricter entry.",
@@ -4174,13 +4174,13 @@ def render_model_page() -> None:
                 )
 
             with exp_c2:
-                shrinkage_methods = ["ledoit_wolf", "oas", "none"]
+                shrinkage_methods = ["matrix_diagonal", "matrix_trace", "none"]
                 shrinkage_labels = {
-                    "ledoit_wolf": "Ledoit-Wolf",
-                    "oas": "Oracle Approximating (OAS)",
+                    "matrix_diagonal": "Matrix-diagonal heuristic",
+                    "matrix_trace": "Matrix-trace heuristic",
                     "none": "None (raw)",
                 }
-                current_shrinkage = model_state.get("shrinkage_method", "ledoit_wolf")
+                current_shrinkage = model_state.get("shrinkage_method", "matrix_diagonal")
                 shrinkage_method = st.selectbox(
                     "Shrinkage Method",
                     options=shrinkage_methods,

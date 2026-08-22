@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _DEFAULT_SCHEMA_PATH = proj_path() / "config.schema.json"
 

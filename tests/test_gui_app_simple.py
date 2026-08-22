@@ -24,6 +24,19 @@ def test_invalid_export_formats_fall_back_to_xlsx(formats):
     assert _normalized_export_formats(formats) == ["xlsx"]
 
 
+@pytest.mark.parametrize(
+    ("theme", "color_scheme"),
+    [("light", "light"), ("dark", "dark"), ("system", "light dark")],
+)
+def test_theme_script_applies_dom_consumed_color_scheme(theme, color_scheme):
+    from trend_analysis.gui.app import _theme_script
+
+    script = _theme_script(theme)
+    assert f"dataset.trendTheme = '{theme}'" in script
+    assert f"style.colorScheme = '{color_scheme}'" in script
+    assert "--trend-theme" not in script
+
+
 class TestParamStore:
     """Test ParamStore functionality."""
 

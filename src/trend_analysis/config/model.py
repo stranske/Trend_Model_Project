@@ -28,7 +28,7 @@ from pydantic import (
 )
 
 from trend_analysis.config.lint_keys import lint_config_sections, lint_portfolio_keys
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 # ---------------------------------------------------------------------------
 # Helpers

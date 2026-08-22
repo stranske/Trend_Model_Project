@@ -4,8 +4,32 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+import yaml
+
 DEMO_CONFIG = Path("config/demo.yml")
 DEMO_RETURNS = Path("demo/demo_returns.csv")
+
+
+def _isolated_demo_config(tmp_path: Path) -> Path:
+    payload = yaml.safe_load(DEMO_CONFIG.read_text(encoding="utf-8"))
+    payload["data"]["csv_path"] = str(DEMO_RETURNS.resolve())
+    payload["export"]["directory"] = str(tmp_path / "exports")
+    payload["run"]["checkpoint_dir"] = str(tmp_path / "checkpoints")
+    config_path = tmp_path / "demo.yml"
+    config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    return config_path
+
+
+def _run_cli(command: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[bytes]:
+    result = subprocess.run(
+        command,
+        check=False,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    return result
 
 
 def test_cli_reproducible_same_seed(tmp_path: Path) -> None:
@@ -14,8 +38,8 @@ def test_cli_reproducible_same_seed(tmp_path: Path) -> None:
         import pytest
 
         pytest.skip("Demo returns file missing")
-    config = DEMO_CONFIG
-    returns = DEMO_RETURNS
+    config = _isolated_demo_config(tmp_path)
+    returns = DEMO_RETURNS.resolve()
     bundle1 = tmp_path / "b1.zip"
     bundle2 = tmp_path / "b2.zip"
     cmd_base = [
@@ -26,24 +50,20 @@ def test_cli_reproducible_same_seed(tmp_path: Path) -> None:
         str(config),
         "-i",
         str(returns),
+        "--log-file",
+        str(tmp_path / "run.jsonl"),
     ]
 
     env = os.environ.copy()
     env.pop("PYTHONHASHSEED", None)  # ensure script sets it deterministically
 
-    r1 = subprocess.run(
+    r1 = _run_cli(
         cmd_base + ["--seed", "777", "--bundle", str(bundle1)],
-        check=True,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        env,
     )
-    r2 = subprocess.run(
+    r2 = _run_cli(
         cmd_base + ["--seed", "777", "--bundle", str(bundle2)],
-        check=True,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        env,
     )
     assert r1.returncode == 0 and r2.returncode == 0
 
@@ -67,8 +87,8 @@ def test_cli_seed_precedence_env_vs_flag(tmp_path: Path) -> None:
         import pytest
 
         pytest.skip("Demo returns file missing")
-    config = DEMO_CONFIG
-    returns = DEMO_RETURNS
+    config = _isolated_demo_config(tmp_path)
+    returns = DEMO_RETURNS.resolve()
     bundle = tmp_path / "b.zip"
     cmd_base = [
         "bash",
@@ -78,17 +98,16 @@ def test_cli_seed_precedence_env_vs_flag(tmp_path: Path) -> None:
         str(config),
         "-i",
         str(returns),
+        "--log-file",
+        str(tmp_path / "run.jsonl"),
     ]
     env = os.environ.copy()
     env["TREND_SEED"] = "123"
     env.pop("PYTHONHASHSEED", None)
     # CLI flag should override TREND_SEED
-    subprocess.run(
+    _run_cli(
         cmd_base + ["--seed", "999", "--bundle", str(bundle)],
-        check=True,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        env,
     )
 
     with zipfile.ZipFile(bundle) as z:

@@ -58,6 +58,17 @@ def test_validate_config_missing_portfolio_section(tmp_path: Path) -> None:
 
     assert not result.valid
     assert _has_path(result, "portfolio")
+    assert sum(issue.path == "portfolio" for issue in result.errors) == 1
+
+
+def test_validate_config_missing_cost_model_reports_once(tmp_path: Path) -> None:
+    cfg = _base_config(tmp_path)
+    cfg["portfolio"].pop("cost_model")
+
+    result = validate_config(cfg, base_path=tmp_path)
+
+    assert not result.valid
+    assert sum(issue.path == "portfolio.cost_model" for issue in result.errors) == 1
 
 
 def test_validate_config_missing_required_field(tmp_path: Path) -> None:

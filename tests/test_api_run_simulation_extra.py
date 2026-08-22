@@ -157,7 +157,7 @@ def test_run_simulation_builds_user_weight_combined_and_dedupes(
 
     result = api.run_simulation(cfg, returns)
 
-    from trend_analysis.pipeline import calc_portfolio_returns
+    from trend_analysis.stages.portfolio import calc_portfolio_returns
 
     user_weights = np.array([0.8, 0.2])
     ew_weights = np.array([0.5, 0.5])
@@ -223,7 +223,7 @@ def test_run_simulation_combined_keeps_last_duplicate_boundary(
 
     result = api.run_simulation(cfg, returns)
 
-    from trend_analysis.pipeline import calc_portfolio_returns
+    from trend_analysis.stages.portfolio import calc_portfolio_returns
 
     user_weights = np.array([0.7, 0.3])
     ew_weights = np.array([0.5, 0.5])

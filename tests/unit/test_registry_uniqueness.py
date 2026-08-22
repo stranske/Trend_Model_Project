@@ -4,7 +4,7 @@ from collections import Counter
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_registry_scenario_names_unique() -> None:

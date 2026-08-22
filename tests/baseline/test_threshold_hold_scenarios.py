@@ -130,7 +130,7 @@ def _patch_scenario(
         "apply_missing_policy",
         lambda frame, *, policy, limit, enforce_completeness=True: (frame, {}),
     )
-    monkeypatch.setattr(engine, "_run_analysis", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", lambda *_args, **_kwargs: {})
 
     def metric_series(frame: pd.DataFrame, metric: str, _cfg: Any, **_kwargs: Any) -> pd.Series:
         end_key = pd.Timestamp(frame.index.max()).strftime("%Y-%m")

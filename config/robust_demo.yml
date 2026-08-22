@@ -52,7 +52,7 @@ portfolio:
   robustness:
     shrinkage:
       enabled: true
-      method: "ledoit_wolf"          # Ledoit-Wolf shrinkage for covariance
+      method: "matrix_diagonal"          # Matrix-diagonal heuristic shrinkage for covariance
     condition_check:
       enabled: true
       threshold: 1.0e10              # Conservative threshold for demo

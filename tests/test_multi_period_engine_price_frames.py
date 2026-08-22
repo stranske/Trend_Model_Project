@@ -133,7 +133,7 @@ def test_run_combines_price_frames_and_invokes_analysis(
         captured_duplicate_row.append(df.loc[df["Date"] == duplicate_date].iloc[0])
         return {"analysis": "ok"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(
         cfg,

@@ -1,4 +1,4 @@
-"""Focused unit tests for helper utilities in ``trend_analysis.pipeline``."""
+"""Focused unit tests for canonical pipeline helper utilities."""
 
 from __future__ import annotations
 
@@ -7,17 +7,19 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_analysis.pipeline import (
-    _build_sample_windows,
+from trend_analysis.pipeline_helpers import (
     _cfg_section,
     _cfg_value,
     _derive_split_from_periods,
-    _frequency_label,
     _policy_from_config,
-    _prepare_input_data,
-    _prepare_preprocess_stage,
     _resolve_sample_split,
     _section_get,
+)
+from trend_analysis.stages.preprocessing import (
+    _build_sample_windows,
+    _frequency_label,
+    _prepare_input_data,
+    _prepare_preprocess_stage,
 )
 from trend_analysis.util.frequency import FrequencySummary
 

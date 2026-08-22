@@ -137,7 +137,7 @@ def test_apply_constraints_accepts_constraintset_instance():
     assert any(out < 0)
 
 
-def test_apply_constraints_reapplies_max_after_group_caps():
+def test_apply_constraints_rejects_infeasible_combined_caps():
     w = pd.Series([0.8, 0.2, 0.0], index=["a", "b", "c"], dtype=float)
     constraints = {
         "long_only": True,
@@ -145,11 +145,10 @@ def test_apply_constraints_reapplies_max_after_group_caps():
         "group_caps": {"A": 0.5, "B": 0.6},
         "groups": {"a": "A", "b": "A", "c": "B"},
     }
-    out = apply_constraints(w, constraints)
-    np.testing.assert_allclose(out.sum(), 1.0)
-    assert (out <= 0.4 + 1e-9).all()
-    # Ensure redistribution moved weight to the previously zero bucket
-    assert out["c"] > 0
+    # Group A can hold 0.5, while the sole Group B asset can hold only 0.4;
+    # silently normalizing this result would violate one of the constraints.
+    with pytest.raises(ConstraintViolation, match="No capacity to redistribute excess weight"):
+        apply_constraints(w, constraints)
 
 
 def test_cash_weight_added_and_scaled():

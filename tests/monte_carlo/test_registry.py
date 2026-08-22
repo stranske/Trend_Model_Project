@@ -16,7 +16,7 @@ from trend_analysis.monte_carlo.registry import (
 )
 from trend_analysis.monte_carlo.scenario import MonteCarloSettings
 from trend_analysis.monte_carlo.strategy import StrategyVariant
-from utils.paths import proj_path, repo_root
+from trend_analysis.util.paths import proj_path, repo_root
 
 
 def test_list_scenarios_basic() -> None:

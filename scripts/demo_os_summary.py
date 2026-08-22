@@ -23,7 +23,7 @@ from trend_analysis.multi_period import run_from_config as run_mp
 
 
 def _to_row(label: str, stats: Any) -> dict[str, Any]:
-    # stats is pipeline._Stats
+    # stats implements the canonical portfolio statistics contract.
     return {
         "period": label,
         "cagr": getattr(stats, "cagr", float("nan")),

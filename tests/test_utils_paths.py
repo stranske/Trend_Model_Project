@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def test_proj_path_defaults_to_repo_root() -> None:

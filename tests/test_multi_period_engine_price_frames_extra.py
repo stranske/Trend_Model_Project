@@ -127,7 +127,7 @@ def test_run_price_frames_combines_and_sorts(monkeypatch: pytest.MonkeyPatch) ->
         return {"summary": "ok"}
 
     monkeypatch.setattr(mp_engine, "generate_periods", fake_generate_periods)
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=None, price_frames=price_frames)
 
@@ -184,7 +184,7 @@ def test_run_price_frames_overrides_dataframe(monkeypatch: pytest.MonkeyPatch) -
         return {"summary": "ok"}
 
     monkeypatch.setattr(mp_engine, "generate_periods", fake_generate_periods)
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     mp_engine.run(cfg, df=existing_df, price_frames=price_frames)
 

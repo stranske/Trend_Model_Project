@@ -437,7 +437,6 @@ def apply_rebalancing_strategies(
 
 
 __all__ = [
-    "CashPolicy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
     "DriftBandStrategy",

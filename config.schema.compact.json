@@ -126,7 +126,7 @@
         },
         "shrinkage": {
           "enabled": true,
-          "method": "ledoit_wolf"
+          "method": "matrix_diagonal"
         }
       },
       "selection_mode": "all",
@@ -866,7 +866,7 @@
           },
           "shrinkage": {
             "enabled": true,
-            "method": "ledoit_wolf"
+            "method": "matrix_diagonal"
           }
         },
         "selection_mode": "all",
@@ -1267,7 +1267,7 @@
             },
             "shrinkage": {
               "enabled": true,
-              "method": "ledoit_wolf"
+              "method": "matrix_diagonal"
             }
           },
           "description": "Robust covariance settings.",
@@ -1343,7 +1343,7 @@
             "shrinkage": {
               "default": {
                 "enabled": true,
-                "method": "ledoit_wolf"
+                "method": "matrix_diagonal"
               },
               "description": "Covariance shrinkage settings.",
               "nl_editable": true,
@@ -1355,8 +1355,8 @@
                   "type": "boolean"
                 },
                 "method": {
-                  "default": "ledoit_wolf",
-                  "description": "none | ledoit_wolf | oas",
+                  "default": "matrix_diagonal",
+                  "description": "none | matrix_diagonal | matrix_trace",
                   "nl_editable": true,
                   "type": "string"
                 }

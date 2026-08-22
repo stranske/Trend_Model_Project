@@ -4,7 +4,7 @@ import pytest
 
 import trend_analysis.rebalancing as reb_module
 from trend_analysis.plugins import rebalancer_registry
-from trend_analysis.rebalancing import CashPolicy
+from trend_analysis.cash_policy import CashPolicy
 from trend_analysis.rebalancing import strategies as strat_mod
 
 # Restore registry to point to canonical strategy implementations

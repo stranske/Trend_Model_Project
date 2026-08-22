@@ -57,8 +57,7 @@ from trend_analysis.monte_carlo.strategy.sampler import (
     parse_distribution,
     sample_strategy_variants,
 )
-from trend_analysis.pipeline import _resolve_sample_split
-from trend_analysis.pipeline_helpers import parse_regime_turnover_caps
+from trend_analysis.pipeline_helpers import _resolve_sample_split, parse_regime_turnover_caps
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code

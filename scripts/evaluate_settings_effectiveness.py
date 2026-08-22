@@ -64,7 +64,7 @@ OPTIONS_BY_KEY = {
     "rebalance_freq": ["M", "Q", "A"],
     "vol_window_decay": ["ewma", "simple"],
     "safe_mode": ["hrp", "risk_parity", "equal"],
-    "shrinkage_method": ["ledoit_wolf", "oas", "none"],
+    "shrinkage_method": ["matrix_diagonal", "matrix_trace", "none"],
     "date_mode": ["relative", "explicit"],
 }
 

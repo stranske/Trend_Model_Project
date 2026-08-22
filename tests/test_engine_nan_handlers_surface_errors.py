@@ -106,7 +106,7 @@ def _run_event_scenario(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         mp_engine,
-        "_run_analysis",
+        "_run_analysis_with_diagnostics",
         lambda *_args, **_kwargs: {"out_user_stats": {}, "out_ew_stats": {}},
     )
 

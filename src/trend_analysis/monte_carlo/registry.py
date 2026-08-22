@@ -8,7 +8,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import yaml
 
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario
-from utils.paths import proj_path, repo_root
+from trend_analysis.util.paths import proj_path, repo_root
 
 __all__ = [
     "MonteCarloScenario",

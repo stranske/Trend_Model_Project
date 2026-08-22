@@ -143,7 +143,7 @@ Legend:
 | `portfolio.constraints.max_weight` | Constrained | 0 < max_weight <= 1.
 | `portfolio.constraints.group_caps` | Constrained | Values 0-1 per group.
 | `portfolio.constraints.max_active_positions` | Constrained | Non-negative int.
-| `portfolio.robustness.shrinkage.method` | Constrained | Allowed: none/ledoit_wolf/oas.
+| `portfolio.robustness.shrinkage.method` | Constrained | Allowed: none/matrix_diagonal/matrix_trace.
 | `portfolio.robustness.condition_check.threshold` | Constrained | Positive float condition number threshold.
 | `portfolio.robustness.condition_check.safe_mode` | Constrained | Allowed: hrp/risk_parity/diagonal_mv.
 | `portfolio.robustness.condition_check.diagonal_loading_factor` | Constrained | Float >= 0.

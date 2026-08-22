@@ -211,7 +211,7 @@ def test_run_covers_threshold_hold_branches(monkeypatch):
     ]
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _: periods)
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis)
     monkeypatch.setattr(
         selector_mod,
         "create_selector_by_name",
@@ -278,7 +278,7 @@ def test_run_loads_csv_and_handles_missing_policy(
     def fake_run_analysis(*args: Any, **kwargs: Any) -> Dict[str, Any] | None:
         return next(results_iter)
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     import trend_analysis.perf.cache as cache_mod
 
@@ -342,7 +342,7 @@ def test_run_price_frames_skip_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda _cfg: periods)
-    monkeypatch.setattr(mp_engine, "_run_analysis", _stub_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", _stub_run_analysis)
     monkeypatch.setattr(
         selector_mod,
         "create_selector_by_name",

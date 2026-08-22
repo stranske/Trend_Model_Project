@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
 _CONFIG_DIR = proj_path() / "config"

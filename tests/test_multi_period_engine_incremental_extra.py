@@ -80,7 +80,7 @@ def test_incremental_update_runs_with_invalid_shift_limit(
     def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run)
 
     from trend_analysis.perf import cache as perf_cache
 
@@ -140,7 +140,7 @@ def test_incremental_update_fallback_on_exception(
     def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run)
 
     from trend_analysis.perf import cache as perf_cache
 
@@ -197,7 +197,7 @@ def test_incremental_update_length_change_triggers_recompute(
     def fake_run(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run)
 
     from trend_analysis.perf import cache as perf_cache
 
@@ -247,7 +247,7 @@ def test_incremental_cov_cache_instantiation_failure(
     def fake_run(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
         return {"out_ew_stats": {}, "out_user_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run)
 
     class ExplodingCovCache:
         def __init__(self) -> None:

@@ -48,7 +48,7 @@ from trend_analysis.io.date_correction import (
     format_corrections_for_display,
 )
 from trend_analysis.io.market_data import MarketDataValidationError
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 apply_ds_theme()
 apply_density_compact()

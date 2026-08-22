@@ -37,15 +37,36 @@ else
     CHANGED_FILES="${CHANGED_FILES%$'\n'}"
 fi
 if [[ -n "$CHANGED_FILES" ]]; then
-    readarray -t CHANGED_FILES_ARRAY <<< "$CHANGED_FILES"
+    CHANGED_FILES_ARRAY=()
+    while IFS= read -r changed_file; do
+        [[ -n "$changed_file" ]] || continue
+        CHANGED_FILES_ARRAY[${#CHANGED_FILES_ARRAY[@]}]="$changed_file"
+    done <<< "$CHANGED_FILES"
 else
     CHANGED_FILES_ARRAY=()
 fi
 
+run_with_timeout() {
+    local timeout_seconds="$1"
+    shift
+    python - "$timeout_seconds" "$@" <<'PY'
+import subprocess
+import sys
+
+try:
+    completed = subprocess.run(sys.argv[2:], check=False, timeout=float(sys.argv[1]))
+except subprocess.TimeoutExpired:
+    raise SystemExit(124)
+raise SystemExit(completed.returncode)
+PY
+}
+
+CHECK_STATUS=0
+
 # Quick format check
 echo -e "${BLUE}Checking formatting...${NC}"
 if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
-    if timeout 30s black --check "${CHANGED_FILES_ARRAY[@]}" > /dev/null 2>&1; then
+    if run_with_timeout 30 black --check "${CHANGED_FILES_ARRAY[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Formatting OK${NC}"
     else
         exit_code=$?
@@ -54,6 +75,7 @@ if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
         else
             echo -e "${RED}✗ Formatting issues (run: black ${CHANGED_FILES_ARRAY[*]})${NC}"
         fi
+        CHECK_STATUS=1
     fi
 else
     echo -e "${GREEN}✓ No Python files changed (skipping formatting check)${NC}"
@@ -62,7 +84,7 @@ fi
 # Quick lint check on recent changes
 echo -e "${BLUE}Checking recent changes...${NC}"
 if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
-    if timeout 30s flake8 "${CHANGED_FILES_ARRAY[@]}" 2>/dev/null; then
+    if run_with_timeout 30 flake8 "${CHANGED_FILES_ARRAY[@]}" 2>/dev/null; then
         echo -e "${GREEN}✓ Recent changes look good${NC}"
     else
         exit_code=$?
@@ -71,6 +93,7 @@ if [[ ${#CHANGED_FILES_ARRAY[@]} -gt 0 ]]; then
         else
             echo -e "${RED}✗ Linting issues in recent changes${NC}"
         fi
+        CHECK_STATUS=1
     fi
 else
     echo -e "${GREEN}✓ No Python files changed (excluding old folders)${NC}"
@@ -82,6 +105,8 @@ if python -c "import src.trend_analysis" 2>/dev/null; then
     echo -e "${GREEN}✓ Package imports successfully${NC}"
 else
     echo -e "${RED}✗ Import errors${NC}"
+    CHECK_STATUS=1
 fi
 
 echo -e "${BLUE}Quick check complete. Run ./scripts/check_branch.sh for full validation${NC}"
+exit "$CHECK_STATUS"

@@ -6,7 +6,9 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+import trend_analysis.pipeline_helpers as pipeline_helpers
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend_analysis.stages import portfolio as portfolio_stage
 from trend_analysis.pipeline_entrypoints import (
     _resolve_single_period_monthly_cost,
     _resolve_single_period_weighting_scheme,
@@ -15,10 +17,10 @@ from trend_analysis.pipeline_entrypoints import (
 )
 
 
-def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-defined]
+def _sample_stats(value: float = 0.1) -> portfolio_stage._Stats:
     """Helper to build Stats objects with predictable values."""
 
-    return pipeline._Stats(
+    return portfolio_stage._Stats(
         cagr=value,
         vol=value + 0.1,
         sharpe=value + 0.2,
@@ -146,8 +148,10 @@ def test_run_converts_stats_payload_to_frame(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
     stats_payload = {
         "FundA": _sample_stats(0.1),
@@ -192,8 +196,10 @@ def test_run_returns_empty_frame_when_analysis_none(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     result = run_from_config(base_config, bindings=_bindings_with_analysis(lambda *_, **__: None))
     assert result.empty
 
@@ -205,8 +211,10 @@ def test_run_preserves_diagnostic_result_payload(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     diagnostic = DiagnosticPayload("partial-result", "analysis completed with a warning")
     payload = {
         "out_sample_stats": {"FundA": _sample_stats(0.1)},
@@ -234,8 +242,10 @@ def test_run_preserves_diagnostic_result_without_payload(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     diagnostic = DiagnosticPayload("no-result", "analysis returned no payload")
 
     result = run_from_config(
@@ -276,8 +286,10 @@ def test_run_resolves_risk_free_defaults(
     base_config["data"].update(data_overrides)
 
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
     captured_kwargs: dict[str, object] = {}
 
@@ -324,12 +336,14 @@ def test_both_entrypoints_share_risk_free_resolution(
     captured: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
     def fake_run_analysis(*args: object, **kwargs: object) -> dict[str, object]:
         captured.append((args, kwargs))
-        return pipeline._empty_run_full_result()
+        return pipeline_helpers._empty_run_full_result()
 
     bindings = _bindings_with_analysis(fake_run_analysis)
     run_from_config(config, bindings=bindings)
@@ -369,10 +383,12 @@ def test_both_entrypoints_preserve_object_backed_risk_free_settings(
     captured: list[dict[str, object]] = []
 
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     bindings = _bindings_with_analysis(
-        lambda *_, **kwargs: captured.append(kwargs) or pipeline._empty_run_full_result()
+        lambda *_, **kwargs: captured.append(kwargs) or pipeline_helpers._empty_run_full_result()
     )
     run_from_config(config, bindings=bindings)
     run_full_from_config(config, bindings=bindings)
@@ -389,8 +405,10 @@ def test_run_full_propagates_analysis_payload(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
     base_config["portfolio"] = {
         "weighting": {"name": "score_prop_bayes"},
@@ -426,8 +444,10 @@ def test_run_full_returns_empty_when_analysis_none(
     base_config: dict[str, object],
 ) -> None:
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
-    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
-    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     result = run_full_from_config(
         base_config,
         bindings=_bindings_with_analysis(lambda *_, **__: None),
@@ -436,7 +456,7 @@ def test_run_full_returns_empty_when_analysis_none(
 
 
 def test_empty_run_full_result_template() -> None:
-    payload = pipeline._empty_run_full_result()
+    payload = pipeline_helpers._empty_run_full_result()
     assert set(payload.keys()) == {
         "out_sample_stats",
         "in_sample_stats",
@@ -454,7 +474,7 @@ def test_compute_stats_includes_optional_avg_corr() -> None:
         }
     )
     rf = pd.Series([0.0, 0.001, 0.002, 0.0])
-    stats = pipeline._compute_stats(
+    stats = portfolio_stage._compute_stats(
         data,
         rf,
         periods_per_year=12,
@@ -469,8 +489,8 @@ def test_portfolio_stats_use_window_periods_per_year() -> None:
     returns = pd.DataFrame({"FundA": [0.015, -0.004, 0.005, -0.008] * 3})
     risk_free = pd.Series(0.0, index=returns.index)
 
-    monthly = pipeline._compute_stats(returns, risk_free, periods_per_year=12)["FundA"]
-    weekly = pipeline._compute_stats(returns, risk_free, periods_per_year=52)["FundA"]
+    monthly = portfolio_stage._compute_stats(returns, risk_free, periods_per_year=12)["FundA"]
+    weekly = portfolio_stage._compute_stats(returns, risk_free, periods_per_year=52)["FundA"]
 
     assert weekly.cagr > monthly.cagr
     assert weekly.vol > monthly.vol
@@ -479,7 +499,7 @@ def test_portfolio_stats_use_window_periods_per_year() -> None:
 
 def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> None:
     weights = np.array([0.6, 0.4])
-    portfolio = pipeline.calc_portfolio_returns(weights, sample_frame[["FundA", "FundB"]])
+    portfolio = portfolio_stage.calc_portfolio_returns(weights, sample_frame[["FundA", "FundB"]])
     assert isinstance(portfolio, pd.Series)
     expected = (sample_frame[["FundA", "FundB"]] * weights).sum(axis=1)
     pd.testing.assert_series_equal(portfolio, expected)

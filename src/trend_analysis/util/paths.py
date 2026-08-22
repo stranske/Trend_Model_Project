@@ -27,7 +27,7 @@ def repo_root() -> Path:
     env_root = os.environ.get(_ENV_REPO_ROOT)
     if env_root:
         return _expand_root(env_root)
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def proj_path(*parts: str | os.PathLike[str]) -> Path:

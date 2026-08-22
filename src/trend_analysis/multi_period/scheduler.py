@@ -50,7 +50,17 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
     """
     mp = cast(Dict[str, Any], cfg.get("multi_period", {}))
 
-    freq_str = str(mp["frequency"]).upper()
+    freq_input = str(mp["frequency"])
+    try:
+        freq_str = FREQ_MAP[freq_input]
+    except KeyError:
+        try:
+            freq_str = FREQ_MAP[freq_input.upper()]
+        except KeyError as exc:
+            supported = ", ".join(sorted(FREQ_MAP))
+            raise ValueError(
+                f"Unsupported multi-period frequency {freq_input!r}; expected one of: {supported}"
+            ) from exc
     in_len = int(mp["in_sample_len"])
     out_len = int(mp["out_sample_len"])
 
@@ -70,11 +80,11 @@ def generate_periods(cfg: Dict[str, Any]) -> List[PeriodTuple]:
         end_date = pd.Timestamp(end_str)
 
     # Determine step size based on frequency
-    if freq_str in ("A", "YE", "ANNUAL", "ANNUALLY"):
+    if freq_str == "YE":
         step_months = 12
-    elif freq_str in ("Q", "QE", "QUARTERLY"):
+    elif freq_str == "QE":
         step_months = 3
-    else:  # Monthly
+    else:
         step_months = 1
 
     start_mode = str(mp.get("start_mode", "in") or "in").lower()

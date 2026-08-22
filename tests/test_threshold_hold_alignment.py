@@ -110,7 +110,7 @@ def test_threshold_hold_results_align_with_periods():
     def fake_run_analysis(*_args, **_kwargs):
         return {"out_ew_stats": {"sharpe": 0.3}, "out_user_stats": {"sharpe": 0.4}}
 
-    monkeypatch_ctx.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch_ctx.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df)
     periods = generate_periods(cfg.model_dump())

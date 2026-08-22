@@ -17,7 +17,7 @@ from trend_analysis.config.patch import ConfigPatch, diff_configs, risky_patch_f
 from trend_analysis.config.patch import apply_patch as apply_config_patch
 from trend_analysis.config.validation import ValidationResult, validate_config
 from trend_analysis.data import load_csv
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _SANDBOX_DIRS = ("config", "data", "outputs")
 _TOOL_LOG_PATH = Path("outputs") / "logs" / "tool_calls.jsonl"

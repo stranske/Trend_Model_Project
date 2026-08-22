@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _DEFAULTS_PATH = proj_path() / "config" / "defaults.yml"
 

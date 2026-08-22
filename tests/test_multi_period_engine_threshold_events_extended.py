@@ -366,7 +366,7 @@ def test_threshold_hold_event_log_and_replacements(
         )
         return {"out_user_stats": {}, "out_ew_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 
@@ -469,7 +469,7 @@ def test_threshold_hold_weight_bounds_deficit(monkeypatch: pytest.MonkeyPatch) -
         )
         return {"out_user_stats": {}, "out_ew_stats": {}}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 

@@ -96,7 +96,7 @@ def test_run_combines_price_frames_and_invokes_analysis(
         captured.append(df.copy())
         return {"out_user_stats": {"sharpe": 1.23}}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, price_frames={"a": frame_one, "b": frame_two})
 
@@ -122,7 +122,7 @@ def test_run_attaches_covariance_diagnostics(
     def fake_run_analysis(df: pd.DataFrame, *_, **__):
         return {"out_user_stats": {"sharpe": 0.5}}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=df)
 

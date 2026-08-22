@@ -36,7 +36,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():
     sys.path.insert(0, str(SRC_ROOT))
 
-from utils.paths import proj_path  # noqa: E402
+from trend_analysis.util.paths import proj_path  # noqa: E402
 
 PERF_THRESHOLD_ENV = "TREND_PERF_THRESHOLD_PCT"
 

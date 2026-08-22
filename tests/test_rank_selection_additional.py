@@ -1,3 +1,4 @@
+import inspect
 from types import SimpleNamespace
 
 import numpy as np
@@ -68,7 +69,7 @@ def test_rank_select_funds_without_limit_one_per_firm_keeps_all():
     assert {"Alpha One", "Alpha Two"}.issubset(selected)
 
 
-def test_rank_select_funds_threshold_branch_and_transform_alias():
+def test_rank_select_funds_threshold_branch_uses_canonical_transform():
     df = make_simple_returns()[["Alpha One", "Alpha Two", "Beta Core"]]
     cfg = rs.RiskStatsConfig(risk_free=0.0)
 
@@ -77,9 +78,13 @@ def test_rank_select_funds_threshold_branch_and_transform_alias():
         cfg,
         inclusion_approach="threshold",
         threshold=0.5,
-        transform_mode="rank",
+        transform="rank",
     )
     assert isinstance(selected, list)
+
+
+def test_rank_select_funds_has_no_retired_transform_mode_alias():
+    assert "transform_mode" not in inspect.signature(rs.rank_select_funds).parameters
 
 
 def test_rank_select_funds_blended_requires_weights():

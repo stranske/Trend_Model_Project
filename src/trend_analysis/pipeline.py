@@ -5,203 +5,17 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from trend.diagnostics import DiagnosticResult
-
-from . import pipeline_helpers
-from .core.rank_selection import (
-    RiskStatsConfig,
-    get_window_metric_bundle,
-    make_window_key,
-    rank_select_funds,
-)
-from .data import identify_risk_free_fund, load_csv
+from .core.rank_selection import RiskStatsConfig
+from .data import load_csv
 from .diagnostics import PipelineReasonCode, PipelineResult, RunPayload
-from .metrics import (
-    annual_return,
-    information_ratio,
-    max_drawdown,
-    sharpe_ratio,
-    sortino_ratio,
-    volatility,
-)
 from .perf.rolling_cache import compute_dataset_hash, get_cache
 from .pipeline_entrypoints import ConfigBindings, run_from_config, run_full_from_config
-from .pipeline_helpers import (
-    _attach_calendar_settings,
-    _build_trend_spec,
-    _cfg_section,
-    _cfg_value,
-    _derive_split_from_periods,
-    _empty_run_full_result,
-    _policy_from_config,
-    _resolve_target_vol,
-    _section_get,
-)
-from .pipeline_helpers import (
-    _resolve_sample_split as _resolve_sample_split_impl,
-)
-from .pipeline_helpers import (
-    compute_signal as _compute_signal_impl,
-)
-from .pipeline_helpers import (
-    position_from_signal as _position_from_signal_impl,
-)
-from .pipeline_runner import (
-    _run_analysis_with_diagnostics as _run_analysis_with_diagnostics_impl,
-)
-from .portfolio import apply_weight_policy
-from .regimes import build_regime_payload
-from .risk import compute_constrained_weights, realised_volatility
-from .signals import TrendSpec, compute_trend_signals
-from .stages import portfolio as portfolio_stage
-from .stages import preprocessing as preprocessing_stage
-from .stages import selection as selection_stage
-from .stages.portfolio import (
-    _assemble_analysis_output as _assemble_analysis_output_impl,
-)
-from .stages.portfolio import (
-    _compute_stats,
-    _Stats,
-    calc_portfolio_returns,
-)
-from .stages.portfolio import (
-    _compute_weights_and_stats as _compute_weights_and_stats_impl,
-)
-from .stages.preprocessing import (
-    _build_sample_windows as _build_sample_windows_impl,
-)
-from .stages.preprocessing import (
-    _frequency_label,
-    _preprocessing_summary,
-    _WindowStage,
-)
-from .stages.preprocessing import (
-    _prepare_input_data as _prepare_input_data_impl,
-)
-from .stages.preprocessing import (
-    _prepare_preprocess_stage as _prepare_preprocess_stage_impl,
-)
-from .stages.selection import (
-    _resolve_risk_free_column,
-    single_period_run,
-)
-from .stages.selection import (
-    _select_universe as _select_universe_impl,
-)
-from .time_utils import align_calendar
-from .util.frequency import FrequencySummary, detect_frequency
-from .util.missing import MissingPolicyResult, apply_missing_policy
+from . import pipeline_runner
+from . import pipeline_helpers
+from .signals import TrendSpec
 from .weights.robust_config import weight_engine_params_from_robustness
 
 logger = logging.getLogger(__name__)
-
-
-def _sync_stage_dependencies() -> None:
-    """Synchronize stage module globals with pipeline-level bindings.
-
-    This ensures monkeypatching pipeline functions affects stage execution.
-    """
-    # These assignments are for runtime patching; mypy may or may not see the
-    # attributes depending on module resolution. Suppress with type: ignore[attr-defined].
-    setattr(preprocessing_stage, "detect_frequency", detect_frequency)
-    setattr(preprocessing_stage, "apply_missing_policy", apply_missing_policy)
-    setattr(preprocessing_stage, "align_calendar", align_calendar)
-    setattr(preprocessing_stage, "_prepare_input_data", _prepare_input_data)
-
-    setattr(selection_stage, "rank_select_funds", rank_select_funds)
-    setattr(selection_stage, "get_window_metric_bundle", get_window_metric_bundle)
-    setattr(selection_stage, "make_window_key", make_window_key)
-    setattr(selection_stage, "single_period_run", single_period_run)
-    setattr(selection_stage, "_resolve_risk_free_column", _resolve_risk_free_column)
-    setattr(selection_stage, "identify_risk_free_fund", identify_risk_free_fund)
-
-    setattr(portfolio_stage, "compute_trend_signals", compute_trend_signals)
-    setattr(portfolio_stage, "compute_constrained_weights", compute_constrained_weights)
-    setattr(portfolio_stage, "realised_volatility", realised_volatility)
-    setattr(portfolio_stage, "apply_weight_policy", apply_weight_policy)
-    setattr(portfolio_stage, "information_ratio", information_ratio)
-    setattr(portfolio_stage, "annual_return", annual_return)
-    setattr(portfolio_stage, "volatility", volatility)
-    setattr(portfolio_stage, "sharpe_ratio", sharpe_ratio)
-    setattr(portfolio_stage, "sortino_ratio", sortino_ratio)
-    setattr(portfolio_stage, "max_drawdown", max_drawdown)
-    setattr(portfolio_stage, "build_regime_payload", build_regime_payload)
-    setattr(portfolio_stage, "avg_corr_handler", _avg_corr_handler)
-    setattr(portfolio_stage, "calc_portfolio_returns", calc_portfolio_returns)
-
-
-def _call_with_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
-    _sync_stage_dependencies()
-    return func(*args, **kwargs)
-
-
-def _avg_corr_handler(
-    in_scaled: pd.DataFrame,
-    out_scaled: pd.DataFrame,
-    fund_cols: list[str],
-) -> tuple[dict[str, float] | None, dict[str, float] | None]:
-    corr_in = in_scaled[fund_cols].corr()
-    corr_out = out_scaled[fund_cols].corr()
-    n_f = len(fund_cols)
-    is_avg_corr: dict[str, float] = {}
-    os_avg_corr: dict[str, float] = {}
-    denominator = float(n_f - 1) if n_f > 1 else 1.0
-    for f in fund_cols:
-        in_sum = float(corr_in.loc[f].sum())
-        out_sum = float(corr_out.loc[f].sum())
-        in_val = (in_sum - 1.0) / denominator
-        out_val = (out_sum - 1.0) / denominator
-        is_avg_corr[f] = float(in_val)
-        os_avg_corr[f] = float(out_val)
-    return is_avg_corr, os_avg_corr
-
-
-def _prepare_input_data(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_prepare_input_data_impl, *args, **kwargs)
-
-
-def _prepare_preprocess_stage(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_prepare_preprocess_stage_impl, *args, **kwargs)
-
-
-def _build_sample_windows(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_build_sample_windows_impl, *args, **kwargs)
-
-
-def _select_universe(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_select_universe_impl, *args, **kwargs)
-
-
-def _compute_weights_and_stats(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_compute_weights_and_stats_impl, *args, **kwargs)
-
-
-def _assemble_analysis_output(*args: Any, **kwargs: Any) -> Any:
-    return _call_with_sync(_assemble_analysis_output_impl, *args, **kwargs)
-
-
-def _run_analysis_with_diagnostics(*args: Any, **kwargs: Any) -> PipelineResult:
-    result = _call_with_sync(_run_analysis_with_diagnostics_impl, *args, **kwargs)
-    return result  # type: ignore[no-any-return]
-
-
-def _resolve_sample_split(*args: Any, **kwargs: Any) -> Any:
-    pipeline_helpers._derive_split_from_periods = _derive_split_from_periods
-    return _resolve_sample_split_impl(*args, **kwargs)
-
-
-def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
-    """Run the diagnostics-aware pipeline entry point."""
-
-    result = _run_analysis_with_diagnostics(*args, **kwargs)
-    if isinstance(result, PipelineResult):
-        return result
-    if isinstance(result, DiagnosticResult):
-        return PipelineResult(
-            value=result.value,
-            diagnostic=result.diagnostic,
-        )
-    return PipelineResult(value=result, diagnostic=None)
 
 
 def run_analysis(
@@ -244,7 +58,7 @@ def run_analysis(
     risk_free_override: float | pd.Series | None = None,
     weight_engine_params: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
-    """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
+    """Run one analysis and return its diagnostics-aware result."""
     if any(
         value is not None for value in (calendar_frequency, calendar_timezone, holiday_calendar)
     ):
@@ -257,7 +71,7 @@ def run_analysis(
         if holiday_calendar is not None:
             calendar_settings["holiday_calendar"] = holiday_calendar
         df.attrs["calendar_settings"] = calendar_settings
-    return _invoke_analysis_with_diag(
+    return pipeline_runner._run_analysis_with_diagnostics(
         df,
         in_start,
         in_end,
@@ -298,15 +112,15 @@ def run_analysis(
 def _bindings() -> ConfigBindings:
     return ConfigBindings(
         load_csv=load_csv,
-        attach_calendar_settings=_attach_calendar_settings,
-        cfg_section=_cfg_section,
-        section_get=_section_get,
-        cfg_value=_cfg_value,
-        resolve_sample_split=_resolve_sample_split,
-        policy_from_config=_policy_from_config,
-        build_trend_spec=_build_trend_spec,
-        resolve_target_vol=_resolve_target_vol,
-        invoke_analysis_with_diag=_invoke_analysis_with_diag,
+        attach_calendar_settings=pipeline_helpers._attach_calendar_settings,
+        cfg_section=pipeline_helpers._cfg_section,
+        section_get=pipeline_helpers._section_get,
+        cfg_value=pipeline_helpers._cfg_value,
+        resolve_sample_split=pipeline_helpers._resolve_sample_split,
+        policy_from_config=pipeline_helpers._policy_from_config,
+        build_trend_spec=pipeline_helpers._build_trend_spec,
+        resolve_target_vol=pipeline_helpers._resolve_target_vol,
+        invoke_analysis_with_diag=pipeline_runner._run_analysis_with_diagnostics,
         weight_engine_params_from_robustness=weight_engine_params_from_robustness,
         RiskStatsConfig=RiskStatsConfig,
     )
@@ -363,7 +177,7 @@ def compute_signal(
     window: int = 3,
     min_periods: int | None = None,
 ) -> pd.Series:
-    return _compute_signal_impl(
+    return pipeline_helpers.compute_signal(
         df,
         column=column,
         window=window,
@@ -381,7 +195,7 @@ def position_from_signal(
     short_position: float = -1.0,
     neutral_position: float = 0.0,
 ) -> pd.Series:
-    return _position_from_signal_impl(
+    return pipeline_helpers.position_from_signal(
         signal,
         long_position=long_position,
         short_position=short_position,
@@ -390,37 +204,10 @@ def position_from_signal(
 
 
 __all__ = [
-    "FrequencySummary",
-    "MissingPolicyResult",
     "PipelineReasonCode",
-    "_Stats",  # Direct export for type checking
-    "_WindowStage",
-    "_assemble_analysis_output",
-    "_build_sample_windows",
-    "_build_trend_spec",
-    "_cfg_section",
-    "_cfg_value",
-    "_compute_stats",
-    "_compute_weights_and_stats",
-    "_derive_split_from_periods",
-    "_empty_run_full_result",
-    "_frequency_label",
-    "_invoke_analysis_with_diag",
-    "_policy_from_config",
-    "_prepare_input_data",
-    "_prepare_preprocess_stage",
-    "_preprocessing_summary",
-    "_resolve_risk_free_column",
-    "_resolve_sample_split",
-    "_resolve_target_vol",
-    "_run_analysis_with_diagnostics",
-    "_section_get",
-    "_select_universe",
-    "calc_portfolio_returns",
     "compute_signal",
     "position_from_signal",
     "run",
     "run_analysis",
     "run_full",
-    "single_period_run",
 ]

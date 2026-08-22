@@ -23,6 +23,7 @@ REMOVED_WHEEL_PREFIXES = (
     "examples/legacy_streamlit_app/",
     "examples/demo_" + "turnover_cap.py",
     "examples/portfolio_" + "analysis_report.py",
+    "utils/",
 )
 EXPECTED_CONSOLE_SCRIPTS = {
     "trend": "trend.cli:main",
@@ -32,8 +33,8 @@ EXPECTED_CONSOLE_SCRIPTS = {
 
 def _build_wheel(destination: Path) -> Path:
     # ``pip wheel`` materializes ``*.egg-info`` while preparing metadata. Build
-    # from tracked files so this contract remains safe when the full suite runs
-    # under pytest-xdist and other tests create untracked build artifacts. The
+    # from tracked files plus non-ignored candidate additions so this contract
+    # remains safe when the full suite creates ignored build artifacts. The
     # Gate interpreter need not itself expose the PEP 517 backend, so build in a
     # small isolated environment with the project's pinned build tools.
     build_root = destination / "source"
@@ -46,13 +47,24 @@ def _build_wheel(destination: Path) -> Path:
         capture_output=True,
         text=True,
     )
-    tracked_files = subprocess.run(
-        ["git", "ls-files", "-z"],
+    candidate_files = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            ".",
+            ":(exclude)build/**",
+            ":(exclude)dist/**",
+        ],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
     ).stdout.split(b"\0")
-    for raw_path in tracked_files:
+    for raw_path in candidate_files:
         if not raw_path:
             continue
         relative_path = Path(raw_path.decode("utf-8"))
@@ -126,3 +138,23 @@ def test_wheel_contains_only_supported_entry_points_and_no_retired_surfaces(tmp_
         parser.read_string(archive.read(metadata_paths[0]).decode("utf-8"))
 
     assert dict(parser["console_scripts"]) == EXPECTED_CONSOLE_SCRIPTS
+
+    python = tmp_path / "wheel-build-env" / "bin" / "python"
+    subprocess.run(
+        [python, "-m", "pip", "install", "--no-deps", str(wheel)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    isolated = subprocess.run(
+        [
+            python,
+            "-c",
+            "import importlib.util; from trend_analysis.util.paths import proj_path; "
+            "assert importlib.util.find_spec('utils') is None; assert proj_path()",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert isolated.returncode == 0, isolated.stderr

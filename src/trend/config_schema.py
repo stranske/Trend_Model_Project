@@ -18,7 +18,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 try:  # pragma: no cover - optional instrumentation
     from trend_analysis.config.coverage import (

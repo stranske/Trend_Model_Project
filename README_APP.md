@@ -101,7 +101,7 @@ reports downloaded from the UI are byte-identical to those produced via
 ``trend report --output``.
 
 ## Integration with your pipeline
-- If available, the code calls `trend_analysis.pipeline.single_period_run(...)` to compute the score frame.
+- The score frame is computed through the canonical selection stage used by the analysis pipeline.
 - If import fails, it falls back to a local metrics implementation so the app still runs.
 
 ## Confidence interval reporting

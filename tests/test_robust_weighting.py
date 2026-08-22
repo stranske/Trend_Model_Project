@@ -70,33 +70,33 @@ class TestRobustMeanVariance:
         """Test different shrinkage methods."""
         cov = create_well_conditioned_cov()
 
-        # Test Ledoit-Wolf shrinkage
-        engine_lw = create_weight_engine("robust_mv", shrinkage_method="ledoit_wolf")
-        weights_lw = engine_lw.weight(cov)
-        assert np.isclose(weights_lw.sum(), 1.0)
-        assert (weights_lw >= 0).all()
+        # Test Matrix-diagonal heuristic shrinkage
+        engine_diagonal = create_weight_engine("robust_mv", shrinkage_method="matrix_diagonal")
+        weights_diagonal = engine_diagonal.weight(cov)
+        assert np.isclose(weights_diagonal.sum(), 1.0)
+        assert (weights_diagonal >= 0).all()
 
-        # Test OAS shrinkage
-        engine_oas = create_weight_engine("robust_mv", shrinkage_method="oas")
-        weights_oas = engine_oas.weight(cov)
-        assert np.isclose(weights_oas.sum(), 1.0)
-        assert (weights_oas >= 0).all()
+        # Test Matrix-trace heuristic shrinkage
+        engine_trace = create_weight_engine("robust_mv", shrinkage_method="matrix_trace")
+        weights_trace = engine_trace.weight(cov)
+        assert np.isclose(weights_trace.sum(), 1.0)
+        assert (weights_trace >= 0).all()
 
         # Different shrinkage methods should give different results
-        assert not np.allclose(weights_lw.values, weights_oas.values, rtol=1e-3)
+        assert not np.allclose(weights_diagonal.values, weights_trace.values, rtol=1e-3)
 
     def test_condition_threshold_uses_worst_condition_number(self):
         """Condition checks should use the raw condition number."""
         cov = create_ill_conditioned_cov()
         raw_condition = np.linalg.cond(cov.values)
-        shrunk_cov, _ = rw.ledoit_wolf_shrinkage(cov.values)
+        shrunk_cov, _ = rw.matrix_diagonal_shrinkage(cov.values)
         shrunk_condition = np.linalg.cond(shrunk_cov)
         assert shrunk_condition < raw_condition
 
         threshold = (raw_condition + shrunk_condition) / 2.0
         engine = create_weight_engine(
             "robust_mv",
-            shrinkage_method="ledoit_wolf",
+            shrinkage_method="matrix_diagonal",
             condition_threshold=threshold,
             safe_mode="hrp",
         )
@@ -113,7 +113,7 @@ class TestRobustMeanVariance:
         cov = create_well_conditioned_cov()
         engine = create_weight_engine(
             "robust_mv",
-            shrinkage_method="ledoit_wolf",
+            shrinkage_method="matrix_diagonal",
             condition_threshold=50.0,
             safe_mode="hrp",
         )
@@ -263,7 +263,7 @@ class TestRobustMeanVariance:
 
         with caplog.at_level(logging.DEBUG):
             engine = create_weight_engine(
-                "robust_mv", condition_threshold=1e6, shrinkage_method="ledoit_wolf"
+                "robust_mv", condition_threshold=1e6, shrinkage_method="matrix_diagonal"
             )
             engine.weight(cov)
 
@@ -367,12 +367,12 @@ class TestRobustRiskParity:
 class TestShrinkageFunctions:
     """Tests for shrinkage utility functions."""
 
-    def test_ledoit_wolf_shrinkage(self):
-        """Test Ledoit-Wolf shrinkage function."""
-        from trend_analysis.weights.robust_weighting import ledoit_wolf_shrinkage
+    def test_matrix_diagonal_shrinkage(self):
+        """Test Matrix-diagonal heuristic shrinkage function."""
+        from trend_analysis.weights.robust_weighting import matrix_diagonal_shrinkage
 
         cov = create_well_conditioned_cov().values
-        shrunk_cov, intensity = ledoit_wolf_shrinkage(cov)
+        shrunk_cov, intensity = matrix_diagonal_shrinkage(cov)
 
         # Shrunk covariance should be valid
         assert shrunk_cov.shape == cov.shape
@@ -382,12 +382,12 @@ class TestShrinkageFunctions:
         eigenvals = np.linalg.eigvals(shrunk_cov)
         assert (eigenvals > 0).all()
 
-    def test_oas_shrinkage(self):
-        """Test OAS shrinkage function."""
-        from trend_analysis.weights.robust_weighting import oas_shrinkage
+    def test_matrix_trace_shrinkage(self):
+        """Test Matrix-trace heuristic shrinkage function."""
+        from trend_analysis.weights.robust_weighting import matrix_trace_shrinkage
 
         cov = create_well_conditioned_cov().values
-        shrunk_cov, intensity = oas_shrinkage(cov)
+        shrunk_cov, intensity = matrix_trace_shrinkage(cov)
 
         # Shrunk covariance should be valid
         assert shrunk_cov.shape == cov.shape
@@ -416,21 +416,29 @@ class TestShrinkageFunctions:
 
 
 class TestRobustWeightingBranchCoverage:
-    def test_ledoit_wolf_zero_trace_intensity(self):
+    def test_matrix_diagonal_zero_trace_intensity(self):
         cov = np.zeros((2, 2))
-        shrunk, intensity = rw.ledoit_wolf_shrinkage(cov)
+        shrunk, intensity = rw.matrix_diagonal_shrinkage(cov)
         assert intensity == pytest.approx(1.0)
         assert np.allclose(shrunk, np.zeros_like(cov))
 
-    def test_oas_zero_trace_intensity(self):
+    def test_matrix_trace_zero_trace_intensity(self):
         cov = np.zeros((3, 3))
-        shrunk, intensity = rw.oas_shrinkage(cov)
+        shrunk, intensity = rw.matrix_trace_shrinkage(cov)
         assert intensity == pytest.approx(1.0)
         assert np.allclose(shrunk, np.zeros_like(cov))
 
     def test_robust_mv_unknown_shrinkage(self):
         cov = pd.DataFrame(np.eye(2), index=["a", "b"], columns=["a", "b"])
         engine = rw.RobustMeanVariance(shrinkage_method="mystery")
+        with pytest.raises(ValueError, match="Unknown shrinkage method"):
+            engine.weight(cov)
+
+    @pytest.mark.parametrize("retired_method", ["ledoit_" + "wolf", "o" + "as"])
+    def test_retired_estimator_names_are_rejected(self, retired_method: str) -> None:
+        cov = pd.DataFrame(np.eye(2), index=["a", "b"], columns=["a", "b"])
+        engine = rw.RobustMeanVariance(shrinkage_method=retired_method)
+
         with pytest.raises(ValueError, match="Unknown shrinkage method"):
             engine.weight(cov)
 
@@ -525,7 +533,7 @@ class TestSyntheticNearSingularCases:
 
         # Run the same calculation multiple times
         engine = create_weight_engine(
-            "robust_mv", shrinkage_method="ledoit_wolf", condition_threshold=1e8
+            "robust_mv", shrinkage_method="matrix_diagonal", condition_threshold=1e8
         )
 
         weights1 = engine.weight(cov)
@@ -562,7 +570,7 @@ class TestSyntheticNearSingularCases:
         for scale in [1e-10, 1e-5, 1.0, 1e5, 1e10]:
             scaled_cov = base_cov * scale
 
-            engine = create_weight_engine("robust_mv", shrinkage_method="ledoit_wolf")
+            engine = create_weight_engine("robust_mv", shrinkage_method="matrix_diagonal")
             weights = engine.weight(scaled_cov)
 
             # Weights should be scale-invariant (minimum variance portfolio property)
@@ -601,11 +609,11 @@ class TestIntegrationWithExistingEngines:
         """Test that parameters are properly passed to robust engines."""
         engine = create_weight_engine(
             "robust_mv",
-            shrinkage_method="oas",
+            shrinkage_method="matrix_trace",
             condition_threshold=1e8,
             safe_mode="risk_parity",
         )
 
-        assert engine.shrinkage_method == "oas"
+        assert engine.shrinkage_method == "matrix_trace"
         assert engine.condition_threshold == 1e8
         assert engine.safe_mode == "risk_parity"

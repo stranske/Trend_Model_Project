@@ -206,7 +206,7 @@ def test_run_incremental_covariance_path(monkeypatch: pytest.MonkeyPatch) -> Non
         run_calls.append(args)
         return {"status": "ok"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = mp_engine.run(cfg, df=df)
 

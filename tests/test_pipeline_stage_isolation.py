@@ -2,7 +2,8 @@ import pandas as pd
 import pytest
 
 from trend_analysis import pipeline
-from trend_analysis.pipeline import PipelineResult, RiskStatsConfig
+from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.diagnostics import PipelineResult
 from trend_analysis.stages import portfolio as portfolio_stage
 from trend_analysis.stages import preprocessing as preprocessing_stage
 from trend_analysis.stages import selection as selection_stage

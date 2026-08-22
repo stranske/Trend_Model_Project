@@ -440,7 +440,6 @@ def rank_select_funds(
     score_by: str = DEFAULT_METRIC,
     blended_weights: dict[str, float] | None = None,
     transform: str = "raw",
-    transform_mode: str | None = None,
     zscore_window: int | None = None,
     zscore_ddof: int = 1,
     rank_pct: float = 0.5,
@@ -476,10 +475,6 @@ def rank_select_funds(
             threshold=threshold_value,
         )
         warnings.warn(diagnostics.message(), RuntimeWarning)
-
-    # Handle transform_mode alias
-    if transform_mode is not None:
-        transform = transform_mode
 
     metric_name = _METRIC_ALIASES.get(score_by, score_by)
 

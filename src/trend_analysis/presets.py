@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
@@ -13,7 +13,7 @@ from typing import Any, Mapping, MutableMapping
 
 import yaml
 
-from .signals import TrendSpec
+from .signals import TrendSpec, trend_spec_from_mapping
 
 LOGGER = logging.getLogger(__name__)
 
@@ -117,23 +117,12 @@ def _build_trend_spec(config: Mapping[str, Any]) -> TrendSpec:
     if not isinstance(signals, Mapping):
         signals = {}
 
-    window = _coerce_int(signals.get("window"), default=63, minimum=1)
-    min_periods = _coerce_optional_int(signals.get("min_periods"))
-    if min_periods is not None and min_periods > window:
-        min_periods = window
-    lag = _coerce_int(signals.get("lag"), default=1, minimum=1)
-    vol_adjust = bool(signals.get("vol_adjust", False))
-    vol_target = _coerce_optional_float(signals.get("vol_target"))
-    zscore = bool(signals.get("zscore", False))
-
-    return TrendSpec(
-        window=window,
-        min_periods=min_periods,
-        lag=lag,
-        vol_adjust=vol_adjust,
-        vol_target=vol_target,
-        zscore=zscore,
-    )
+    spec = trend_spec_from_mapping(signals, retain_disabled_vol_target=True)
+    # Presets historically clamp an overlong warm-up to their own window. This
+    # is preset default policy, not a second signal parser.
+    if spec.min_periods is not None and spec.min_periods > spec.window:
+        return replace(spec, min_periods=spec.window)
+    return spec
 
 
 @dataclass(frozen=True)

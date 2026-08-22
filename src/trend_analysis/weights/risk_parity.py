@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 @weight_engine_registry.register("risk_parity")
 @weight_engine_registry.register("vol_inverse")
 class RiskParity(WeightEngine):
-    """Simple inverse-volatility risk parity weighting with robustness
-    checks."""
+    """Fast inverse-volatility allocation that ignores cross-covariance.
+
+    Use ``HierarchicalRiskParity`` for correlation-aware clustering or
+    ``RobustRiskParity`` when covariance-repair diagnostics are required.
+    """
 
     def weight(self, cov: pd.DataFrame) -> pd.Series:
         if cov.empty:

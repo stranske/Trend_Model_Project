@@ -1,7 +1,6 @@
 from typing import Dict
 
 from .strategies import (
-    CashPolicy,
     DrawdownGuardStrategy,
     DriftBandStrategy,
     PeriodicRebalanceStrategy,
@@ -24,7 +23,6 @@ def get_rebalancing_strategies() -> Dict[str, type]:
 
 
 __all__ = (
-    "CashPolicy",
     "TurnoverCapStrategy",
     "PeriodicRebalanceStrategy",
     "DriftBandStrategy",

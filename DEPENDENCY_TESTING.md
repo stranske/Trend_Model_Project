@@ -55,7 +55,6 @@ See `tests/test_dependency_version_alignment.py` for the implementation.
 Pydantic models must be serialized to dicts before being stored in DataFrames or returned from APIs to prevent PyArrow serialization errors:
 
 **Locations:**
-- `src/trend_analysis/io/validators.py:260` - `load_and_validate_upload()` return value
 - `src/trend_analysis/io/market_data.py:946` - `attach_metadata()` DataFrame.attrs
 - `streamlit_app/components/data_schema.py:174` - `_build_meta()` return value
 
@@ -117,4 +116,3 @@ To verify the fix works for upcoming dependabot PRs:
 **Cause**: Metadata is now a dict, not a Pydantic object
 
 **Fix**: Change `.mode` to `["mode"]` dict access
-

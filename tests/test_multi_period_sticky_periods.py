@@ -102,7 +102,7 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
         return frame, {}
 
     monkeypatch.setattr(mp_engine, "apply_missing_policy", _noop_missing_policy)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *args, **kwargs: {})
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", lambda *args, **kwargs: {})
 
 
 def _run_with_sticky(

@@ -93,17 +93,6 @@ def check_metadata_serialization() -> Tuple[bool, List[str]]:
     """Check that metadata is properly serialized to dicts, not Pydantic objects."""
     issues = []
 
-    # Check validators.py returns dict
-    validators_path = Path("src/trend_analysis/io/validators.py")
-    if validators_path.exists():
-        content = validators_path.read_text()
-
-        # Look for load_and_validate_upload function
-        if "validated.metadata.model_dump(mode=" in content:
-            print("✓ load_and_validate_upload serializes metadata to dict")
-        else:
-            issues.append("load_and_validate_upload may not be serializing metadata properly")
-
     # Check attach_metadata serializes
     market_data_path = Path("src/trend_analysis/io/market_data.py")
     if market_data_path.exists():

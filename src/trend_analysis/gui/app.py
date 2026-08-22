@@ -844,6 +844,19 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     return widgets.VBox([method_dd, adv_box])
 
 
+def _theme_script(theme: str) -> str:
+    """Return JavaScript that applies a browser-consumed color-scheme setting."""
+
+    color_scheme = {"light": "light", "dark": "dark", "system": "light dark"}.get(
+        theme, "light dark"
+    )
+    return (
+        "const root = document.documentElement;"
+        f"root.dataset.trendTheme = '{theme}';"
+        f"root.style.colorScheme = '{color_scheme}';"
+    )
+
+
 def launch() -> widgets.Widget:
     """Return the root widget for the Trend Model GUI."""
     _load_notebook_deps()
@@ -879,10 +892,7 @@ def launch() -> widgets.Widget:
     def on_theme(change: dict[str, Any], *, store: ParamStore) -> None:
         store.theme = change["new"]
         store.dirty = True
-        theme_val = change["new"]
-        js = cast(Any, Javascript)(
-            f"document.documentElement.style.setProperty('--trend-theme','{theme_val}')"
-        )
+        js = cast(Any, Javascript)(_theme_script(str(change["new"])))
         cast(Any, display)(js)
 
     theme.observe(lambda ch, store=store: on_theme(ch, store=store), names="value")

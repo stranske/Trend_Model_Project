@@ -5,7 +5,7 @@ from typing import Any, cast
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
-from trend_analysis.pipeline import single_period_run
+from trend_analysis.stages.selection import single_period_run
 
 
 def test_single_period_run_avg_corr_metadata() -> None:

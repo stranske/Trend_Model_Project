@@ -10,9 +10,12 @@ import pandas as pd
 import pytest
 
 from tests._pipeline_test_utils import run_analysis_payload
-from trend_analysis import pipeline
-from trend_analysis.pipeline import RiskStatsConfig
+from trend_analysis import pipeline_helpers
+from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.risk import RiskDiagnostics
+from trend_analysis.stages import portfolio as portfolio_stage
+from trend_analysis.stages import preprocessing as preprocessing_stage
+from trend_analysis.stages import selection as selection_stage
 
 
 def _sample_frame() -> pd.DataFrame:
@@ -46,7 +49,9 @@ def _stub_diagnostics(columns: Iterator[str]) -> RiskDiagnostics:
 
 
 def test_preprocessing_summary_monthly_branch() -> None:
-    summary = pipeline._preprocessing_summary("M", normalised=False, missing_summary="none")
+    summary = preprocessing_stage._preprocessing_summary(
+        "M", normalised=False, missing_summary="none"
+    )
     assert "Monthly (month-end)" in summary
     assert "Missing data: none" in summary
 
@@ -59,13 +64,13 @@ def test_resolve_sample_split_returns_existing_keys() -> None:
         "out_start": "2024-03",
         "out_end": "2024-04",
     }
-    result = pipeline._resolve_sample_split(df, split_cfg)
+    result = pipeline_helpers._resolve_sample_split(df, split_cfg)
     assert result == split_cfg
 
 
 def test_prepare_input_data_coerces_dates() -> None:
     df = pd.DataFrame({"Date": ["2024-01-31", "2024-02-29"], "Fund": [0.01, 0.02]})
-    prepared, summary, missing, normalised = pipeline._prepare_input_data(
+    prepared, summary, missing, normalised = preprocessing_stage._prepare_input_data(
         df,
         date_col="Date",
         missing_policy=None,
@@ -81,7 +86,7 @@ def test_single_period_run_adds_avg_corr_metric() -> None:
     df = _sample_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"])
     stats_cfg.extra_metrics = ["AvgCorr"]
-    result = pipeline.single_period_run(df, "2024-01", "2024-03", stats_cfg=stats_cfg)
+    result = selection_stage.single_period_run(df, "2024-01", "2024-03", stats_cfg=stats_cfg)
     assert "AvgCorr" in result.columns
 
 
@@ -142,7 +147,7 @@ def test_run_analysis_returns_none_when_windows_empty(
         )
         return prepared, summary, missing, False
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
     result = run_analysis_payload(
         df,
         "2025-01",
@@ -180,7 +185,7 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         )
         return prepared, summary, missing, False
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
 
     def fake_single_period_run(*args: Any, **kwargs: Any) -> pd.DataFrame:
         return pd.DataFrame({"Sharpe": [1.0, 0.5]}, index=["Fund_A", "Fund_B"])
@@ -194,16 +199,18 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         weights = pd.Series({"Fund_A": 0.5, "Fund_B": 0.5}, dtype=float)
         return weights, _stub_diagnostics(weights.index)
 
-    monkeypatch.setattr(pipeline, "single_period_run", fake_single_period_run)
-    monkeypatch.setattr(pipeline, "compute_trend_signals", fake_compute_trend_signals)
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
+    monkeypatch.setattr(selection_stage, "single_period_run", fake_single_period_run)
+    monkeypatch.setattr(portfolio_stage, "compute_trend_signals", fake_compute_trend_signals)
     monkeypatch.setattr(
-        pipeline,
+        portfolio_stage, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        portfolio_stage,
         "realised_volatility",
         lambda *a, **k: pd.DataFrame({"portfolio": [0.1]}, index=pd.RangeIndex(1)),
     )
-    monkeypatch.setattr(pipeline, "build_regime_payload", lambda **_: {})
-    monkeypatch.setattr(pipeline, "information_ratio", lambda *_, **__: 0.1)
+    monkeypatch.setattr(portfolio_stage, "build_regime_payload", lambda **_: {})
+    monkeypatch.setattr(portfolio_stage, "information_ratio", lambda *_, **__: 0.1)
 
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe", "AvgCorr"])
     stats_cfg.extra_metrics = ["AvgCorr"]
@@ -270,16 +277,16 @@ def test_run_analysis_information_ratio_fallback(
             return 0.0
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
+    monkeypatch.setattr(preprocessing_stage, "_prepare_input_data", fake_prepare)
     monkeypatch.setattr(
-        pipeline,
+        selection_stage,
         "single_period_run",
         lambda *a, **k: pd.DataFrame(
             {"Sharpe": [1.0, 0.5, 0.3]}, index=["Fund_A", "Fund_B", "Fund_C"]
         ),
     )
     monkeypatch.setattr(
-        pipeline,
+        portfolio_stage,
         "compute_trend_signals",
         lambda *a, **k: pd.DataFrame(
             0.0,
@@ -287,14 +294,16 @@ def test_run_analysis_information_ratio_fallback(
             columns=["Fund_A", "Fund_B", "Fund_C"],
         ),
     )
-    monkeypatch.setattr(pipeline, "compute_constrained_weights", fake_compute_constrained_weights)
     monkeypatch.setattr(
-        pipeline,
+        portfolio_stage, "compute_constrained_weights", fake_compute_constrained_weights
+    )
+    monkeypatch.setattr(
+        portfolio_stage,
         "realised_volatility",
         lambda *a, **k: pd.DataFrame({"portfolio": [0.1]}, index=pd.RangeIndex(1)),
     )
-    monkeypatch.setattr(pipeline, "build_regime_payload", lambda **_: {})
-    monkeypatch.setattr(pipeline, "information_ratio", raising_information_ratio)
+    monkeypatch.setattr(portfolio_stage, "build_regime_payload", lambda **_: {})
+    monkeypatch.setattr(portfolio_stage, "information_ratio", raising_information_ratio)
 
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe", "AvgCorr"])
     stats_cfg.extra_metrics = ["AvgCorr"]

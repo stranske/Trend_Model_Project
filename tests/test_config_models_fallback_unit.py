@@ -10,7 +10,7 @@ from typing import Any, Generator
 import pytest
 import yaml
 
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 @pytest.fixture

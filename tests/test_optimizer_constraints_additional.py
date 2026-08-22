@@ -91,16 +91,15 @@ def test_apply_constraints_rejects_invalid_cash_weight(cash_weight: float) -> No
         apply_constraints(weights, ConstraintSet(cash_weight=cash_weight))
 
 
-def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
-    """Redistribution from group caps should still honour the individual max
-    weight."""
+def test_apply_constraints_honors_cap_during_group_redistribution() -> None:
+    """Group redistribution must stay within each asset's feasible headroom."""
 
     # Skewed starting weights force substantial redistribution after applying the
-    # group cap.  ``max_weight`` must be reapplied to keep the non-capped assets
-    # within bounds once they receive the excess allocation.
+    # group cap. The joint projection keeps the non-capped assets within bounds
+    # as they receive the excess allocation.
     weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5})
     constraints = ConstraintSet(
-        max_weight=0.35,
+        max_weight=0.45,
         group_caps={"G1": 0.15},
         groups={"A": "G1", "B": "G2", "C": "G2"},
     )
@@ -108,7 +107,7 @@ def test_apply_constraints_reapplies_cap_after_group_redistribution() -> None:
     result = apply_constraints(weights, constraints)
 
     assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
-    assert (result <= 0.35 + 1e-9).all()
+    assert (result <= 0.45 + 1e-9).all()
 
 
 def test_apply_constraints_mapping_input_hits_cash_guards() -> None:
@@ -166,11 +165,8 @@ def test_apply_constraints_cash_slice_respects_max_weight_cap() -> None:
         apply_constraints(weights, ConstraintSet(cash_weight=0.6, max_weight=0.5))
 
 
-def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Ensure max-weight caps run both before and after group
-    redistribution."""
+def test_apply_constraints_enforces_asset_and_group_caps_with_cash() -> None:
+    """The joint projection must satisfy cash, asset, and group constraints."""
 
     weights = pd.Series({"A": 9.0, "B": 0.5, "C": 0.5, "CASH": 0.0})
     constraints = ConstraintSet(
@@ -181,24 +177,12 @@ def test_apply_constraints_enforces_cap_after_group_caps_with_cash(
         cash_weight=0.2,
     )
 
-    cap_calls = {"count": 0}
-    original_apply_cap = optimizer_mod._apply_cap
+    result = apply_constraints(weights, constraints)
 
-    def tracking_cap(series: pd.Series, cap: float, total: float | None = None) -> pd.Series:
-        cap_calls["count"] += 1
-        return original_apply_cap(series, cap, total=total)
-
-    monkeypatch.setattr(optimizer_mod, "_apply_cap", tracking_cap)
-
-    try:
-        result = apply_constraints(weights, constraints)
-    finally:
-        monkeypatch.setattr(optimizer_mod, "_apply_cap", original_apply_cap, raising=False)
-
-    assert cap_calls["count"] >= 2
     assert pytest.approx(result.loc["CASH"], rel=1e-9) == 0.2
     assert pytest.approx(_safe_sum(result), rel=1e-9) == 1.0
     assert (result.drop("CASH") <= 0.4 + 1e-9).all()
+    assert result.loc["A"] <= 0.15 + 1e-9
 
 
 def test_apply_cash_weight_scales_non_cash_and_adds_cash() -> None:

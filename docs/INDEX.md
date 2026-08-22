@@ -123,8 +123,8 @@ Use this index to find the current contributor guides and to understand which ov
 - `tearsheet.md` - Historical output retained after retiring the standalone tearsheet command
 - Archived `code_review.md` - one-off analysis from PR #3877
 
-**`scripts/` folder (reviewed 2025-11-30):**
-- **74 scripts** organized by category (see `scripts/README.md`)
+**`scripts/` folder:**
+- The maintained inventory and categories live in [`scripts/README.md`](../scripts/README.md); use that file rather than a point-in-time script count.
 - CI/Workflow scripts: `ci_*.py`, `ledger_*.py`, `sync_*.py`, `coverage_*.py`
 - Core dev scripts: `setup_env.sh`, `run_tests.sh`, `run_streamlit.sh`, `generate_demo.py`
 - Validation tiers: `dev_check.sh`, `validate_fast.sh`, `check_branch.sh`
@@ -132,7 +132,7 @@ Use this index to find the current contributor guides and to understand which ov
 - Utilities: `archive_agents.sh`, `git_hooks.sh`, `docker_smoke.sh`
 - Archived `demo_export_fix.py` - one-off fix script
 
-**`streamlit_app/` folder (reviewed 2025-11-30):**
+**`streamlit_app/` folder:**
 - Primary Streamlit UI for the Trend Portfolio Simulator
 - `app.py` - Main entry point with demo button
 - `components/` - Reusable UI components (charts, validation, caching)
@@ -145,25 +145,25 @@ Use this index to find the current contributor guides and to understand which ov
 - Removed page aliases are not retained for test compatibility
 - Updated tests to remove references to old `app/streamlit/` path
 
-**`tests/` folder (reorganized 2025-11-30):**
-- **3707+ tests** across multiple categories
-- **Major reorganization**: Workflow/CI tests separated into `tests/workflows/` for future repo split
+**`tests/` folder:**
+- Test collection is intentionally discovered by pytest; do not maintain a hand-count here.
+- Workflow/CI tests are separated into `tests/workflows/` for future repo split.
 
 | Subfolder | Purpose | Contents |
 | --- | --- | --- |
-| `tests/workflows/` | **Workflow system tests** | 33 test files, `github_scripts/`, `fixtures/` |
-| `tests/app/` | Streamlit app tests | 10 test files |
-| `tests/backtesting/` | Backtesting tests | 2 test files |
-| `tests/trend_analysis/` | Core analysis tests | 8 test files |
-| `tests/scripts/` | Script tests | 6 test files |
-| `tests/tools/` | Tool tests | 4 test files |
-| `tests/unit/` | Unit tests | `util/` subfolder |
-| `tests/smoke/` | Smoke tests | 3 test files |
-| `tests/soft_coverage/` | Coverage tracking | 4 test files |
-| `tests/golden/` | Golden master tests | 2 test files |
-| `tests/fixtures/` | Core test fixtures | `score_frame_2025-06-30.csv` |
-| `tests/data/` | Test data files | 6 files |
-| `tests/proxy/` | Proxy tests | 1 test file |
+| `tests/workflows/` | Workflow system tests | GitHub automation, scripts, and fixtures |
+| `tests/app/` | Streamlit app tests | UI behavior and wiring |
+| `tests/backtesting/` | Backtesting tests | Backtest behavior |
+| `tests/trend_analysis/` | Core analysis tests | Analysis modules |
+| `tests/scripts/` | Script tests | Maintained operator and developer scripts |
+| `tests/tools/` | Tool tests | Repository tooling |
+| `tests/unit/` | Unit tests | Focused unit coverage |
+| `tests/smoke/` | Smoke tests | Import and execution smoke coverage |
+| `tests/soft_coverage/` | Coverage tracking | Coverage-policy checks |
+| `tests/golden/` | Golden master tests | Serialized reference behavior |
+| `tests/fixtures/` | Shared fixtures | Text-serialized test inputs |
+| `tests/data/` | Test data | Text-serialized datasets |
+| `tests/proxy/` | Proxy tests | Proxy behavior |
 
 **Workflow tests reorganization details:**
 - Created `tests/workflows/` to separate CI/automation tests from core tests

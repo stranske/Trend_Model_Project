@@ -150,7 +150,7 @@ def test_run_combines_price_frames(monkeypatch: pytest.MonkeyPatch) -> None:
         captured["df"] = df
         return {"ok": True}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     price_frames = {
         "first": pd.DataFrame({"Date": [pd.Timestamp("2020-02-01")], "FundB": [0.2]}),
@@ -232,7 +232,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
         return frame, {"policy": policy, "limit": limit}
 
     monkeypatch.setattr(engine, "apply_missing_policy", fake_apply_missing_policy)
-    monkeypatch.setattr(engine, "_run_analysis", lambda *a, **k: {"ok": True})
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", lambda *a, **k: {"ok": True})
 
     result = engine.run(cfg)
 
@@ -274,7 +274,7 @@ def test_run_skips_missing_policy_with_price_frames(
         captured_frames.append(df.copy())
         return {"ok": True}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     price_frames = {
         "p1": pd.DataFrame({"Date": [pd.Timestamp("2020-01-31")], "FundA": [0.1]}),
@@ -345,7 +345,7 @@ def test_run_incremental_covariance(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run_analysis(df: pd.DataFrame, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return {}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     dates = pd.date_range("2020-01-31", periods=6, freq="ME")
     df = pd.DataFrame(
@@ -581,7 +581,7 @@ def test_run_threshold_hold_low_weight_replacement(
         analysis_calls.append(kwargs.get("manual_funds"))
         return {"ok": True}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=df)
 
@@ -714,7 +714,7 @@ def test_run_threshold_hold_weight_bounds_fill_deficit(
         captured_weights.append(kwargs.get("custom_weights"))
         return {"ok": True}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=df)
 
@@ -846,7 +846,7 @@ def test_run_reconciles_manager_changes_to_pipeline_fund_weights(
             "ok": True,
         }
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=df)
     assert len(results) == 3
@@ -1009,7 +1009,7 @@ def test_run_threshold_hold_reseeds_and_skips_period(
             return None
         return {"ok": True}
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     results = engine.run(cfg, df=df)
 
@@ -1082,7 +1082,7 @@ def test_run_covariance_cache_converts_string_dates(
             "out_sample_scaled": pd.DataFrame(),
         }
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     def fake_apply_missing_policy(
         frame: pd.DataFrame,
@@ -1284,7 +1284,7 @@ def test_threshold_hold_replacements_and_turnover_cap(
             "out_sample_scaled": pd.DataFrame(),
         }
 
-    monkeypatch.setattr(engine, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     df = pd.DataFrame(
         {

@@ -1221,7 +1221,7 @@ def export_execution_metrics(
 
 def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a metrics DataFrame identical to :func:`pipeline.run` output."""
-    from ..pipeline import _Stats  # lazy import to avoid cycle
+    from ..stages.portfolio import _Stats
 
     stats = cast(Mapping[str, _Stats], res.get("out_sample_stats", {}))
     df = pd.DataFrame({k: vars(v) for k, v in stats.items()}).T
@@ -1238,7 +1238,7 @@ def metrics_from_result(res: Mapping[str, object]) -> pd.DataFrame:
 def summary_frame_from_result(res: Mapping[str, object]) -> pd.DataFrame:
     """Return a DataFrame mirroring the Phase-1 summary table."""
 
-    from ..pipeline import _Stats  # lazy import to avoid cycle
+    from ..stages.portfolio import _Stats
 
     def to_tuple(obj: Any) -> tuple[float, float, float, float, float, float]:
         if isinstance(obj, tuple):
@@ -1402,7 +1402,7 @@ def combined_summary_result(
 
     from collections import defaultdict
 
-    from ..pipeline import _compute_stats, calc_portfolio_returns
+    from ..stages.portfolio import _compute_stats, calc_portfolio_returns
 
     results_list = list(results)
     if not results_list:

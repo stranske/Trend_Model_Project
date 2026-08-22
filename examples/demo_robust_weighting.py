@@ -70,7 +70,7 @@ def demonstrate_robust_weighting():
         (
             "robust_mv",
             {
-                "shrinkage_method": "ledoit_wolf",
+                "shrinkage_method": "matrix_diagonal",
                 "condition_threshold": 1e10,
                 "safe_mode": "hrp",
             },
@@ -78,7 +78,7 @@ def demonstrate_robust_weighting():
         (
             "robust_mv",
             {
-                "shrinkage_method": "oas",
+                "shrinkage_method": "matrix_trace",
                 "condition_threshold": 1e8,
                 "safe_mode": "risk_parity",
             },
@@ -122,7 +122,7 @@ def demonstrate_config_usage():
                 "name": "robust_mv",
             },
             "robustness": {
-                "shrinkage": {"enabled": True, "method": "ledoit_wolf"},
+                "shrinkage": {"enabled": True, "method": "matrix_diagonal"},
                 "condition_check": {
                     "enabled": True,
                     "threshold": 1e10,
@@ -145,7 +145,7 @@ def demonstrate_config_usage():
 
     print("\nThis configuration would:")
     print("1. Use robust mean-variance optimization as primary method")
-    print("2. Apply Ledoit-Wolf shrinkage to stabilize covariance estimation")
+    print("2. Apply Matrix-diagonal heuristic shrinkage to stabilize covariance estimation")
     print("3. Monitor condition numbers and switch to HRP when threshold exceeded")
     print("4. Log all robustness decisions for transparency")
 
@@ -159,7 +159,9 @@ def main() -> None:
 
     print("\n=== Summary ===")
     print("The robust weighting system provides:")
-    print("• Automatic shrinkage (Ledoit-Wolf/OAS) for covariance stabilization")
+    print(
+        "• Automatic shrinkage (Matrix-diagonal heuristic/Matrix-trace heuristic) for covariance stabilization"
+    )
     print("• Condition number monitoring with configurable thresholds")
     print("• Safe mode fallback (HRP/Risk Parity/Diagonal Loading) for ill-conditioned matrices")
     print("• Comprehensive logging of all robustness decisions")

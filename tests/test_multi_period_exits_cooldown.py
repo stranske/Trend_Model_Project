@@ -96,7 +96,7 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
         "apply_missing_policy",
         lambda frame, *, policy, limit, enforce_completeness: (frame, {}),
     )
-    monkeypatch.setattr(engine, "_run_analysis", lambda *args, **kwargs: {})
+    monkeypatch.setattr(engine, "_run_analysis_with_diagnostics", lambda *args, **kwargs: {})
 
 
 def _patch_pipeline_capture(

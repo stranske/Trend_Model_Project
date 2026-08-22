@@ -3,18 +3,20 @@ import warnings
 import pandas as pd
 import pytest
 
-from trend_analysis import pipeline as pipeline_module
-from trend_analysis.pipeline import (
-    PipelineReasonCode,
-    PipelineResult,
-    RiskStatsConfig,
+from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.diagnostics import PipelineReasonCode, PipelineResult
+from trend_analysis.stages import portfolio as pipeline_module
+from trend_analysis.stages import selection as selection_stage
+from trend_analysis.stages.portfolio import (
     _assemble_analysis_output,
-    _build_sample_windows,
     _compute_weights_and_stats,
+)
+from trend_analysis.stages.preprocessing import (
+    _build_sample_windows,
     _prepare_preprocess_stage,
-    _select_universe,
     _WindowStage,
 )
+from trend_analysis.stages.selection import _select_universe
 
 
 def _make_simple_frame() -> pd.DataFrame:
@@ -215,50 +217,49 @@ def test_select_universe_rejects_unknown_indices() -> None:
 # Tests that monkeypatch pipeline functions must run serially to avoid
 # interfering with parallel test execution.
 @pytest.mark.serial
-def test_compute_weights_and_stats_produces_metrics(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_compute_weights_and_stats_produces_metrics() -> None:
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
     def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
-        cols = [c for c in df.columns if c != "Date"]
+        cols = [column for column in df.columns if column != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
-    preprocess = _prepare_preprocess_stage(
-        df,
-        floor_vol=None,
-        warmup_periods=0,
-        missing_policy=None,
-        missing_limit=None,
-        stats_cfg=stats_cfg,
-        periods_per_year_override=None,
-        allow_risk_free_fallback=None,
-    )
-    window = _build_sample_windows(
-        preprocess,
-        in_start="2020-01-31",
-        in_end="2020-03-31",
-        out_start="2020-04-30",
-        out_end="2020-06-30",
-    )
-    selection = _select_universe(
-        preprocess,
-        window,
-        in_label="2020-01-31",
-        in_end_label="2020-03-31",
-        selection_mode="all",
-        random_n=1,
-        custom_weights=None,
-        rank_kwargs=None,
-        manual_funds=None,
-        indices_list=None,
-        seed=1,
-        stats_cfg=stats_cfg,
-        risk_free_column="rf",
-        allow_risk_free_fallback=True,
-    )
+    with pytest.MonkeyPatch.context() as patcher:
+        patcher.setattr(selection_stage, "single_period_run", _fake_single_period_run)
+        preprocess = _prepare_preprocess_stage(
+            df,
+            floor_vol=None,
+            warmup_periods=0,
+            missing_policy=None,
+            missing_limit=None,
+            stats_cfg=stats_cfg,
+            periods_per_year_override=None,
+            allow_risk_free_fallback=None,
+        )
+        window = _build_sample_windows(
+            preprocess,
+            in_start="2020-01-31",
+            in_end="2020-03-31",
+            out_start="2020-04-30",
+            out_end="2020-06-30",
+        )
+        selection = _select_universe(
+            preprocess,
+            window,
+            in_label="2020-01-31",
+            in_end_label="2020-03-31",
+            selection_mode="all",
+            random_n=1,
+            custom_weights=None,
+            rank_kwargs=None,
+            manual_funds=None,
+            indices_list=None,
+            seed=1,
+            stats_cfg=stats_cfg,
+            risk_free_column="rf",
+            allow_risk_free_fallback=True,
+        )
     computation = _compute_weights_and_stats(
         preprocess,
         window,
@@ -302,10 +303,8 @@ def test_compute_weights_scopes_signal_inputs_to_window(
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
     def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
-        cols = [c for c in df.columns if c != "Date"]
+        cols = [column for column in df.columns if column != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
-
-    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
 
     observed: dict[str, pd.Timestamp] = {}
 
@@ -315,6 +314,7 @@ def test_compute_weights_scopes_signal_inputs_to_window(
         return pd.DataFrame(0.0, index=df.index, columns=df.columns)
 
     monkeypatch.setattr(pipeline_module, "compute_trend_signals", _fake_compute_trend_signals)
+    monkeypatch.setattr(selection_stage, "single_period_run", _fake_single_period_run)
 
     preprocess = _prepare_preprocess_stage(
         df,
@@ -383,10 +383,11 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
     def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
-        cols = [c for c in df.columns if c != "Date"]
+        cols = [column for column in df.columns if column != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
+    monkeypatch.setattr(selection_stage, "single_period_run", _fake_single_period_run)
+
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,
@@ -459,17 +460,16 @@ def test_compute_weights_rejects_out_of_window_signal_dates(
 
 
 @pytest.mark.serial
-def test_assemble_analysis_output_wraps_success(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_assemble_analysis_output_wraps_success(monkeypatch: pytest.MonkeyPatch) -> None:
     df = _make_simple_frame()
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe"], risk_free=0.0)
 
     def _fake_single_period_run(df: pd.DataFrame, *_: object, **__: object) -> pd.DataFrame:
-        cols = [c for c in df.columns if c != "Date"]
+        cols = [column for column in df.columns if column != "Date"]
         return pd.DataFrame({"Sharpe": [0.1] * len(cols)}, index=cols)
 
-    monkeypatch.setattr(pipeline_module, "single_period_run", _fake_single_period_run)
+    monkeypatch.setattr(selection_stage, "single_period_run", _fake_single_period_run)
+
     preprocess = _prepare_preprocess_stage(
         df,
         floor_vol=None,

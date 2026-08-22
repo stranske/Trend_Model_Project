@@ -16,7 +16,7 @@ from trend_analysis.config.model import validate_trend_config
 from trend_analysis.config.models import Config
 from trend_analysis.config.schema_validation import load_schema
 from trend_analysis.time_utils import resolve_period_bound
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
 
@@ -307,6 +307,10 @@ def _unexpected_property(message: str) -> str | None:
 
 def _check_required_sections(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     for field in Config.REQUIRED_DICT_FIELDS:
+        # The generated schema is authoritative for the top-level portfolio
+        # requirement. Repeating it here produced duplicate user diagnostics.
+        if field == "portfolio":
+            continue
         if field not in config:
             issue = ConfigIssue(
                 path=field,
@@ -522,34 +526,8 @@ def _check_portfolio_required_fields(
         expected="number",
         suggestion="Set portfolio.max_turnover to a numeric value (e.g., 1.0).",
     )
-    cost_model = portfolio.get("cost_model")
-    if not isinstance(cost_model, Mapping):
-        errors.append(
-            ConfigIssue(
-                path="portfolio.cost_model",
-                message="Required field is missing or is not a mapping.",
-                expected="mapping",
-                actual=cost_model,
-                suggestion="Set portfolio.cost_model.per_trade_bps and half_spread_bps.",
-            )
-        )
-        return
-    _require_field(
-        errors,
-        cost_model,
-        "portfolio.cost_model",
-        "per_trade_bps",
-        expected="number",
-        suggestion="Set portfolio.cost_model.per_trade_bps to a numeric value (e.g., 0).",
-    )
-    _require_field(
-        errors,
-        cost_model,
-        "portfolio.cost_model",
-        "half_spread_bps",
-        expected="number",
-        suggestion="Set portfolio.cost_model.half_spread_bps to a numeric value (e.g., 0).",
-    )
+    # The generated schema owns cost_model presence, shape, and both required
+    # numeric fields. Keep only requirements not expressed by that schema here.
 
 
 def _check_vol_adjust_required_fields(

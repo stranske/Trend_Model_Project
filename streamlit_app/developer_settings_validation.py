@@ -375,7 +375,7 @@ def get_baseline_state() -> dict[str, Any]:
         "regime_enabled": False,
         "regime_proxy": "SPX",
         "shrinkage_enabled": True,
-        "shrinkage_method": "ledoit_wolf",
+        "shrinkage_method": "matrix_diagonal",
         "random_seed": 42,
         "condition_threshold": 1.0e12,
         "safe_mode": "hrp",

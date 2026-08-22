@@ -63,7 +63,7 @@ def test_risk_parity_and_robust_variants_manage_degenerate_cases() -> None:
     assert pytest.approx(float(robust_weights.sum()), rel=1e-6) == 1.0
 
     mv_safe = RobustMeanVariance(
-        shrinkage_method="ledoit_wolf",
+        shrinkage_method="matrix_diagonal",
         safe_mode="risk_parity",
         condition_threshold=1.0,
     )
@@ -71,7 +71,7 @@ def test_risk_parity_and_robust_variants_manage_degenerate_cases() -> None:
     assert pytest.approx(float(mv_safe_weights.sum()), rel=1e-6) == 1.0
 
     mv_regular = RobustMeanVariance(
-        shrinkage_method="oas",
+        shrinkage_method="matrix_trace",
         safe_mode="diagonal_mv",
         condition_threshold=1e12,
         min_weight=0.0,

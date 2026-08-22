@@ -16,7 +16,7 @@ from trend_analysis.config.coverage import (
     wrap_config_for_coverage,
 )
 from trend_analysis.config.model import validate_trend_config
-from utils.paths import proj_path
+from trend_analysis.util.paths import proj_path
 
 
 def _load_canonical_config() -> tuple[dict, Path]:

@@ -14,9 +14,12 @@ import pytest
 from IPython.core.inputtransformer2 import TransformerManager
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# Evidence-only audit records must be able to name the removed surfaces they
+# prove absent; they are not operator documentation or executable code.
 ARCHIVE_ROOTS = (
     REPO_ROOT / "archives",
     REPO_ROOT / "docs" / "archive",
+    REPO_ROOT / "docs" / "audits",
     REPO_ROOT / "docs" / "keepalive",
     REPO_ROOT / "notebooks" / "old",
 )
@@ -105,6 +108,18 @@ REMOVED_TEST_ONLY_SYMBOLS = {
     },
     "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
     "src/trend_analysis/pipeline_helpers.py": {"_unwrap_" + "cfg"},
+    "src/trend_analysis/pipeline.py": {
+        "_sync_stage_" + "dependencies",
+        "_call_with_" + "sync",
+        "_prepare_input_" + "data",
+        "_prepare_preprocess_" + "stage",
+        "_build_sample_" + "windows",
+        "_select_" + "universe",
+        "_compute_weights_and_" + "stats",
+        "_assemble_analysis_" + "output",
+        "_run_analysis_with_" + "diagnostics",
+    },
+    "src/trend_analysis/multi_period/engine.py": {"_run_" + "analysis"},
 }
 REMOVED_GUI_SYMBOLS = {
     "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
@@ -138,6 +153,8 @@ REMOVED_PATHS = (
     "src/trend_analysis/" + "run_multi_analysis.py",
     "src/trend_analysis/config/" + "legacy.py",
     "src/trend_analysis/" + "typing.py",
+    "src/trend_analysis/io/" + "validators.py",
+    "src/utils",
     "src/trend_model",
     "src/trend_portfolio_app",
     "retired/trend_portfolio_app",
@@ -146,6 +163,7 @@ REMOVED_PATHS = (
     "examples/demo_" + "turnover_cap.py",
     "examples/portfolio_" + "analysis_report.py",
     "scripts/trend-model",
+    "scripts/trend-reproducible",
 )
 RETIRED_EXAMPLE_NAMES = (
     "demo_" + "turnover_cap.py",
@@ -701,14 +719,10 @@ def test_legacy_runtime_shims_remain_absent() -> None:
     config_models_source = (REPO_ROOT / "src/trend_analysis/config/models.py").read_text(
         encoding="utf-8"
     )
-    io_validators_source = (REPO_ROOT / "src/trend_analysis/io/validators.py").read_text(
-        encoding="utf-8"
-    )
-
     assert "_DEFAULT_RUN_ANALYSIS" not in pipeline_source
     assert "Backward-compatible wrapper returning raw payloads for tests" not in pipeline_source
     assert "_TREND_CONFIG_CLASS" not in config_models_source
-    assert "class ValidationResult" not in io_validators_source
+    assert not (REPO_ROOT / "src/trend_analysis/io/validators.py").exists()
 
 
 def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> None:
@@ -721,7 +735,12 @@ def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> N
 
 
 def test_pipeline_private_run_facade_is_absent() -> None:
-    """The public pipeline module must not restore its test-only raw facade."""
+    """The public pipeline module must not restore retired private facades."""
+
+    import inspect
+
+    from trend_analysis import pipeline
+    from trend_analysis.core.rank_selection import rank_select_funds
 
     pipeline_path = REPO_ROOT / "src/trend_analysis/pipeline.py"
     tree = ast.parse(pipeline_path.read_text(encoding="utf-8"))
@@ -729,25 +748,46 @@ def test_pipeline_private_run_facade_is_absent() -> None:
         node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
     assert "_run_analysis" not in definitions
+    retired_helpers = {
+        "_build_trend_spec",
+        "_cfg_section",
+        "_cfg_value",
+        "_derive_split_from_periods",
+        "_empty_run_full_result",
+        "_policy_from_config",
+        "_resolve_sample_split",
+        "_resolve_target_vol",
+        "_section_get",
+    }
+    assert not {name for name in retired_helpers if hasattr(pipeline, name)}
+    assert "transform_mode" not in inspect.signature(rank_select_funds).parameters
 
+    retired_pipeline_names = retired_helpers | {"_run_analysis"}
     offenders: list[str] = []
-    for root_name in ("src", "tests"):
+    for root_name in ("src", "tests", "scripts", "streamlit_app"):
         for source_path in (REPO_ROOT / root_name).rglob("*.py"):
             source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
             for node in ast.walk(source_tree):
                 if (
                     isinstance(node, ast.ImportFrom)
                     and node.module == "trend_analysis.pipeline"
-                    and any(alias.name == "_run_analysis" for alias in node.names)
+                    and any(alias.name in retired_pipeline_names for alias in node.names)
                 ):
-                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+                    names = sorted(
+                        alias.name for alias in node.names if alias.name in retired_pipeline_names
+                    )
+                    offenders.append(
+                        f"{source_path.relative_to(REPO_ROOT).as_posix()}: imports {names}"
+                    )
                 if (
                     isinstance(node, ast.Attribute)
-                    and node.attr == "_run_analysis"
+                    and node.attr in retired_pipeline_names
                     and isinstance(node.value, ast.Name)
                     and node.value.id == "pipeline"
                 ):
-                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+                    offenders.append(
+                        f"{source_path.relative_to(REPO_ROOT).as_posix()}: pipeline.{node.attr}"
+                    )
     assert offenders == []
 
 

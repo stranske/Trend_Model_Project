@@ -9,7 +9,8 @@ from trend_analysis.metrics import (
     sortino_ratio,
     volatility,
 )
-from trend_analysis.pipeline import _Stats, calc_portfolio_returns, run_analysis
+from trend_analysis.pipeline import run_analysis
+from trend_analysis.stages.portfolio import _Stats, calc_portfolio_returns
 
 
 def make_df():

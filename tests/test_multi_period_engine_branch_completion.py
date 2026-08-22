@@ -223,7 +223,9 @@ def test_run_combines_price_frames_and_returns_period_results(
     ]
 
     monkeypatch.setattr(mp_engine, "generate_periods", lambda *_args: periods)
-    monkeypatch.setattr(mp_engine, "_run_analysis", lambda *a, **k: {"summary": "ok"})
+    monkeypatch.setattr(
+        mp_engine, "_run_analysis_with_diagnostics", lambda *a, **k: {"summary": "ok"}
+    )
 
     results = mp_engine.run(cfg, df=None, price_frames=price_frames)
 
@@ -245,7 +247,7 @@ def test_call_pipeline_with_diag_honors_monkeypatch(
         calls.append((args, kwargs))
         return {"summary": "ok"}
 
-    monkeypatch.setattr(mp_engine, "_run_analysis", fake_run)
+    monkeypatch.setattr(mp_engine, "_run_analysis_with_diagnostics", fake_run)
     diag = mp_engine._call_pipeline_with_diag(
         pd.DataFrame({"Date": pd.to_datetime([])}),
         "2020-01",

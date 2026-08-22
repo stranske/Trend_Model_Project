@@ -240,7 +240,7 @@ def test_manifest_builder_well_formed() -> None:
     assert "streamlit_app/app.py" in fresh["files"]
     assert "streamlit_app/demo_profile.py" in fresh["files"]
     assert "src/trend/__init__.py" in fresh["files"]
-    assert "src/utils/__init__.py" in fresh["files"]
+    assert "src/trend_analysis/util/paths.py" in fresh["files"]
     assert "demo/demo_returns.csv" in fresh["files"]
 
     # The manifest is JSON-serialisable and stable across a round-trip.

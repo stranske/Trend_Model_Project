@@ -61,8 +61,8 @@ Functional spec
     Step 3  – If mode == 'manual'  
                → display an interactive DataFrame of the IS scores so the
                user can override selection and set weights.
-    Step 4  – Output format picker (csv / xlsx / json / txt) then fire
-               `run_analysis()` and `export_to_*`.
+    Step 4  – Output format picker (csv / xlsx / json / txt) then call
+               `trend_analysis.api.run_simulation()` and the canonical exporter.
 
 6.  No broken changes:
     • Default behaviour (config absent) must be identical to current build.
@@ -233,7 +233,7 @@ exactly as v1.0 did. Breaking that throws `ExportError`.
 ## | Layer / concern                      | **Canonical location**                                                     | Everything else is **deprecated**                         |
 | ------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Data ingest & cleaning**           | `trend_analysis/data.py` <br> (alias exported as `trend_analysis.data`)    | `data_utils.py`, helper code in notebooks or `scripts/`   |
-| **Portfolio logic & metrics**        | `trend_analysis/metrics.py` (vectorised)                                   | loops inside `run_analysis.py`, ad‑hoc calcs in notebooks |
+| **Portfolio logic & metrics**        | `trend_analysis/stages/portfolio.py` and `trend_analysis/metrics/`          | duplicated calculations in orchestration or notebooks    |
 | **Export / I/O**                     | `trend_analysis/export/` package                                           | the root‑level `exports.py`, snippets inside notebooks    |
 | **Domain kernels (fast primitives)** | `trend_analysis/core/` package                                             | stand‑alone modules under the top‑level `core/` directory |
 | **Pipeline orchestration**           | `trend_analysis/pipeline.py` (pure)                                        | any duplicated control flow elsewhere                     |
@@ -340,7 +340,7 @@ benchmarks:
     5. Return `score_frame` – *no side effects, no I/O*.
 
 * **Update callers**
-  * `pipeline._run_analysis()` should call `single_period_run()` once, stash the resulting frame in the returned dict under key `"score_frame"`, but **must not** change existing outputs or CLI flags.
+  * `pipeline.run_analysis()` calls the canonical selection stage once and returns the resulting frame under key `"score_frame"` without changing existing outputs or CLI flags.
   * Existing metrics‑export logic stays exactly as is.
 
 * **Tests**
