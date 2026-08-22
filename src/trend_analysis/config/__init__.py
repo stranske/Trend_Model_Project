@@ -25,7 +25,7 @@ from .patch import (
     diff_configs,
 )
 from .validation import (
-    ValidationError,
+    ConfigIssue,
     ValidationResult,
     format_validation_messages,
     validate_config,
@@ -54,7 +54,7 @@ __all__ = [
     "apply_patch",
     "apply_config_patch",
     "diff_configs",
-    "ValidationError",
+    "ConfigIssue",
     "ValidationResult",
     "validate_config",
     "format_validation_messages",

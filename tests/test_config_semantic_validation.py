@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from trend_analysis.config.validation import (
-    ValidationError,
+    ConfigIssue,
     ValidationResult,
     format_validation_messages,
     validate_config,
@@ -362,7 +362,7 @@ def test_deep_nested_unknown_key_suggests_typo(tmp_path: Path) -> None:
 def test_format_validation_messages_defaults_suggestion(tmp_path: Path) -> None:
     result = ValidationResult(
         errors=[
-            ValidationError(
+            ConfigIssue(
                 path="sample_split.method",
                 message="Invalid selection.",
                 expected="date or ratio",
@@ -532,7 +532,7 @@ def test_validate_config_strict_mode_treats_warnings_as_errors(tmp_path: Path) -
 
 
 def test_validation_result_infers_valid_from_errors() -> None:
-    issue = ValidationError(
+    issue = ConfigIssue(
         path="data.csv_path",
         message="Data source is required.",
         expected="csv_path or managers_glob",

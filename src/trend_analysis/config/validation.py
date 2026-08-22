@@ -21,7 +21,7 @@ from utils.paths import proj_path
 _PATH_PATTERN = re.compile(r"^([A-Za-z0-9_.\[\]-]+)(:|\s+)(.+)$")
 
 
-class ValidationError(BaseModel):
+class ConfigIssue(BaseModel):
     path: str
     message: str
     expected: str = "valid value"
@@ -31,8 +31,8 @@ class ValidationError(BaseModel):
 
 class ValidationResult(BaseModel):
     valid: bool = True
-    errors: list[ValidationError] = Field(default_factory=list)
-    warnings: list[ValidationError] = Field(default_factory=list)
+    errors: list[ConfigIssue] = Field(default_factory=list)
+    warnings: list[ConfigIssue] = Field(default_factory=list)
 
     @field_validator("errors", "warnings", mode="before")
     @classmethod
@@ -41,11 +41,11 @@ class ValidationResult(BaseModel):
             return []
         if not isinstance(value, list):
             return value
-        coerced: list[ValidationError | Any] = []
+        coerced: list[ConfigIssue | Any] = []
         for item in value:
             if isinstance(item, str):
                 coerced.append(
-                    ValidationError(
+                    ConfigIssue(
                         path="<root>",
                         message=item,
                         expected="valid value",
@@ -84,11 +84,11 @@ def validate_config(
             validation (including file existence checks).
     """
 
-    errors: list[ValidationError] = []
-    warnings: list[ValidationError] = []
+    errors: list[ConfigIssue] = []
+    warnings: list[ConfigIssue] = []
 
     if not isinstance(config, Mapping):
-        error = ValidationError(
+        error = ConfigIssue(
             path="<root>",
             message="Configuration payload must be an object.",
             expected="mapping",
@@ -117,15 +117,15 @@ def validate_config(
 
 def _run_schema_validation(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
-    warnings: list[ValidationError],
+    errors: list[ConfigIssue],
+    warnings: list[ConfigIssue],
 ) -> None:
     _collect_schema_errors(config, errors, warnings)
 
 
 def _run_required_validation(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
+    errors: list[ConfigIssue],
     skip_required_fields: bool,
 ) -> None:
     _check_required_sections(config, errors)
@@ -136,7 +136,7 @@ def _run_required_validation(
 
 def _run_data_semantic_validation(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
+    errors: list[ConfigIssue],
 ) -> None:
     data = config.get("data")
     if isinstance(data, Mapping):
@@ -145,7 +145,7 @@ def _run_data_semantic_validation(
 
 def _run_sample_split_validation(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
+    errors: list[ConfigIssue],
 ) -> None:
     _check_sample_split_requirements(config, errors)
     _check_date_ranges(config, errors)
@@ -153,8 +153,8 @@ def _run_sample_split_validation(
 
 def _run_portfolio_validation(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
-    warnings: list[ValidationError],
+    errors: list[ConfigIssue],
+    warnings: list[ConfigIssue],
     base: Path,
 ) -> None:
     _check_portfolio_selection_requirements(config, errors)
@@ -180,8 +180,8 @@ def format_validation_messages(
 
 def _collect_schema_errors(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
-    warnings: list[ValidationError],
+    errors: list[ConfigIssue],
+    warnings: list[ConfigIssue],
 ) -> None:
     schema = load_schema()
     validator = Draft202012Validator(schema)
@@ -191,7 +191,7 @@ def _collect_schema_errors(
             _append_issue(errors, issue)
 
 
-def _schema_error_to_issues(error: Any) -> list[ValidationError]:
+def _schema_error_to_issues(error: Any) -> list[ConfigIssue]:
     path = _format_path(error.absolute_path)
     validator = error.validator
     message = str(error.message)
@@ -218,7 +218,7 @@ def _schema_error_to_issues(error: Any) -> list[ValidationError]:
         suggestion = _suggest_additional_property(unexpected, error) or suggestion
 
     return [
-        ValidationError(
+        ConfigIssue(
             path=path,
             message=message,
             expected=expected,
@@ -305,10 +305,10 @@ def _unexpected_property(message: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_required_sections(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     for field in Config.REQUIRED_DICT_FIELDS:
         if field not in config:
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path=field,
                 message="Required section is missing.",
                 expected="section present",
@@ -318,7 +318,7 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
             _append_issue(errors, issue)
             continue
         if not isinstance(config[field], Mapping):
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path=field,
                 message="Section must be an object.",
                 expected="object",
@@ -328,7 +328,7 @@ def _check_required_sections(config: Mapping[str, Any], errors: list[ValidationE
             _append_issue(errors, issue)
 
 
-def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_required_fields(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     data = config.get("data")
     if isinstance(data, Mapping):
         _check_data_required_fields(data, errors)
@@ -342,9 +342,9 @@ def _check_required_fields(config: Mapping[str, Any], errors: list[ValidationErr
         _check_vol_adjust_required_fields(vol_adjust, errors)
 
 
-def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_version_field(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     if "version" not in config:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="version",
             message="Version is required.",
             expected="non-empty string",
@@ -355,7 +355,7 @@ def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError
         return
     version = config.get("version")
     if not isinstance(version, str):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="version",
             message="Version must be a string.",
             expected="string",
@@ -365,7 +365,7 @@ def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError
         _append_issue(errors, issue)
         return
     if not version.strip():
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="version",
             message="Version cannot be blank.",
             expected="non-empty string",
@@ -376,7 +376,7 @@ def _check_version_field(config: Mapping[str, Any], errors: list[ValidationError
 
 
 def _require_field(
-    errors: list[ValidationError],
+    errors: list[ConfigIssue],
     section: Mapping[str, Any],
     section_name: str,
     field: str,
@@ -385,7 +385,7 @@ def _require_field(
     suggestion: str,
 ) -> None:
     if field not in section:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path=f"{section_name}.{field}",
             message="Required field is missing.",
             expected=expected,
@@ -396,7 +396,7 @@ def _require_field(
         return
     value = section.get(field)
     if not _is_present(value):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path=f"{section_name}.{field}",
             message="Required field is missing.",
             expected=expected,
@@ -414,10 +414,10 @@ def _is_present(value: Any) -> bool:
     return True
 
 
-def _check_data_required_fields(data: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_data_required_fields(data: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     csv_path = data.get("csv_path")
     if csv_path is not None and not isinstance(csv_path, str):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="data.csv_path",
             message="CSV path must be a string.",
             expected="string",
@@ -427,7 +427,7 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         _append_issue(errors, issue)
     managers_glob = data.get("managers_glob")
     if managers_glob is not None and not isinstance(managers_glob, str):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="data.managers_glob",
             message="Managers glob must be a string.",
             expected="string",
@@ -452,7 +452,7 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         suggestion="Set data.frequency to 'M' or 'ME'.",
     )
     if not _is_present(csv_path) and not _is_present(managers_glob):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="data.csv_path",
             message="Data source is required.",
             expected="csv_path or managers_glob",
@@ -462,12 +462,12 @@ def _check_data_required_fields(data: Mapping[str, Any], errors: list[Validation
         _append_issue(errors, issue)
 
 
-def _check_data_frequency_supported(data: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_data_frequency_supported(data: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     value = data.get("frequency")
     if not _is_present(value):
         return
     if not isinstance(value, str):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="data.frequency",
             message="Frequency must be a string.",
             expected="'M' or 'ME'",
@@ -479,7 +479,7 @@ def _check_data_frequency_supported(data: Mapping[str, Any], errors: list[Valida
 
     frequency = value.strip().upper()
     if frequency not in {"M", "ME"}:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="data.frequency",
             message=(
                 "Only monthly data.frequency values are currently supported; "
@@ -496,7 +496,7 @@ def _check_data_frequency_supported(data: Mapping[str, Any], errors: list[Valida
 
 
 def _check_portfolio_required_fields(
-    portfolio: Mapping[str, Any], errors: list[ValidationError]
+    portfolio: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     _require_field(
         errors,
@@ -525,7 +525,7 @@ def _check_portfolio_required_fields(
     cost_model = portfolio.get("cost_model")
     if not isinstance(cost_model, Mapping):
         errors.append(
-            ValidationError(
+            ConfigIssue(
                 path="portfolio.cost_model",
                 message="Required field is missing or is not a mapping.",
                 expected="mapping",
@@ -553,7 +553,7 @@ def _check_portfolio_required_fields(
 
 
 def _check_vol_adjust_required_fields(
-    vol_adjust: Mapping[str, Any], errors: list[ValidationError]
+    vol_adjust: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     _require_field(
         errors,
@@ -566,7 +566,7 @@ def _check_vol_adjust_required_fields(
 
 
 def _collect_trend_errors(
-    config: Mapping[str, Any], errors: list[ValidationError], base: Path
+    config: Mapping[str, Any], errors: list[ConfigIssue], base: Path
 ) -> None:
     try:
         validate_trend_config(dict(config), base_path=base)
@@ -576,7 +576,7 @@ def _collect_trend_errors(
             _append_issue(errors, parsed)
 
 
-def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_date_ranges(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     split = config.get("sample_split")
     if not isinstance(split, Mapping):
         return
@@ -596,7 +596,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
         try:
             parsed[key] = resolve_period_bound(raw, bound=bound_roles[key])
         except Exception:
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path=f"sample_split.{key}",
                 message="Date must be a valid timestamp.",
                 expected="ISO date string",
@@ -614,7 +614,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
     out_start = parsed["out_start"]
     out_end = parsed["out_end"]
     if in_start >= in_end:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="sample_split.in_start",
             message="In-sample start must be before in-sample end.",
             expected="in_start < in_end",
@@ -623,7 +623,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
         )
         _append_issue(errors, issue)
     if in_end >= out_start:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="sample_split.out_start",
             message="Out-of-sample start must be after in-sample end.",
             expected="in_end < out_start",
@@ -632,7 +632,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
         )
         _append_issue(errors, issue)
     if out_start >= out_end:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="sample_split.out_end",
             message="Out-of-sample end must be after out-of-sample start.",
             expected="out_start < out_end",
@@ -643,7 +643,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ValidationError])
 
 
 def _check_sample_split_requirements(
-    config: Mapping[str, Any], errors: list[ValidationError]
+    config: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     split = config.get("sample_split")
     if not isinstance(split, Mapping):
@@ -651,7 +651,7 @@ def _check_sample_split_requirements(
     method = split.get("method")
     if method == "ratio":
         if not _is_present(split.get("ratio")):
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path="sample_split.ratio",
                 message="Ratio is required when sample_split.method is ratio.",
                 expected="number between 0 and 1",
@@ -697,8 +697,8 @@ def _check_sample_split_requirements(
 
 def _check_rank_fund_count(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
-    warnings: list[ValidationError],
+    errors: list[ConfigIssue],
+    warnings: list[ConfigIssue],
     base: Path,
 ) -> None:
     portfolio = config.get("portfolio")
@@ -719,7 +719,7 @@ def _check_rank_fund_count(
 
     available = _count_available_funds(config, base)
     if available is None:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.rank.n",
             message="Unable to determine available fund count for top_n validation.",
             expected="fund count available",
@@ -730,7 +730,7 @@ def _check_rank_fund_count(
         return
 
     if top_n > available:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.rank.n",
             message="top_n exceeds the number of available funds.",
             expected=f"<= {available}",
@@ -742,15 +742,15 @@ def _check_rank_fund_count(
 
 def collect_feasibility_errors(
     config: Mapping[str, Any], *, base_path: Path | None = None
-) -> list[ValidationError]:
+) -> list[ConfigIssue]:
     """Run ONLY the parameter-feasibility checks and return any errors.
 
     Lets non-CLI entry points (e.g. the Streamlit app, which validates a minimal
     payload subset) reuse the same infeasibility gate on a full config without
     running the rest of config validation.
     """
-    errors: list[ValidationError] = []
-    warnings: list[ValidationError] = []
+    errors: list[ConfigIssue] = []
+    warnings: list[ConfigIssue] = []
     _check_portfolio_feasibility(config, errors, warnings, base_path or Path("."))
     return errors
 
@@ -795,8 +795,8 @@ def _effective_holding_count(
 
 def _check_portfolio_feasibility(
     config: Mapping[str, Any],
-    errors: list[ValidationError],
-    warnings: list[ValidationError],
+    errors: list[ConfigIssue],
+    warnings: list[ConfigIssue],
     base: Path,
 ) -> None:
     """Reject internally contradictory / infeasible parameter sets.
@@ -821,7 +821,7 @@ def _check_portfolio_feasibility(
     if max_w is not None and min_w is not None and max_w < min_w - 1e-12:
         _append_issue(
             errors,
-            ValidationError(
+            ConfigIssue(
                 path="portfolio.constraints.max_weight",
                 message="max_weight is below min_weight.",
                 expected=f">= min_weight ({min_w})",
@@ -838,7 +838,7 @@ def _check_portfolio_feasibility(
         if min_funds is not None and max_funds is not None and min_funds > max_funds:
             _append_issue(
                 errors,
-                ValidationError(
+                ConfigIssue(
                     path="multi_period.min_funds",
                     message="min_funds exceeds max_funds.",
                     expected=f"<= max_funds ({max_funds})",
@@ -860,7 +860,7 @@ def _check_portfolio_feasibility(
         ):
             _append_issue(
                 errors,
-                ValidationError(
+                ConfigIssue(
                     path="vol_adjust.floor_vol",
                     message="floor_vol must be below target_vol.",
                     expected=f"< target_vol ({target_v})",
@@ -880,7 +880,7 @@ def _check_portfolio_feasibility(
     if max_w is not None and max_w > 0 and max_w * n_funds < 1.0 - 1e-9:
         _append_issue(
             errors,
-            ValidationError(
+            ConfigIssue(
                 path="portfolio.constraints.max_weight",
                 message=(
                     "Infeasible: a long-only, fully-invested book of "
@@ -899,7 +899,7 @@ def _check_portfolio_feasibility(
     if min_w is not None and min_w > 0 and min_w * n_funds > 1.0 + 1e-9:
         _append_issue(
             errors,
-            ValidationError(
+            ConfigIssue(
                 path="portfolio.constraints.min_weight",
                 message=(
                     f"Infeasible: {n_funds} funds each >= min_weight cannot sum to "
@@ -913,7 +913,7 @@ def _check_portfolio_feasibility(
 
 
 def _check_portfolio_selection_requirements(
-    config: Mapping[str, Any], errors: list[ValidationError]
+    config: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
@@ -923,7 +923,7 @@ def _check_portfolio_selection_requirements(
         return
     rank_cfg = portfolio.get("rank")
     if rank_cfg is None:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.rank",
             message="Rank settings are required when selection_mode is rank.",
             expected="object",
@@ -933,7 +933,7 @@ def _check_portfolio_selection_requirements(
         _append_issue(errors, issue)
         return
     if not isinstance(rank_cfg, Mapping):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.rank",
             message="Rank settings must be an object.",
             expected="object",
@@ -944,7 +944,7 @@ def _check_portfolio_selection_requirements(
 
 
 def _check_manual_selection_requirements(
-    config: Mapping[str, Any], errors: list[ValidationError]
+    config: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
@@ -953,7 +953,7 @@ def _check_manual_selection_requirements(
         return
     manual_list = portfolio.get("manual_list")
     if manual_list is None:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.manual_list",
             message="Manual selection requires a manual_list.",
             expected="non-empty list of fund identifiers",
@@ -963,7 +963,7 @@ def _check_manual_selection_requirements(
         _append_issue(errors, issue)
         return
     if not isinstance(manual_list, list):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.manual_list",
             message="Manual list must be a list.",
             expected="list of strings",
@@ -973,7 +973,7 @@ def _check_manual_selection_requirements(
         _append_issue(errors, issue)
         return
     if not manual_list:
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.manual_list",
             message="Manual list cannot be empty.",
             expected="at least one fund identifier",
@@ -984,7 +984,7 @@ def _check_manual_selection_requirements(
         return
     for idx, value in enumerate(manual_list):
         if not isinstance(value, str) or not value.strip():
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path=f"portfolio.manual_list[{idx}]",
                 message="Manual list entries must be non-empty strings.",
                 expected="non-empty string",
@@ -995,7 +995,7 @@ def _check_manual_selection_requirements(
 
 
 def _check_rank_inclusion_requirements(
-    config: Mapping[str, Any], errors: list[ValidationError]
+    config: Mapping[str, Any], errors: list[ConfigIssue]
 ) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
@@ -1006,7 +1006,7 @@ def _check_rank_inclusion_requirements(
 
     approach = rank_cfg.get("inclusion_approach")
     if not _is_present(approach):
-        issue = ValidationError(
+        issue = ConfigIssue(
             path="portfolio.rank.inclusion_approach",
             message="Rank inclusion approach is required.",
             expected="one of top_n, top_pct, threshold",
@@ -1017,7 +1017,7 @@ def _check_rank_inclusion_requirements(
         return
     if approach == "top_n":
         if not _is_present(rank_cfg.get("n")):
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path="portfolio.rank.n",
                 message="top_n requires a rank count.",
                 expected="positive integer",
@@ -1029,7 +1029,7 @@ def _check_rank_inclusion_requirements(
 
     if approach == "top_pct":
         if not _is_present(rank_cfg.get("pct")):
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path="portfolio.rank.pct",
                 message="top_pct requires a percentile threshold.",
                 expected="number between 0 and 1",
@@ -1041,7 +1041,7 @@ def _check_rank_inclusion_requirements(
 
     if approach == "threshold":
         if not _is_present(rank_cfg.get("threshold")):
-            issue = ValidationError(
+            issue = ConfigIssue(
                 path="portfolio.rank.threshold",
                 message="threshold requires a cutoff value.",
                 expected="number",
@@ -1051,7 +1051,7 @@ def _check_rank_inclusion_requirements(
             _append_issue(errors, issue)
 
 
-def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ValidationError]) -> None:
+def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     portfolio = config.get("portfolio")
     if not isinstance(portfolio, Mapping):
         return
@@ -1066,7 +1066,7 @@ def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ValidationE
             return
         if isinstance(n_value, int):
             if n_value <= 0:
-                issue = ValidationError(
+                issue = ConfigIssue(
                     path="portfolio.rank.n",
                     message="top_n must be a positive integer.",
                     expected=">= 1",
@@ -1082,7 +1082,7 @@ def _check_rank_value_ranges(config: Mapping[str, Any], errors: list[ValidationE
             return
         if isinstance(pct_value, (int, float)):
             if pct_value <= 0 or pct_value > 1:
-                issue = ValidationError(
+                issue = ConfigIssue(
                     path="portfolio.rank.pct",
                     message="top_pct must be between 0 and 1.",
                     expected="> 0 and <= 1",
@@ -1131,7 +1131,7 @@ def _resolve_path(value: str, base: Path) -> Path:
     return (base / raw).resolve()
 
 
-def _error_from_exception(exc: Exception, config: Mapping[str, Any]) -> ValidationError | None:
+def _error_from_exception(exc: Exception, config: Mapping[str, Any]) -> ConfigIssue | None:
     message = str(exc).strip()
     if not message:
         return None
@@ -1141,7 +1141,7 @@ def _error_from_exception(exc: Exception, config: Mapping[str, Any]) -> Validati
         path = match.group(1)
     actual = _actual_from_path(config, path)
     suggestion = f"Update the value for '{path}'."
-    return ValidationError(
+    return ConfigIssue(
         path=path,
         message=message,
         expected="valid value",
@@ -1214,7 +1214,7 @@ def _join_path(base: str, leaf: str) -> str:
     return f"{base}.{leaf}"
 
 
-def _format_issue(issue: ValidationError) -> str:
+def _format_issue(issue: ConfigIssue) -> str:
     actual = _format_actual(issue.actual)
     suggestion = issue.suggestion or "Update the configuration to match the expected value."
     text = f"{issue.path}: {issue.message} Expected {issue.expected}, got {actual}."
@@ -1231,7 +1231,7 @@ def _format_actual(actual: Any) -> str:
     return repr(actual)
 
 
-def _append_issue(bucket: list[ValidationError], issue: ValidationError) -> None:
+def _append_issue(bucket: list[ConfigIssue], issue: ConfigIssue) -> None:
     for existing in bucket:
         if existing.path == issue.path and existing.message == issue.message:
             return

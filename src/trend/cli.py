@@ -431,7 +431,7 @@ def _resolve_returns_path(config_path: Path, cfg: Any, override: str | None) -> 
     Relative paths from the configuration are first checked relative to the
     configuration file itself, then the directory *above* it (repo root), and
     finally against the repository root.  This mirrors the
-    ``DataSettings`` resolver so configs can reference ``demo/demo_returns.csv``
+    ``ResolvedDataSettings`` resolver so configs can reference ``demo/demo_returns.csv``
     even though the YAML file lives under ``config/``.
     """
 
