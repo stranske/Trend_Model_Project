@@ -13,7 +13,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from time import monotonic, sleep
 from typing import Any, Mapping
 
@@ -300,13 +300,19 @@ def _get_config_change_history() -> list[dict[str, Any]]:
     return history
 
 
+def _utc_timestamp() -> str:
+    """Return the Model-page wire timestamp as an aware UTC ISO-8601 value."""
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _record_config_change(preview: Mapping[str, Any]) -> None:
     before = preview.get("before")
     after = preview.get("after")
     if not isinstance(before, Mapping) or not isinstance(after, Mapping):
         return
     entry = {
-        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "timestamp": _utc_timestamp(),
         "instruction": preview.get("instruction"),
         "summary": preview.get("summary"),
         "risk_flags": list(preview.get("risk_flags") or []),
@@ -341,7 +347,7 @@ def _record_preview_timing(preview: Mapping[str, Any], total_seconds: float) -> 
     if isinstance(llm_changed_fields_raw, list):
         llm_changed_fields = [str(field) for field in llm_changed_fields_raw]
     entry = {
-        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "timestamp": _utc_timestamp(),
         "instruction": preview.get("instruction"),
         "provider": provider,
         "model": model,
@@ -434,7 +440,7 @@ def _record_chain_cache_stats(
     stats["last_miss_reason"] = chain_meta.get("chain_cache_miss_reason")
     stats["last_invalidation_fields"] = chain_meta.get("chain_cache_invalidation_fields")
     stats["last_signature"] = chain_meta.get("chain_cache_signature")
-    stats["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    stats["timestamp"] = _utc_timestamp()
     st.session_state[_CONFIG_CHAIN_STATS_KEY] = stats
 
 
