@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -147,8 +148,8 @@ def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[s
         export_cfg["formats"] = [f for f in formats]
     try:
         setattr(cfg, "export", export_cfg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to apply export configuration overrides: %s", exc)
 
 
 def _run_pipeline(
@@ -641,6 +642,8 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
             raise TrendCLIError(f"portfolio.cost_model.{key} must be numeric") from exc
+        if not math.isfinite(parsed):
+            raise TrendCLIError(f"portfolio.cost_model.{key} must be a finite number")
         if parsed < 0:
             raise TrendCLIError(f"portfolio.cost_model.{key} cannot be negative")
 

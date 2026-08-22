@@ -1350,11 +1350,6 @@ def test_main_nl_run_command_executes_pipeline(
 
     monkeypatch.setattr(owned, "validate_config", _valid_config)
     monkeypatch.setattr(trend_cli, "validate_config", _valid_config)
-    monkeypatch.setattr(
-        owned,
-        "validate_config",
-        lambda *_args, **_kwargs: ValidationResult(valid=True),
-    )
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     def _fake_run_pipeline(*args: object, **kwargs: object) -> tuple[DummyResult, str, None]:
