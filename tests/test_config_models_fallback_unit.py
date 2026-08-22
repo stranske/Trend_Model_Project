@@ -288,7 +288,7 @@ def test_load_rejects_removed_output_settings(fallback_models: ModuleType, tmp_p
     )
     _write_config_file(cfg_file, payload)
 
-    with pytest.raises(ValueError, match="Unexpected config field.*output"):
+    with pytest.raises(ValueError, match="output.*unexpected or inert"):
         fallback_models.load(cfg_file)  # type: ignore[attr-defined]
 
 

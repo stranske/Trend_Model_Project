@@ -221,7 +221,7 @@ def test_load_rejects_removed_output_settings(monkeypatch: pytest.MonkeyPatch) -
             "output": {"format": ["CSV", "xlsx"], "path": "reports/summary.xlsx"},
         }
 
-        with pytest.raises(ValueError, match="Unexpected config field.*output"):
+        with pytest.raises(ValueError, match="output.*unexpected or inert"):
             module.load(cfg_dict)
     finally:
         sys.modules.pop("tests.config_models_fallback_load", None)
