@@ -20,6 +20,7 @@ from trend.cli_support import (
     maybe_log_step,
 )
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
+from trend.mc.viz import TrendCLIError
 from trend_analysis import export
 from trend_analysis import logging as run_logging
 from trend_analysis.api import RunResult, run_simulation
@@ -65,8 +66,6 @@ from trend_analysis.util.json_compat import (
     json_primitive,
 )
 from utils.paths import proj_path
-
-from trend.mc.viz import TrendCLIError
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +137,7 @@ def get_last_perf_log_path() -> Path | None:
     return _PERF_LOG_STATE.last_path
 
 
-def _prepare_export_config(
-    cfg: Any, directory: Path | None, formats: Iterable[str] | None
-) -> None:
+def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
         return
     export_cfg = dict(getattr(cfg, "export", {}) or {})
@@ -263,9 +260,7 @@ def _finish_structured_log(
     )
 
 
-def _handle_exports(
-    cfg: Any, result: RunResult, structured_log: bool, run_id: str
-) -> None:
+def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
     export_cfg = getattr(cfg, "export", {}) or {}
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
@@ -376,9 +371,7 @@ def _write_trend_run_artifacts(
         data_keys = list(narrative_data.keys())
         if any(fmt.lower() in {"excel", "xlsx"} for fmt in fmt_list):
             data_keys.append("summary")
-    artifact_paths = _resolve_export_artifact_paths(
-        out_dir_path, filename, data_keys, fmt_list
-    )
+    artifact_paths = _resolve_export_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
     split = getattr(cfg, "sample_split", {})
     summary_text = export.format_summary_text(
         result.details,
@@ -512,9 +505,7 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
             print(f"  {key.capitalize()}: {value}")
 
 
-def _write_report_files(
-    out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
-) -> None:
+def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: str) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / f"metrics_{run_id}.csv"
     result.metrics.to_csv(metrics_path)
@@ -531,17 +522,13 @@ def _write_report_files(
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    turnover_csv_result = _maybe_write_turnover_csv(
-        out_dir, getattr(result, "details", {})
-    )
+    turnover_csv_result = _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
 
 
-def _resolve_report_output_path(
-    output: str | None, export_dir: Path | None, run_id: str
-) -> Path:
+def _resolve_report_output_path(output: str | None, export_dir: Path | None, run_id: str) -> Path:
     if output:
         base = Path(output).expanduser()
         if base.exists() and base.is_dir():
@@ -645,15 +632,11 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
     portfolio = _portfolio_settings(cfg)
     cost_model = portfolio.get("cost_model")
     if not isinstance(cost_model, Mapping):
-        raise TrendCLIError(
-            "Configuration must define portfolio.cost_model for honest costs."
-        )
+        raise TrendCLIError("Configuration must define portfolio.cost_model for honest costs.")
     for key in ("per_trade_bps", "half_spread_bps"):
         value = cost_model.get(key)
         if value is None:
-            raise TrendCLIError(
-                f"Configuration must define portfolio.cost_model.{key}."
-            )
+            raise TrendCLIError(f"Configuration must define portfolio.cost_model.{key}.")
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:
@@ -877,9 +860,7 @@ def _resolve_llm_provider_config(
     *,
     model: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (
-        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise TrendCLIError(
@@ -974,9 +955,7 @@ def _replay_nl_entry(
 ) -> ReplayResult:
     from trend_analysis.llm.replay import replay_nl_entry
 
-    return replay_nl_entry(
-        entry, provider=provider, model=model, temperature=temperature
-    )
+    return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
 
 
 def _build_nl_replay_parser() -> argparse.ArgumentParser:
@@ -984,18 +963,12 @@ def _build_nl_replay_parser() -> argparse.ArgumentParser:
         prog="trend nl replay",
         description="Replay a logged NL operation entry.",
     )
-    parser.add_argument(
-        "log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file"
-    )
+    parser.add_argument("log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file")
     parser.add_argument("--entry", type=int, required=True, help="1-based entry index")
     parser.add_argument("--provider", help="Override the logged LLM provider")
     parser.add_argument("--model", help="Override the logged LLM model")
-    parser.add_argument(
-        "--temperature", type=float, help="Override the logged temperature"
-    )
-    parser.add_argument(
-        "--show-prompt", action="store_true", help="Print the prompt text"
-    )
+    parser.add_argument("--temperature", type=float, help="Override the logged temperature")
+    parser.add_argument("--show-prompt", action="store_true", help="Print the prompt text")
     return parser
 
 
@@ -1115,9 +1088,7 @@ def _apply_nl_instruction(
 ) -> tuple[ConfigPatch, dict[str, Any], str, str, float]:
     chain = _build_nl_chain(provider, model=model, temperature=temperature)
     try:
-        patch = chain.run(
-            current_config=config, instruction=instruction, request_id=request_id
-        )
+        patch = chain.run(current_config=config, instruction=instruction, request_id=request_id)
     except Exception as exc:
         raise TrendCLIError(str(exc)) from exc
     apply_started = time.perf_counter()
