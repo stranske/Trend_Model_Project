@@ -35,9 +35,7 @@ def configure_matplotlib_config_dir(
     if existing:
         return Path(existing)
 
-    resolved_mode = (
-        (mode or os.environ.get(_TREND_MPLCONFIGDIR_MODE_ENV, "auto")).strip().lower()
-    )
+    resolved_mode = (mode or os.environ.get(_TREND_MPLCONFIGDIR_MODE_ENV, "auto")).strip().lower()
     if resolved_mode in {"off", "false", "0", "disable"}:
         return None
 
