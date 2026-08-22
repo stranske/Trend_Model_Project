@@ -549,6 +549,7 @@
         "rf_rate_annual": {
           "default": 0.02,
           "description": "flat rf or link to series",
+          "minimum": 0,
           "nl_editable": true,
           "type": "number"
         },
@@ -987,6 +988,7 @@
             "max_weight": {
               "default": 0.25,
               "description": "Maximum weight per position.",
+              "minimum": 0,
               "nl_editable": true,
               "type": "number"
             },
@@ -1019,12 +1021,14 @@
             "half_spread_bps": {
               "default": 0,
               "description": "additional penalty applied on turnover",
+              "minimum": 0,
               "nl_editable": true,
               "type": "number"
             },
             "per_trade_bps": {
               "default": 0,
               "description": "linear cost per unit turnover",
+              "minimum": 0,
               "nl_editable": true,
               "type": "number"
             }
@@ -1070,6 +1074,7 @@
         "leverage_cap": {
           "default": 2.0,
           "description": "max gross exposure",
+          "minimum": 0,
           "nl_editable": true,
           "type": "number"
         },
@@ -1085,6 +1090,7 @@
         "max_turnover": {
           "default": 1.0,
           "description": "optional turnover cap (1.0 = no cap)",
+          "minimum": 0,
           "nl_editable": true,
           "type": [
             "number",
@@ -1104,6 +1110,7 @@
         "min_tenure_n": {
           "default": 0,
           "description": "minimum number of periods a fund must remain held",
+          "minimum": 0,
           "nl_editable": true,
           "type": "integer"
         },
@@ -1947,6 +1954,7 @@
         "ratio": {
           "default": 0.7,
           "description": "ignored if method=date",
+          "minimum": 0,
           "nl_editable": true,
           "type": "number"
         },
@@ -1982,6 +1990,7 @@
         "lag": {
           "default": null,
           "description": "Periods to lag signals for causal execution.",
+          "minimum": 1,
           "nl_editable": true,
           "type": [
             "integer",
@@ -1991,6 +2000,7 @@
         "min_periods": {
           "default": null,
           "description": "Minimum observations required for a valid signal.",
+          "minimum": 1,
           "nl_editable": true,
           "type": [
             "integer",
@@ -2019,6 +2029,7 @@
         "window": {
           "default": null,
           "description": "Rolling window used to compute trend signals.",
+          "minimum": 1,
           "nl_editable": true,
           "type": [
             "integer",
@@ -2075,6 +2086,7 @@
         "target_vol": {
           "default": 0.1,
           "description": "annualised (10%)",
+          "minimum": 0,
           "nl_editable": true,
           "type": "number"
         },
@@ -2102,16 +2114,22 @@
             "lambda": {
               "default": 0.94,
               "description": "EWMA decay",
+              "exclusiveMaximum": 1,
+              "exclusiveMinimum": 0,
               "nl_editable": true,
               "type": "number"
             },
             "length": {
               "default": 63,
               "description": "rolling window (~3 months)",
+              "minimum": 1,
               "nl_editable": true,
               "type": "integer"
             }
           },
+          "required": [
+            "length"
+          ],
           "type": "object"
         }
       },

@@ -6,7 +6,6 @@ import logging
 import os
 from typing import Any
 
-
 from trend.mc.viz import TrendCLIError
 from trend_analysis.llm import (
     LLMProviderConfig,

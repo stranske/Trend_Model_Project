@@ -11,6 +11,7 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
+from trend.commands.llm_support import _resolve_llm_provider_config
 from trend.mc.viz import TrendCLIError
 from trend_analysis import export
 from trend_analysis.llm import (
@@ -24,8 +25,6 @@ from trend_analysis.llm.result_validation import (
     append_discrepancy_log,
     ensure_result_disclaimer,
 )
-
-from trend.commands.llm_support import _resolve_llm_provider_config
 
 logger = logging.getLogger(__name__)
 

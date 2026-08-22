@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.metrics import sharpe_ratio
 from tests._pipeline_test_utils import run_analysis_payload
+from trend_analysis.metrics import sharpe_ratio
 
 
 def _mini_df():

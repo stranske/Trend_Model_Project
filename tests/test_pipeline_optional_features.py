@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests._pipeline_test_utils import run_analysis_payload
 from trend_analysis import pipeline
 from trend_analysis.core import rank_selection as rank_selection_mod
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.engine import optimizer as optimizer_mod
-from tests._pipeline_test_utils import run_analysis_payload
 
 
 def _base_returns_frame() -> pd.DataFrame:

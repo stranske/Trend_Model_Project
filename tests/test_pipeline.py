@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests._pipeline_test_utils import run_analysis_payload
 from trend_analysis import config, pipeline, risk
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.diagnostics import PipelineReasonCode
-from tests._pipeline_test_utils import run_analysis_payload
 
 pytestmark = pytest.mark.runtime
 

@@ -689,6 +689,24 @@ else:  # Fallback mode for tests without pydantic
                     continue
                 if not isinstance(value, dict):
                     raise ValueError(f"{optional_field} must be a dictionary")
+            data = getattr(self, "data", {})
+            if isinstance(data, dict):
+                removed_data_keys = {
+                    "missing_fill_limit": "missing_limit",
+                    "indices_glob": None,
+                    "price_column": None,
+                    "currency": None,
+                    "lookback_required": None,
+                }
+                for key, replacement in removed_data_keys.items():
+                    if key not in data:
+                        continue
+                    if replacement:
+                        raise ValueError(f"data.{key} was removed; use data.{replacement}")
+                    raise ValueError(
+                        f"data.{key} was removed because no runtime consumer exists; "
+                        "remove it from the configuration"
+                    )
             self.signals = _validate_signal_settings_mapping(self.signals)
             # Light-weight validation for turnover / cost controls
             port = getattr(self, "portfolio", {})

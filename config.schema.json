@@ -2557,24 +2557,30 @@
             },
             "lambda": {
               "constraints": {
-                "maximum": 1,
-                "minimum": 0
+                "exclusiveMaximum": 1,
+                "exclusiveMinimum": 0
               },
               "default": 0.94,
               "description": "EWMA decay",
-              "maximum": 1,
-              "minimum": 0,
+              "exclusiveMaximum": 1,
+              "exclusiveMinimum": 0,
               "nl_editable": true,
               "type": "number"
             },
             "length": {
-              "constraints": {},
+              "constraints": {
+                "minimum": 1
+              },
               "default": 63,
               "description": "rolling window (~3 months)",
+              "minimum": 1,
               "nl_editable": true,
               "type": "integer"
             }
           },
+          "required": [
+            "length"
+          ],
           "type": "object"
         }
       },
