@@ -14,6 +14,7 @@ import math
 import os
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from pydantic import (
@@ -193,32 +194,14 @@ class DataSettings(BaseModel):
     managers_glob: str | None = Field(default=None)
     date_column: str = Field()
     frequency: Literal["D", "W", "M", "ME"] = Field()
+    timezone: str = Field(default="UTC")
     missing_policy: str | Mapping[str, str] | None = Field(default=None)
     missing_limit: int | Mapping[str, int | None] | None = Field(default=None)
-    missing_fill_limit: int | Mapping[str, int | None] | None = Field(default=None)
     na_as_zero: Mapping[str, Any] | None = Field(default=None)
     risk_free_column: str | None = Field(default=None)
     allow_risk_free_fallback: bool | None = Field(default=None)
 
     model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _alias_missing_fill_limit(cls, data: Any) -> Any:
-        if not isinstance(data, Mapping):
-            return data
-        cleaned = dict(data)
-        for legacy_key in (
-            "indices_glob",
-            "price_column",
-            "timezone",
-            "currency",
-            "lookback_required",
-        ):
-            cleaned.pop(legacy_key, None)
-        if "missing_fill_limit" not in cleaned or "missing_limit" in cleaned:
-            return cleaned
-        return {**cleaned, "missing_limit": cleaned["missing_fill_limit"]}
 
     @field_validator("csv_path", mode="before")
     @classmethod
@@ -305,6 +288,18 @@ class DataSettings(BaseModel):
             )
         return freq
 
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def _validate_timezone(cls, value: Any) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("data.timezone must be a non-empty IANA timezone name.")
+        timezone = value.strip()
+        try:
+            ZoneInfo(timezone)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"data.timezone '{timezone}' is not a valid IANA timezone.") from exc
+        return timezone
+
     @field_validator("missing_policy", mode="before")
     @classmethod
     def _validate_missing_policy(cls, value: Any) -> str | Mapping[str, str] | None:
@@ -314,7 +309,7 @@ class DataSettings(BaseModel):
             return value
         raise ValueError("data.missing_policy must be a string or mapping.")
 
-    @field_validator("missing_limit", "missing_fill_limit", mode="before")
+    @field_validator("missing_limit", mode="before")
     @classmethod
     def _validate_missing_limit(cls, value: Any) -> int | Mapping[str, int | None] | None:
         if value in (None, "", "null"):
@@ -570,24 +565,32 @@ class PortfolioSettings(BaseModel):
         return level
 
 
+class VolatilityWindowSettings(BaseModel):
+    """Rolling or exponentially weighted volatility-estimation window."""
+
+    length: int = Field(gt=0)
+    decay: Literal["ewma", "simple"] = Field(default="simple")
+    ewma_lambda: float = Field(
+        default=0.94,
+        validation_alias="lambda",
+        serialization_alias="lambda",
+        gt=0,
+        lt=1,
+    )
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
 class RiskSettings(BaseModel):
     """Risk target configuration for volatility control."""
 
     enabled: bool = Field(default=True)
     target_vol: float = Field()
+    window: VolatilityWindowSettings | None = Field(default=None)
     floor_vol: float = Field(default=0.015)
     warmup_periods: int = Field(default=0)
 
     model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _drop_legacy_runtime_flags(cls, data: Any) -> Any:
-        if not isinstance(data, Mapping):
-            return data
-        cleaned = dict(data)
-        cleaned.pop("window", None)
-        return cleaned
 
     @field_validator("target_vol", mode="before")
     @classmethod

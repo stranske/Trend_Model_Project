@@ -8,7 +8,7 @@ data:
   risk_free_column: null        # Set to your cash proxy when present
   allow_risk_free_fallback: true       # Demo data relies on the heuristic selection
   missing_policy: drop
-  missing_fill_limit: null
+  missing_limit: null
 
 preprocessing:
   missing_data:
