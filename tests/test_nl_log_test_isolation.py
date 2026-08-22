@@ -10,7 +10,6 @@ from pathlib import Path
 
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
