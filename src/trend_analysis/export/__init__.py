@@ -1406,6 +1406,21 @@ def combined_summary_result(
 
     from ..pipeline import _compute_stats, calc_portfolio_returns
 
+    results_list = list(results)
+    if not results_list:
+        raise ValueError("combined summary requires at least one period result")
+
+    annualisation_values = {
+        float(res["periods_per_year"])
+        for res in results_list
+        if isinstance(res.get("periods_per_year"), (int, float))
+    }
+    if not annualisation_values:
+        raise ValueError("period results must record periods_per_year for aggregate statistics")
+    if len(annualisation_values) != 1:
+        raise ValueError("combined summary requires one effective periods_per_year value")
+    periods_per_year = annualisation_values.pop()
+
     fund_in: dict[str, list[pd.Series]] = defaultdict(list)
     fund_out: dict[str, list[pd.Series]] = defaultdict(list)
     ew_in_series: list[pd.Series] = []
@@ -1417,7 +1432,7 @@ def combined_summary_result(
     weight_sum: dict[str, float] = defaultdict(float)
     periods = 0
 
-    for res in results:
+    for res in results_list:
         in_df = cast(pd.DataFrame, res.get("in_sample_scaled"))
         out_df = cast(pd.DataFrame, res.get("out_sample_scaled"))
         ew_map = cast(Mapping[str, float], res.get("ew_weights", {}))
@@ -1476,12 +1491,20 @@ def combined_summary_result(
         rf_in = pd.concat(rf_in_series).reindex(rf_in.index).fillna(0.0)
     if rf_out_series:
         rf_out = pd.concat(rf_out_series).reindex(rf_out.index).fillna(0.0)
-    in_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in)["ew"]
-    out_ew_stats = _compute_stats(pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out)["ew"]
-    in_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in)["user"]
-    out_user_stats = _compute_stats(pd.DataFrame({"user": pd.concat(user_out_series)}), rf_out)[
-        "user"
-    ]
+    in_ew_stats = _compute_stats(
+        pd.DataFrame({"ew": pd.concat(ew_in_series)}), rf_in, periods_per_year=periods_per_year
+    )["ew"]
+    out_ew_stats = _compute_stats(
+        pd.DataFrame({"ew": pd.concat(ew_out_series)}), rf_out, periods_per_year=periods_per_year
+    )["ew"]
+    in_user_stats = _compute_stats(
+        pd.DataFrame({"user": pd.concat(user_in_series)}), rf_in, periods_per_year=periods_per_year
+    )["user"]
+    out_user_stats = _compute_stats(
+        pd.DataFrame({"user": pd.concat(user_out_series)}),
+        rf_out,
+        periods_per_year=periods_per_year,
+    )["user"]
 
     # Compute per-fund stats with risk-free series aligned to each fund's
     # concatenated return index to avoid shape mismatches when a fund is
@@ -1505,13 +1528,13 @@ def combined_summary_result(
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
         rf = _align_rf(rf_in, joined.index)
-        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year)[f]
 
     out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
         rf = _align_rf(rf_out, joined.index)
-        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf)[f]
+        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year)[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 

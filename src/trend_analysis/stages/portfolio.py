@@ -217,7 +217,7 @@ def _compute_stats(
     df: pd.DataFrame,
     rf: pd.Series,
     *,
-    periods_per_year: float = 12,
+    periods_per_year: float,
     in_sample_avg_corr: dict[str, float] | None = None,
     out_sample_avg_corr: dict[str, float] | None = None,
 ) -> dict[str, _Stats]:
@@ -926,6 +926,7 @@ def _assemble_analysis_output(
             "selected_funds": fund_cols,
             "risk_free_column": rf_col,
             "risk_free_source": selection.rf_source,
+            "periods_per_year": window.periods_per_year,
             "risk_free_in_sample": computation.rf_in,
             "risk_free_out_sample": computation.rf_out,
             "in_sample_scaled": computation.in_scaled,

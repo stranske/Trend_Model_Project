@@ -391,6 +391,7 @@ def test_compute_stats_includes_optional_avg_corr() -> None:
     stats = pipeline._compute_stats(
         data,
         rf,
+        periods_per_year=12,
         in_sample_avg_corr={"FundA": 0.5},
         out_sample_avg_corr={"FundB": 0.25},
     )
