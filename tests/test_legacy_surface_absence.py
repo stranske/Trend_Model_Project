@@ -285,6 +285,28 @@ def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> N
     )
 
 
+def test_pipeline_private_run_facade_is_absent() -> None:
+    """The public pipeline module must not restore its test-only raw facade."""
+
+    pipeline_path = REPO_ROOT / "src/trend_analysis/pipeline.py"
+    tree = ast.parse(pipeline_path.read_text(encoding="utf-8"))
+    definitions = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "_run_analysis" not in definitions
+
+    offenders: list[str] = []
+    for source_path in (REPO_ROOT / "src").rglob("*.py"):
+        source = source_path.read_text(encoding="utf-8")
+        if "from trend_analysis.pipeline import _run_analysis" in source:
+            offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+        if "pipeline._run_analysis" in source:
+            offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+    assert offenders == []
+
+
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
 def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
     launchers = tmp_path / directory

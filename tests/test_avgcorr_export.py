@@ -5,7 +5,7 @@ import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.export import summary_frame_from_result
-from trend_analysis.pipeline import _run_analysis  # type: ignore
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
@@ -50,7 +50,7 @@ def test_avgcorr_present_when_requested(tmp_path):
         risk_free=0.0,
     )
     full = pd.read_csv(csv_path)
-    res = _run_analysis(
+    res = run_analysis(
         full,
         "2024-01",
         "2024-03",
@@ -92,7 +92,7 @@ def test_avgcorr_absent_when_not_requested(tmp_path):
         risk_free=0.0,
     )
     full = pd.read_csv(csv_path)
-    res = _run_analysis(
+    res = run_analysis(
         full,
         "2024-01",
         "2024-03",

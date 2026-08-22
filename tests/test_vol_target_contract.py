@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from trend_analysis.pipeline import _run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 from trend_analysis.risk import (
     RiskWindow,
     compute_constrained_weights,
@@ -28,7 +28,7 @@ def _analysis_with_heterogeneous_returns(
     risk_free_rate: float = 0.0,
 ) -> tuple[dict[object, object], pd.DataFrame]:
     returns = _heterogeneous_returns().assign(RF=risk_free_rate).reset_index(names="Date")
-    result = _run_analysis(
+    result = run_analysis(
         returns,
         in_start="2022-01",
         in_end="2022-12",

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
-from trend_analysis.pipeline import _run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 
@@ -25,7 +25,7 @@ def make_df():
 
 def test_strict_mode_drops_funds_with_nans():
     df = make_df()
-    res = _run_analysis(
+    res = run_analysis(
         df,
         "2020-01",
         "2020-06",
@@ -51,7 +51,7 @@ def test_na_as_zero_retains_and_fills():
         "na_as_zero_cfg",
         {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 1},
     )
-    res = _run_analysis(
+    res = run_analysis(
         df,
         "2020-01",
         "2020-06",
@@ -84,7 +84,7 @@ def test_na_as_zero_rejects_large_consecutive_gap():
         {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 1},
     )
 
-    res = _run_analysis(
+    res = run_analysis(
         df,
         "2020-01",
         "2020-06",

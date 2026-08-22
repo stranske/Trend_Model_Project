@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.pipeline import _run_analysis, run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 
 RUN_KWARGS = {"risk_free_column": "Rf", "allow_risk_free_fallback": False}
 
@@ -73,7 +73,7 @@ def test_run_analysis_warmup_zeroes_leading_rows() -> None:
             "Rf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         }
     )
-    result = _run_analysis(
+    result = run_analysis(
         dataset,
         "2022-01",
         "2022-04",

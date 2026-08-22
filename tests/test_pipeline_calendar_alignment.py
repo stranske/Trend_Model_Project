@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from trend_analysis import pipeline
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from tests._pipeline_test_utils import run_analysis_payload
 
 
 def test_pipeline_run_applies_calendar_alignment():
@@ -17,7 +17,7 @@ def test_pipeline_run_applies_calendar_alignment():
         "holiday_calendar": "simple",
     }
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2024-01",
         "2024-01",
