@@ -68,13 +68,15 @@ def _build_wheel(destination: Path) -> Path:
         if not raw_path:
             continue
         relative_path = Path(raw_path.decode("utf-8"))
-        # ``git ls-files`` includes staged or worktree deletions until commit;
-        # build the wheel from the actual candidate tree.
-        if not (REPO_ROOT / relative_path).exists():
+        # ``git ls-files`` includes staged or worktree deletions until commit
+        # and may report an untracked nested checkout as one directory entry.
+        # Build the wheel from regular files in the actual candidate tree.
+        source_path = REPO_ROOT / relative_path
+        if not source_path.is_file():
             continue
         target_path = build_root / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(REPO_ROOT / relative_path, target_path)
+        shutil.copy2(source_path, target_path)
 
     subprocess.run(
         [
@@ -98,18 +100,18 @@ def _build_wheel(destination: Path) -> Path:
     return wheels[0]
 
 
-def test_wheel_builder_skips_missing_tracked_paths(tmp_path: Path, monkeypatch) -> None:
-    """A staged deletion must not make the isolated wheel source copy fail."""
+def test_wheel_builder_skips_non_file_candidates(tmp_path: Path, monkeypatch) -> None:
+    """Missing paths and nested-checkout directories must not break the source copy."""
 
     original_run = subprocess.run
 
     def run_with_missing_path(command, *args, **kwargs):
         result = original_run(command, *args, **kwargs)
-        if command == ["git", "ls-files", "-z"]:
+        if command[:3] == ["git", "ls-files", "--cached"]:
             return subprocess.CompletedProcess(
                 command,
                 result.returncode,
-                stdout=result.stdout + b"tests/missing-tracked-file.py\0",
+                stdout=result.stdout + b"tests/missing-tracked-file.py\0tests\0",
                 stderr=result.stderr,
             )
         return result
