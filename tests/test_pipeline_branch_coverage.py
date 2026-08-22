@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests._pipeline_test_utils import run_analysis_payload
 from trend_analysis import pipeline
 from trend_analysis.pipeline import RiskStatsConfig
 from trend_analysis.risk import RiskDiagnostics
-from tests._pipeline_test_utils import run_analysis_payload
 
 
 def _sample_frame() -> pd.DataFrame:

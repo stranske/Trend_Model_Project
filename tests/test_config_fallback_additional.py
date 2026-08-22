@@ -132,7 +132,10 @@ def test_fallback_config_validation_errors(
         ("indices_glob", "data.indices_glob was removed because no runtime consumer exists"),
         ("price_column", "data.price_column was removed because no runtime consumer exists"),
         ("currency", "data.currency was removed because no runtime consumer exists"),
-        ("lookback_required", "data.lookback_required was removed because no runtime consumer exists"),
+        (
+            "lookback_required",
+            "data.lookback_required was removed because no runtime consumer exists",
+        ),
     ],
 )
 def test_fallback_config_rejects_removed_data_keys(

@@ -3,9 +3,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.export import summary_frame_from_result
-from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
 

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
-
+from trend.commands.llm_support import _resolve_llm_provider_config
 from trend.mc.viz import TrendCLIError
 from trend_analysis.config import (
     ConfigPatch,
@@ -33,8 +33,6 @@ from trend_analysis.llm import (
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from trend_analysis.llm.replay import ReplayResult
 from trend_analysis.llm.schema import load_compact_schema
-
-from trend.commands.llm_support import _resolve_llm_provider_config
 
 logger = logging.getLogger(__name__)
 

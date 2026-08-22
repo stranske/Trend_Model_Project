@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from tests._pipeline_test_utils import run_analysis_payload as run_analysis
+from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.risk import RiskWindow, _scale_factors, realised_volatility
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}

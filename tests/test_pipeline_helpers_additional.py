@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+from tests._pipeline_test_utils import run_analysis_payload
 from trend.config_schema import CoreConfigError
 from trend_analysis.pipeline import (
     _build_trend_spec,
@@ -28,7 +29,6 @@ from trend_analysis.pipeline import (
     compute_signal,
     single_period_run,
 )
-from tests._pipeline_test_utils import run_analysis_payload
 from trend_analysis.pipeline_helpers import (
     _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,

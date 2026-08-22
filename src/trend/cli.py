@@ -28,6 +28,11 @@ from trend.cli_helpers import (
     _apply_universe_mask,
     _attach_universe_paths,
 )
+from trend.cli_support import (
+    check_environment,
+    find_prior_run,
+    maybe_log_step,
+)
 from trend.commands.explain import (
     _build_explain_artifact_payload,
     _build_result_chain,
@@ -57,11 +62,6 @@ from trend.commands.report_export import (
     _run_pipeline,
     _write_report_files,
     _write_trend_run_artifacts,
-)
-from trend.cli_support import (
-    check_environment,
-    find_prior_run,
-    maybe_log_step,
 )
 from trend.config_schema import CoreConfigError, load_core_config
 from trend.reporting import generate_unified_report

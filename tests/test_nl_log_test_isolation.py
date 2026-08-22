@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 from tests import conftest as suite_conftest
+from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

@@ -11,7 +11,6 @@ import pytest
 import trend.cli as cli
 import trend.commands.nl as nl_owned
 import trend.commands.report_export as owned
-from trend.commands.nl import _confirm_risky_patch
 from trend.cli import (
     SCENARIO_WINDOWS,
     TrendCLIError,
@@ -21,6 +20,7 @@ from trend.cli import (
     build_parser,
     main,
 )
+from trend.commands.nl import _confirm_risky_patch
 from trend.reporting import generate_unified_report
 from trend_analysis.api import RunResult
 from trend_analysis.config.patch import ConfigPatch, PatchOperation
