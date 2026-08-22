@@ -7,17 +7,13 @@ version: "0.1.0" # bump when the schema changes
 # ----------------------------------------------------------------------
 data:
   managers_glob: "data/raw/managers/*.csv"
-  indices_glob: "data/raw/indices/*.csv"
   date_column: "Date" # ISO-8601 expected
-  price_column: "Adj_Close" # or "NAV", etc.
   frequency: "D" # D | W | M
   timezone: "UTC" # for parsing
-  currency: "USD"
   missing_policy: "ffill" # drop | ffill | zero
   missing_limit: null      # Optional int (per-column overrides supported)
   risk_free_column: null   # Explicit risk-free series name when present
   allow_risk_free_fallback: false  # Opt-in heuristic to use lowest-vol column
-  lookback_required: 756 # minimum obs (≈3 yrs daily)
 # ----------------------------------------------------------------------
 # 2. PRE-PROCESSING OPTIONS
 # ----------------------------------------------------------------------

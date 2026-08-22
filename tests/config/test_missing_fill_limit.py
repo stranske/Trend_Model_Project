@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from trend_analysis.config import model as config_model
 from trend_analysis.config.models import load_config
 
@@ -12,53 +15,21 @@ def _returns_csv(tmp_path: Path) -> Path:
     return path
 
 
-def test_missing_fill_limit_alias_populates_missing_limit(tmp_path: Path) -> None:
-    csv_path = _returns_csv(tmp_path)
-
-    settings = config_model.DataSettings.model_validate(
-        {
-            "csv_path": str(csv_path),
-            "date_column": "Date",
-            "frequency": "D",
-            "missing_policy": "ffill",
-            "missing_fill_limit": "2",
-        },
-        context={"base_path": tmp_path},
-    )
-
-    assert settings.missing_limit == 2
-
-
-def test_missing_limit_wins_when_both_alias_and_canonical_are_set(tmp_path: Path) -> None:
-    csv_path = _returns_csv(tmp_path)
-
-    settings = config_model.DataSettings.model_validate(
-        {
-            "csv_path": str(csv_path),
-            "date_column": "Date",
-            "frequency": "D",
-            "missing_policy": "ffill",
-            "missing_fill_limit": 2,
-            "missing_limit": 4,
-        },
-        context={"base_path": tmp_path},
-    )
-
-    assert settings.missing_limit == 4
-
-
-def _config_payload(tmp_path: Path, data_overrides: dict[str, object]) -> dict[str, object]:
-    csv_path = _returns_csv(tmp_path)
-    data = {
-        "csv_path": str(csv_path),
+def _data_payload(tmp_path: Path, **overrides: object) -> dict[str, object]:
+    data: dict[str, object] = {
+        "csv_path": str(_returns_csv(tmp_path)),
         "date_column": "Date",
         "frequency": "D",
         "missing_policy": "ffill",
     }
-    data.update(data_overrides)
+    data.update(overrides)
+    return data
+
+
+def _config_payload(tmp_path: Path, data_overrides: dict[str, object]) -> dict[str, object]:
     return {
         "version": "1",
-        "data": data,
+        "data": _data_payload(tmp_path, **data_overrides),
         "preprocessing": {},
         "vol_adjust": {"target_vol": 0.1},
         "sample_split": {},
@@ -73,15 +44,87 @@ def _config_payload(tmp_path: Path, data_overrides: dict[str, object]) -> dict[s
     }
 
 
-def test_load_config_mapping_canonicalizes_missing_fill_limit(tmp_path: Path) -> None:
-    cfg = load_config(_config_payload(tmp_path, {"missing_fill_limit": 2}))
+@pytest.mark.parametrize(
+    "removed_key,value",
+    [
+        ("missing_fill_limit", 2),
+        ("indices_glob", "unused"),
+        ("price_column", "unused"),
+        ("currency", "unused"),
+        ("lookback_required", 10),
+    ],
+)
+def test_removed_data_keys_are_rejected(tmp_path: Path, removed_key: str, value: object) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        config_model.DataSettings.model_validate(
+            _data_payload(tmp_path, **{removed_key: value}),
+            context={"base_path": tmp_path},
+        )
 
-    assert cfg.data["missing_limit"] == 2
-    assert "missing_fill_limit" not in cfg.data
+    message = str(exc_info.value)
+    assert removed_key in message
+    assert "Extra inputs are not permitted" in message
 
 
-def test_load_config_mapping_preserves_canonical_missing_limit(tmp_path: Path) -> None:
-    cfg = load_config(_config_payload(tmp_path, {"missing_fill_limit": 2, "missing_limit": 4}))
+def test_load_config_rejects_removed_missing_fill_limit(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="missing_fill_limit"):
+        load_config(_config_payload(tmp_path, {"missing_fill_limit": 2}))
+
+
+def test_load_config_preserves_canonical_missing_limit(tmp_path: Path) -> None:
+    cfg = load_config(_config_payload(tmp_path, {"missing_limit": 4}))
 
     assert cfg.data["missing_limit"] == 4
     assert "missing_fill_limit" not in cfg.data
+
+
+def test_current_timezone_survives_strict_validation(tmp_path: Path) -> None:
+    settings = config_model.DataSettings.model_validate(
+        _data_payload(tmp_path, timezone="America/Chicago"),
+        context={"base_path": tmp_path},
+    )
+
+    assert settings.timezone == "America/Chicago"
+
+
+def test_invalid_timezone_fails_at_startup(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="not a valid IANA timezone"):
+        config_model.DataSettings.model_validate(
+            _data_payload(tmp_path, timezone="Mars/Olympus_Mons"),
+            context={"base_path": tmp_path},
+        )
+
+
+def test_current_volatility_window_survives_runtime_loading(tmp_path: Path) -> None:
+    payload = _config_payload(tmp_path, {})
+    payload["vol_adjust"] = {
+        "target_vol": 0.1,
+        "window": {"length": 63, "decay": "ewma", "lambda": 0.94},
+    }
+
+    cfg = load_config(payload)
+
+    assert cfg.vol_adjust["window"] == {
+        "length": 63,
+        "decay": "ewma",
+        "ewma_lambda": 0.94,
+    }
+
+
+@pytest.mark.parametrize(
+    "window",
+    [
+        {"length": 0},
+        {"length": 63, "decay": "unsupported"},
+        {"length": 63, "decay": "ewma", "lambda": 1.0},
+        {"length": 63, "unknown": True},
+    ],
+)
+def test_invalid_volatility_window_fails_at_startup(
+    tmp_path: Path, window: dict[str, object]
+) -> None:
+    payload = _config_payload(tmp_path, {})
+    payload["vol_adjust"] = {"target_vol": 0.1, "window": window}
+
+    with pytest.raises(ValueError, match="window"):
+        load_config(payload)

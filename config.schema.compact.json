@@ -6,15 +6,11 @@
     },
     "data": {
       "allow_risk_free_fallback": false,
-      "currency": "USD",
       "date_column": "Date",
       "frequency": "D",
-      "indices_glob": "data/raw/indices/*.csv",
-      "lookback_required": 756,
       "managers_glob": "data/raw/managers/*.csv",
       "missing_limit": null,
       "missing_policy": "ffill",
-      "price_column": "Adj_Close",
       "risk_free_column": null,
       "timezone": "UTC"
     },
@@ -242,15 +238,11 @@
     "data": {
       "default": {
         "allow_risk_free_fallback": false,
-        "currency": "USD",
         "date_column": "Date",
         "frequency": "D",
-        "indices_glob": "data/raw/indices/*.csv",
-        "lookback_required": 756,
         "managers_glob": "data/raw/managers/*.csv",
         "missing_limit": null,
         "missing_policy": "ffill",
-        "price_column": "Adj_Close",
         "risk_free_column": null,
         "timezone": "UTC"
       },
@@ -281,12 +273,6 @@
             "null"
           ]
         },
-        "currency": {
-          "default": "USD",
-          "description": "Reporting currency for inputs and outputs.",
-          "nl_editable": true,
-          "type": "string"
-        },
         "date_column": {
           "default": "Date",
           "description": "ISO-8601 expected",
@@ -299,36 +285,12 @@
           "nl_editable": true,
           "type": "string"
         },
-        "indices_glob": {
-          "default": "data/raw/indices/*.csv",
-          "description": "Glob for benchmark index CSV inputs.",
-          "nl_editable": false,
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "lookback_required": {
-          "default": 756,
-          "description": "minimum obs (~3 yrs daily)",
-          "nl_editable": true,
-          "type": "integer"
-        },
         "managers_glob": {
           "default": "data/raw/managers/*.csv",
           "description": "Glob for manager return CSV inputs.",
           "nl_editable": false,
           "type": [
             "string",
-            "null"
-          ]
-        },
-        "missing_fill_limit": {
-          "default": null,
-          "description": "Maximum consecutive periods to forward-fill missing data.",
-          "nl_editable": true,
-          "type": [
-            "integer",
             "null"
           ]
         },
@@ -375,12 +337,6 @@
             "null",
             "object"
           ]
-        },
-        "price_column": {
-          "default": "Adj_Close",
-          "description": "or \"NAV\", etc.",
-          "nl_editable": true,
-          "type": "string"
         },
         "risk_free_column": {
           "default": null,

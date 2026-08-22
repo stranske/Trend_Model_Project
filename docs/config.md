@@ -87,7 +87,7 @@ data:
   date_column: Date
   columns: null  # null = all columns except date
   missing_policy: drop  # drop, ffill, zero
-  missing_fill_limit: 3  # max consecutive fills
+  missing_limit: 3  # max consecutive fills
 ```
 
 ### Portfolio Section

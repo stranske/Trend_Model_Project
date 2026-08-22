@@ -54,16 +54,6 @@ DYNAMIC_VALUE_SECTIONS: frozenset[str] = frozenset(
 # A2's (#5400) enumerated inert-key deletion set. Keyed by exact dotted path so a
 # future *different* key sharing a leaf name is still caught.
 ALLOWLIST_PATHS: dict[str, str] = {
-    # Dead parallelism alias; consolidation onto the canonical run.jobs is owned by
-    # A20 / #5401, so it is left in place rather than removed by A2.
-    "run.n_jobs": "Parallelism-key consolidation owned by A20/#5401.",
-    # Data-ingestion keys carried by shipped/validated configs and flagged in the
-    # #5389 (A1) strict-config analysis as legitimate-but-unwired surface. Whether
-    # to wire or forbid them is the open owner decision in A1, so A2 leaves them.
-    "data.indices_glob": "Declared ingestion glob (sibling of consumed managers_glob); A1/#5389 owner decision.",
-    "data.price_column": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
-    "data.currency": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
-    "data.lookback_required": "Declared ingestion key; A1/#5389 strict-config owner decision pending.",
     # Declared feature flags retained as config surface (not in A2's enumerated set).
     "preprocessing.winsorise.limits": "Declared winsorisation settings; not in A2's enumerated inert set.",
     "preprocessing.de_duplicate": "Declared preprocessing flag; not in A2's enumerated inert set.",

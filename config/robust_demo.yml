@@ -9,18 +9,14 @@ version: "0.1.0"
 
 data:
   managers_glob: "../demo/demo_returns.csv"
-  indices_glob: "data/raw/indices/*.csv"
   csv_path: ../demo/demo_returns.csv
   date_column: "Date"
-  price_column: "Adj_Close"
   frequency: "D"
   timezone: "UTC"
-  currency: "USD"
   missing_policy: "ffill"
   missing_limit: null
   risk_free_column: null
   allow_risk_free_fallback: true
-  lookback_required: 252  # 1 year minimum for demo
 
 preprocessing:
   de_duplicate: true

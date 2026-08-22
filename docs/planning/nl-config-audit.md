@@ -88,17 +88,13 @@ Legend:
 | --- | --- | --- |
 | `data.csv_path` | Constrained | Must exist; validated by `TrendConfig`/`CoreConfig`.
 | `data.managers_glob` | Constrained | Must match CSVs; glob validation in `TrendConfig`/`CoreConfig`.
-| `data.indices_glob` | Constrained | Must match CSVs; glob validation in `TrendConfig`/`CoreConfig`.
 | `data.date_column` | Safe | String column name; used for parsing.
-| `data.price_column` | Safe | Column name for price series.
 | `data.frequency` | Constrained | Allowed: D/W/M/ME (validated).
 | `data.timezone` | Safe | Olson timezone string used for parsing.
-| `data.currency` | Safe | Currency label used in reporting.
 | `data.missing_policy` | Constrained | Allowed values (drop/ffill/zero).
 | `data.missing_limit` | Constrained | Non-negative int or mapping.
 | `data.risk_free_column` | Safe | Optional string; validated in selection stage.
 | `data.allow_risk_free_fallback` | Safe | Boolean toggle for heuristic fallback.
-| `data.lookback_required` | Constrained | Non-negative int minimum lookback periods.
 | `preprocessing.de_duplicate` | Safe | Boolean.
 | `preprocessing.winsorise.enabled` | Safe | Boolean.
 | `preprocessing.winsorise.limits` | Constrained | Two floats between 0 and 1.

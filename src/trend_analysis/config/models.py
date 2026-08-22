@@ -200,7 +200,15 @@ def _validate_signal_settings_mapping(value: Any) -> dict[str, Any]:
         return dict(validated.model_dump(exclude_none=True))
 
     cleaned = dict(value)
-    allowed = {"kind", "window", "lag", "min_periods", "zscore", "vol_adjust", "vol_target"}
+    allowed = {
+        "kind",
+        "window",
+        "lag",
+        "min_periods",
+        "zscore",
+        "vol_adjust",
+        "vol_target",
+    }
     unknown = sorted(set(cleaned) - allowed)
     if unknown:
         raise ValueError(f"signals contains unknown field(s): {', '.join(unknown)}")
@@ -974,7 +982,6 @@ def _config_from_validated(data: dict[str, Any], validated: Any | None) -> Confi
                 merged[key] = value
             data_section = merged.get("data")
             if isinstance(data_section, dict):
-                data_section.pop("missing_fill_limit", None)
                 if data_section.get("na_as_zero") is None:
                     data_section.pop("na_as_zero", None)
             if "version" not in merged and "version" in data:
