@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend import cli_owned_commands as owned
+from trend.commands import report_export as owned
 from trend_analysis import walk_forward
 from trend_analysis.backtesting import harness
 from trend_analysis.core import rank_selection

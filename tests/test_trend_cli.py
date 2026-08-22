@@ -9,7 +9,9 @@ import pandas as pd
 import pytest
 
 import trend.cli as cli
-import trend.cli_owned_commands as owned
+import trend.commands.nl as nl_owned
+import trend.commands.report_export as owned
+from trend.commands.nl import _confirm_risky_patch
 from trend.cli import (
     SCENARIO_WINDOWS,
     TrendCLIError,
@@ -1762,10 +1764,10 @@ def test_resolve_report_output_path_without_suffix(tmp_path: Path) -> None:
 
 def test_confirm_risky_patch_requires_no_confirm_when_non_tty(monkeypatch) -> None:
     patch = _risky_patch()
-    monkeypatch.setattr(owned.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(nl_owned.sys.stdin, "isatty", lambda: False)
 
     with pytest.raises(TrendCLIError) as excinfo:
-        owned._confirm_risky_patch(patch, no_confirm=False)
+        _confirm_risky_patch(patch, no_confirm=False)
 
     assert "Risky changes detected" in str(excinfo.value)
     assert "--no-confirm" in str(excinfo.value)
@@ -1773,20 +1775,20 @@ def test_confirm_risky_patch_requires_no_confirm_when_non_tty(monkeypatch) -> No
 
 def test_confirm_risky_patch_cancels_on_decline(monkeypatch) -> None:
     patch = _risky_patch()
-    monkeypatch.setattr(owned.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(nl_owned.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
 
     with pytest.raises(TrendCLIError) as excinfo:
-        owned._confirm_risky_patch(patch, no_confirm=False)
+        _confirm_risky_patch(patch, no_confirm=False)
 
     assert "Update cancelled" in str(excinfo.value)
 
 
 def test_confirm_risky_patch_skips_prompt_when_no_confirm(monkeypatch) -> None:
     patch = _risky_patch()
-    monkeypatch.setattr(owned.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(nl_owned.sys.stdin, "isatty", lambda: False)
 
-    owned._confirm_risky_patch(patch, no_confirm=True)
+    _confirm_risky_patch(patch, no_confirm=True)
 
 
 def test_json_default_handles_known_types(tmp_path: Path) -> None:

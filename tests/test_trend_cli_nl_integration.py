@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from trend import cli as trend_cli
-from trend import cli_owned_commands as owned
+from trend.commands import nl as owned
 from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation, diff_configs
 
 

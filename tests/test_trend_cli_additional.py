@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import trend.cli as cli
-import trend.cli_owned_commands as owned
+import trend.commands.report_export as owned
 
 # Pre-import the bundle module at collection time to avoid lazy-loading race
 # conditions when pytest-xdist runs tests in parallel. This ensures the module
