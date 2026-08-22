@@ -153,8 +153,8 @@ trend run -c config/long_backtest.yml \
 
 trend report -c config/long_backtest.yml \
   --returns data/hedge_fund_returns_with_indexes.csv \
-  --out outputs/long-backtest-report \
-  --output outputs/long-backtest-report/report.html
+  --out outputs/long_backtest-report \
+  --output outputs/long_backtest-report/report.html
 ```
 
 ## Performance Characteristics
@@ -172,6 +172,6 @@ The Turnover Cap Rebalancing Strategy is **production-ready** and fully integrat
 - ✅ **Multi-Period Integration** in `src/trend_analysis/multi_period/engine.py`
 - ✅ **Comprehensive Testing** with 15 dedicated tests
 - ✅ **Full Documentation** with working examples
-- ✅ **Demonstration Script** showing all functionality
+- ✅ **Canonical CLI demonstration** showing the supported workflow
 
 The strategy provides a robust solution for controlling portfolio turnover while maintaining optimal asset allocation within realistic transaction cost and trading constraints.

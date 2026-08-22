@@ -63,6 +63,19 @@ def test_callers_preserve_their_documented_container_shapes() -> None:
         "os_avg_corr": None,
     }
 
+    undefined_stats = _Stats(0.1, 0.2, float("nan"), float("inf"), -0.5, 0.6)
+    strict_json = json.dumps(undefined_stats, default=owned._json_default, allow_nan=False)
+    assert json.loads(strict_json) == {
+        "cagr": 0.1,
+        "vol": 0.2,
+        "sharpe": None,
+        "sortino": None,
+        "max_drawdown": -0.5,
+        "information_ratio": 0.6,
+        "is_avg_corr": None,
+        "os_avg_corr": None,
+    }
+
     with pytest.raises(TypeError, match="not JSON serialisable"):
         rank_selection._json_default(object())
 

@@ -19,9 +19,10 @@ The format is based on Keep a Changelog (https://keepachangelog.com/) and this p
 - Documented the continued manual use of `docker-compose.yml` and `scripts/test_docker.sh` for local smoke tests and GHCR release verification, avoiding archival after confirming no CI dependencies.
 
 ### Removed
-- Removed the obsolete `portfolio_analysis_report.py`,
-  `manager_attribution_analysis.py`, and `demo_turnover_cap.py` entry points;
-  their supported behavior is owned by the unified `trend` CLI (Issue #1437).
+- Removed the obsolete `portfolio_analysis_report.py` and
+  `demo_turnover_cap.py` entry points; their supported behavior is owned by the
+  unified `trend` CLI (Issue #5968). The earlier removal of
+  `manager_attribution_analysis.py` remains recorded in the archive inventory.
 
 ### Migration Notes
 - If external code depended on the previous inclusive rolling mean, apply `.shift(-1)` to approximate prior behavior, or compute the unshifted rolling mean directly via `df[column].rolling(window).mean()`.
