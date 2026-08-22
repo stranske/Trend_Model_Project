@@ -4,7 +4,10 @@ errors."""
 import pandas as pd
 import pytest
 
-from trend_analysis.io.market_data import MarketDataValidationError, validate_market_data
+from trend_analysis.io.market_data import (
+    MarketDataValidationError,
+    validate_market_data,
+)
 
 
 class TestMalformedDateValidation:

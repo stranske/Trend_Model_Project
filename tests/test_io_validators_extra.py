@@ -20,8 +20,8 @@ from trend_analysis.io.market_data import (
 )
 from trend_analysis.io.validators import (
     _read_uploaded_file,
-    _ValidationSummary,
     _validation_report,
+    _ValidationSummary,
     create_sample_template,
     load_and_validate_upload,
 )

@@ -165,7 +165,9 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
     monkeypatch.setattr(
-        pipeline, "_run_analysis_with_diagnostics", lambda *a, **k: pipeline._empty_run_full_result()
+        pipeline,
+        "_run_analysis_with_diagnostics",
+        lambda *a, **k: pipeline._empty_run_full_result(),
     )
 
     cfg = {

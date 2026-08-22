@@ -37,7 +37,9 @@ except ImportError as e:
     st.markdown("**Fallback:** Running upload functionality directly...")
 
     # Direct implementation for testing
-    from trend_analysis.io.market_data import MarketDataValidationError, validate_market_data
+    from trend_analysis.io.market_data import (
+        validate_market_data,
+    )
     from trend_analysis.io.validators import (
         create_sample_template,
         load_and_validate_upload,
