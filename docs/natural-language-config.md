@@ -115,7 +115,10 @@ trend nl "set data.csv_path to demo/demo_returns.csv" --in config/demo.yml --dry
 - The LLM can only edit keys that exist in the allowed schema; unknown keys are
   rejected or flagged for review.
 - Some changes are considered risky (constraints or validation changes) and
-  require confirmation unless `--no-confirm` is used.
+  require confirmation unless `--no-confirm` is used. A `vol_adjust.target_vol`
+  patch is also risky only when its decimal annualized-volatility target is
+  strictly above `0.15` (15%); `0.15` itself and lower targets keep the normal
+  confirmation behavior.
 - Outputs are best-effort; you should review diffs for critical changes.
 - Large configs or complex instructions can produce slower responses.
 - Offline/local use requires a supported provider (for example `ollama`).
