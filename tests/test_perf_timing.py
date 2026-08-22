@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from trend_analysis.perf.timing import log_timing, timed_stage
 
@@ -46,3 +47,20 @@ def test_timed_stage_defaults_and_extra_metadata(caplog):
     assert "duration_ms" in record.message
     assert "status=" not in record.message
     assert "note=n/a" in record.message
+
+
+def test_timing_helpers_have_one_implementation_owner() -> None:
+    root = Path(__file__).parents[1] / "src" / "trend_analysis"
+    definitions = {
+        symbol: [
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*.py")
+            if f"def {symbol}(" in path.read_text()
+        ]
+        for symbol in ("log_timing", "timed_stage")
+    }
+
+    assert definitions == {
+        "log_timing": ["perf/timing.py"],
+        "timed_stage": ["perf/timing.py"],
+    }

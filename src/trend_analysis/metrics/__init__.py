@@ -8,7 +8,6 @@ Legacy *annualize_* wrappers are kept for back-compat with the test-suite.
 from __future__ import annotations
 
 import math
-from importlib import import_module
 from typing import Any, Callable, cast
 
 import numpy as np
@@ -446,14 +445,6 @@ def alpha(
         return _alpha_one(returns)
     return returns.apply(_alpha_one)
 
-
-# Public submodules exposed via attribute assignment for compatibility while
-# keeping Ruff satisfied about unused imports.
-attribution = import_module(".attribution", __name__)
-factor_attribution = import_module(".factor_attribution", __name__)
-rolling = import_module(".rolling", __name__)
-summary = import_module(".summary", __name__)
-turnover = import_module(".turnover", __name__)
 
 __all__ = [
     "METRIC_REGISTRY",

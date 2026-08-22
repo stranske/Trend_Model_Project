@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from trend_analysis.metrics import rolling
+import trend_analysis.metrics.rolling as rolling
 
 
 def test_rolling_information_ratio_basic() -> None:

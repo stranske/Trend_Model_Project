@@ -5,6 +5,13 @@ The selector pipeline repeatedly computes per‑fund scalar metrics (e.g. Sharpe
 
 The new toggle `performance.cache.metrics` enables a lightweight, pure in‑memory memoization layer for these *scalar metric series*. This sits alongside the existing covariance payload cache and introduces zero behavioural change when disabled.
 
+## Timing hook ownership
+
+`trend_analysis.perf.timing.log_timing` is the single structured timing emitter,
+and `trend_analysis.perf.timing.timed_stage` is the matching scoped timer.
+Cache and rolling-cache paths should import these helpers rather than creating a
+second timer or logger format; `tests/test_perf_timing.py` guards that ownership.
+
 ## Behaviour
 - Cache key: SHA1 hash of `(start, end, ordered_universe, metric_name, stats_cfg_hash)`.
 - Stored object: The exact `pd.Series` returned on first computation (no copy); callers must not mutate in‑place.
