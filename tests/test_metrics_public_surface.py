@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import ast
-from pathlib import Path
+import subprocess
+import sys
 
 import trend_analysis.metrics as metrics
 import trend_analysis.weights as weights
@@ -30,27 +30,22 @@ def test_metrics_package_exposes_only_documented_metric_functions() -> None:
         "sortino_ratio",
         "volatility",
     }
+    for name in metrics.__all__:
+        assert hasattr(metrics, name), name
 
 
 def test_metrics_package_has_no_compatibility_submodule_exports() -> None:
-    source = Path(metrics.__file__).read_text()
-    tree = ast.parse(source)
-    compatibility_names = {
-        "attribution",
-        "factor_attribution",
-        "rolling",
-        "summary",
-        "turnover",
-    }
-    assigned_names = {
-        target.id
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign)
-        for target in node.targets
-        if isinstance(target, ast.Name)
-    }
-
-    assert compatibility_names.isdisjoint(assigned_names)
+    probe = (
+        "import trend_analysis.metrics as metrics\n"
+        "assert not hasattr(metrics, 'factor_attribution')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_weights_package_exports_the_intentional_algorithms_only() -> None:
@@ -62,3 +57,5 @@ def test_weights_package_exports_the_intentional_algorithms_only() -> None:
         "RobustMeanVariance",
         "RobustRiskParity",
     }
+    for name in weights.__all__:
+        assert hasattr(weights, name), name

@@ -410,7 +410,6 @@ from .deflated_sharpe import (  # noqa: E402
 )
 from .factor_attribution import factor_exposures  # noqa: E402
 
-
 @register_metric("alpha")
 def alpha(
     returns: Series | DataFrame,
@@ -466,3 +465,8 @@ __all__ = [
     "sortino_ratio",
     "volatility",
 ]
+
+# Child-module imports attach modules to this package automatically. Keep the
+# supported function while avoiding the retired ``metrics.factor_attribution``
+# compatibility surface.
+globals().pop("factor_attribution", None)

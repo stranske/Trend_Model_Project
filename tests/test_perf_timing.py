@@ -1,3 +1,4 @@
+import ast
 import logging
 from pathlib import Path
 
@@ -55,7 +56,12 @@ def test_timing_helpers_have_one_implementation_owner() -> None:
         symbol: [
             path.relative_to(root).as_posix()
             for path in root.rglob("*.py")
-            if f"def {symbol}(" in path.read_text()
+            if symbol
+            in {
+                node.name
+                for node in ast.walk(ast.parse(path.read_text()))
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
         ]
         for symbol in ("log_timing", "timed_stage")
     }
