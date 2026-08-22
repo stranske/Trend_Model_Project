@@ -74,6 +74,7 @@ class BacktestSpec:
     jobs: int | None
     checkpoint_dir: Path | None
     export_directory: Path | None
+    export_filename: str | None
     export_formats: tuple[str, ...]
     multi_period: Mapping[str, Any]
 
@@ -235,6 +236,7 @@ def _build_backtest_spec(cfg: Any, *, base_path: Path | None) -> BacktestSpec:
         jobs=_resolve_parallel_jobs(run_cfg),
         checkpoint_dir=checkpoint,
         export_directory=export_dir,
+        export_filename=_section_get(export_cfg, "filename"),
         export_formats=_as_tuple(_section_get(export_cfg, "formats", ())),
         multi_period=multi_period,
     )

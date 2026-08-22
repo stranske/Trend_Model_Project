@@ -219,7 +219,7 @@ def test_load_rejects_removed_output_formats_and_paths(
         "path": tmp_path / "reports" / "summary.xlsx",
     }
 
-    with pytest.raises(Exception, match="output"):
+    with pytest.raises(ValueError, match="output"):
         models.load(data)
 
 

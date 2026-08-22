@@ -128,9 +128,8 @@ def test_generate_unified_report_includes_spec_summary() -> None:
         jobs=None,
         checkpoint_dir=None,
         export_directory=None,
+        export_filename=None,
         export_formats=("csv",),
-        output_path=None,
-        output_format="csv",
         multi_period={"frequency": "ME"},
     )
     spec_bundle = TrendRunSpec(trend=trend_spec, backtest=backtest_spec, config=config)

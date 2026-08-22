@@ -74,7 +74,7 @@ def test_load_rejects_removed_output_section(
         "path": str(export_target),
     }
 
-    with pytest.raises(Exception, match="output"):
+    with pytest.raises(ValueError, match="output"):
         models.load(config_dict)
 
 

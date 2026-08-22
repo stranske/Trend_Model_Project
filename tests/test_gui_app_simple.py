@@ -17,6 +17,13 @@ def test_gui_module_imports():
         pytest.skip("GUI dependencies not available")
 
 
+@pytest.mark.parametrize("formats", [None, [], ["xlsx", None], 1])
+def test_invalid_export_formats_fall_back_to_xlsx(formats):
+    from trend_analysis.gui.app import _normalized_export_formats
+
+    assert _normalized_export_formats(formats) == ["xlsx"]
+
+
 class TestParamStore:
     """Test ParamStore functionality."""
 

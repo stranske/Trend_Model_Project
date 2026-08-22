@@ -298,7 +298,10 @@ def _retired_output_format_aliases(
 ) -> set[str]:
     """Return unsupported format aliases exposed by either public format surface."""
 
-    return {"excel"} & ({value.lower() for value in default_formats} | exporter_formats)
+    return {"excel"} & (
+        {value.lower() for value in default_formats}
+        | {value.lower() for value in exporter_formats}
+    )
 
 
 def _returned_runtime_surfaces(root: Path, removed_paths: tuple[str, ...]) -> list[str]:
@@ -630,6 +633,7 @@ def test_output_format_alias_gate_detects_deliberate_restoration() -> None:
 
     assert _retired_output_format_aliases(["xlsx", "excel"], {"xlsx"}) == {"excel"}
     assert _retired_output_format_aliases(["xlsx"], {"xlsx", "excel"}) == {"excel"}
+    assert _retired_output_format_aliases(["xlsx"], {"xlsx", "Excel"}) == {"excel"}
 
 
 def test_removed_output_config_section_remains_rejected() -> None:

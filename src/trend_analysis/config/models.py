@@ -984,6 +984,18 @@ REQUIRED_SECTIONS = (
 )
 
 
+def _reject_unexpected_top_level_keys(data: Mapping[str, Any]) -> None:
+    """Reject retired or inert top-level keys before fallback normalization."""
+
+    allowed = set(getattr(Config, "ALL_FIELDS", ()))
+    model_fields = getattr(Config, "model_fields", None)
+    if isinstance(model_fields, Mapping):
+        allowed.update(model_fields)
+    unexpected = sorted(set(data) - allowed)
+    if unexpected:
+        raise ValueError(f"{unexpected[0]}: unexpected or inert config key")
+
+
 def _config_from_validated(data: dict[str, Any], validated: Any | None) -> ConfigProtocol:
     if isinstance(validated, Config):
         return validated
@@ -1015,6 +1027,7 @@ def load_config(cfg: Mapping[str, Any] | str | Path) -> ConfigProtocol:
     if not isinstance(cfg, Mapping):
         raise TypeError("cfg must be a mapping or path")
     cfg_dict = dict(cfg)
+    _reject_unexpected_top_level_keys(cfg_dict)
     # Early version validation for mapping-based load to surface version
     # errors directly (tests accept ValueError here) regardless of Pydantic.
     if "version" in cfg_dict:
@@ -1070,6 +1083,7 @@ def load(path: str | Path | None = None) -> ConfigProtocol:
             if not isinstance(data, dict):
                 raise TypeError("Config file must contain a mapping")
 
+    _reject_unexpected_top_level_keys(data)
     # Version validation (type / whitespace). Let ValueError propagate in fallback.
     if "version" in data and not _HAS_PYDANTIC:
         _validate_version_value(data["version"])  # fallback mode only

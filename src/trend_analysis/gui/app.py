@@ -359,6 +359,18 @@ def _as_dict(v: Any) -> Dict[str, Any]:
     return dict(v) if isinstance(v, dict) else {}
 
 
+def _normalized_export_formats(value: Any) -> list[str]:
+    """Return usable export formats, preserving a safe GUI default."""
+
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, (list, tuple)) and value and all(
+        isinstance(format_name, str) and format_name for format_name in value
+    ):
+        return list(value)
+    return ["xlsx"]
+
+
 _REQUIRED_MAPPING_SECTIONS = (
     "data",
     "preprocessing",
@@ -853,9 +865,7 @@ def launch() -> widgets.Widget:
         description="Theme",
     )
     export_state = _as_dict(store.cfg.get("export"))
-    export_formats = export_state.get("formats", ["xlsx"])
-    if isinstance(export_formats, str):
-        export_formats = [export_formats]
+    export_formats = _normalized_export_formats(export_state.get("formats"))
     fmt_dd = widgets.Dropdown(
         options=["xlsx", "csv", "json"],
         value=str(export_formats[0]) if export_formats else "xlsx",
@@ -896,9 +906,7 @@ def launch() -> widgets.Widget:
         if metrics.empty:
             return
         export_cfg = cfg.export or {}
-        formats = export_cfg.get("formats", ["xlsx"])
-        if isinstance(formats, str):
-            formats = [formats]
+        formats = _normalized_export_formats(export_cfg.get("formats"))
         fmt = str(formats[0] if formats else "xlsx").lower()
         path = Path(export_cfg.get("directory", ".")) / export_cfg.get("filename", "gui_output")
         data = {"metrics": metrics}
@@ -952,9 +960,7 @@ def launch() -> widgets.Widget:
         mode.value = portfolio_cfg.get("selection_mode", "all")
         vol_adj.value = _as_dict(store.cfg.get("vol_adjust")).get("enabled", True)
         refreshed_export = _as_dict(store.cfg.get("export"))
-        refreshed_formats = refreshed_export.get("formats", ["xlsx"])
-        if isinstance(refreshed_formats, str):
-            refreshed_formats = [refreshed_formats]
+        refreshed_formats = _normalized_export_formats(refreshed_export.get("formats"))
         fmt_dd.value = str(refreshed_formats[0]) if refreshed_formats else "xlsx"
 
         rank_box.children = _build_rank_options(store).children

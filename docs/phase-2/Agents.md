@@ -61,7 +61,7 @@ Functional spec
     Step 3  – If mode == 'manual'  
                → display an interactive DataFrame of the IS scores so the
                user can override selection and set weights.
-    Step 4  – Output format picker (csv / xlsx / json) then fire
+    Step 4  – Output format picker (csv / xlsx / json / txt) then fire
                `run_analysis()` and `export_to_*`.
 
 6.  No broken changes:
@@ -97,7 +97,7 @@ rank:
 export:
   directory: outputs
   filename: analysis
-  formats: [xlsx, csv, json]
+  formats: [xlsx, csv, json, txt]
 <!-- … existing Steps 1‑10 remain unchanged … -->
 
 <!-- locate STEP 11 and replace its body with the following … -->
@@ -215,7 +215,7 @@ Follow these guard-rails whenever you touch export logic.
 Tests must fail if this order mutates.
 
 5. **Config switches**  
-`export.formats` accepts `xlsx`, `csv`, and `json`.
+`export.formats` accepts `xlsx`, `csv`, `json`, and `txt`.
 `export.directory` and optional `export.filename` select the output prefix.
 
 6. **Tests**  

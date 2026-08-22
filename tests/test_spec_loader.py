@@ -206,6 +206,7 @@ def test_build_trend_and_backtest_specs(tmp_path: Path) -> None:
     assert spec.backtest.manual_list == ("A", "B")
     assert spec.backtest.indices_list == ("IDX",)
     assert spec.backtest.export_directory == (base / "exports").resolve()
+    assert spec.backtest.export_filename == "report.csv"
     assert spec.backtest.export_formats == ("csv",)
 
     invalid_payload = dict(payload)

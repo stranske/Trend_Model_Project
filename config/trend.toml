@@ -104,7 +104,7 @@ registry = [
 [export]
 directory = "../demo/exports"
 formats = ["csv", "xlsx", "json", "txt"]
-filename = "cli_demo.csv"
+filename = "cli_demo"
 disable_narrative_generation = false
 
 # ---------------------------------------------------------------------------

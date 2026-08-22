@@ -86,6 +86,27 @@ def _build_wheel(destination: Path) -> Path:
     return wheels[0]
 
 
+def test_wheel_builder_skips_missing_tracked_paths(tmp_path: Path, monkeypatch) -> None:
+    """A staged deletion must not make the isolated wheel source copy fail."""
+
+    original_run = subprocess.run
+
+    def run_with_missing_path(command, *args, **kwargs):
+        result = original_run(command, *args, **kwargs)
+        if command == ["git", "ls-files", "-z"]:
+            return subprocess.CompletedProcess(
+                command,
+                result.returncode,
+                stdout=result.stdout + b"tests/missing-tracked-file.py\0",
+                stderr=result.stderr,
+            )
+        return result
+
+    monkeypatch.setattr(subprocess, "run", run_with_missing_path)
+
+    assert _build_wheel(tmp_path).exists()
+
+
 def test_wheel_contains_only_supported_entry_points_and_no_retired_surfaces(tmp_path: Path) -> None:
     """Build a wheel and inspect its files/metadata instead of trusting setup config alone."""
 
