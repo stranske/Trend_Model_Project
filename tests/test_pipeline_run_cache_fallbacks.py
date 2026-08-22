@@ -59,7 +59,7 @@ def test_run_uses_canonical_missing_policy(monkeypatch: pytest.MonkeyPatch) -> N
         }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     cfg = {
         "data": {
@@ -110,7 +110,7 @@ def test_run_full_uses_nan_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
     }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
 
     cfg = {
         "data": {
@@ -165,7 +165,7 @@ def test_run_respects_explicit_missing_policy(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
     monkeypatch.setattr(
-        pipeline, "_run_analysis", lambda *a, **k: pipeline._empty_run_full_result()
+        pipeline, "_run_analysis_with_diagnostics", lambda *a, **k: pipeline._empty_run_full_result()
     )
 
     cfg = {
@@ -209,7 +209,7 @@ def test_run_full_handles_missing_data_section(monkeypatch: pytest.MonkeyPatch) 
         }
 
     monkeypatch.setattr(pipeline, "load_csv", fake_load_csv)
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     cfg = {
         "data": {"csv_path": "dummy.csv"},
@@ -467,7 +467,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
         lambda *_a, **_k: pd.DataFrame({"FundB": [0.0, 0.0]}),
     )
 
-    result = pipeline._run_analysis(
+    result = pipeline._run_analysis_with_diagnostics(
         df,
         "2020-01",
         "2020-03",
@@ -482,7 +482,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
         max_turnover="oops",
         warmup_periods=2,
         **RUN_KWARGS,
-    )
+    ).unwrap()
 
     assert result is not None
     assert result["selected_funds"] == ["FundB"]
@@ -538,7 +538,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         lambda *_a, **_k: pd.DataFrame({"FundA": [0.0], "FundB": [0.0]}),
     )
 
-    result = pipeline._run_analysis(
+    result = pipeline._run_analysis_with_diagnostics(
         df,
         "2020-01",
         "2020-02",
@@ -549,7 +549,7 @@ def test_run_analysis_risk_window_zero_length(monkeypatch: pytest.MonkeyPatch) -
         risk_window={"length": 0},
         constraints={"max_weight": "oops"},
         **RUN_KWARGS,
-    )
+    ).unwrap()
 
     assert result is not None
 
@@ -599,7 +599,7 @@ def test_run_analysis_returns_none_when_no_value_columns(
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
 
-    result = pipeline._run_analysis(
+    result = pipeline._run_analysis_with_diagnostics(
         pd.DataFrame({"Date": pd.date_range("2020-01-31", periods=2, freq="ME")}),
         "2020-01",
         "2020-01",
@@ -608,7 +608,7 @@ def test_run_analysis_returns_none_when_no_value_columns(
         0.1,
         0.0,
         allow_risk_free_fallback=False,
-    )
+    ).unwrap()
 
     assert result is None
 

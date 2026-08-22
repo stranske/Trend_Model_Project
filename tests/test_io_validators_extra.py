@@ -19,14 +19,11 @@ from trend_analysis.io.market_data import (
     ValidatedMarketData,
 )
 from trend_analysis.io.validators import (
-    ValidationResult,
-    _build_result,
     _read_uploaded_file,
     _ValidationSummary,
+    _validation_report,
     create_sample_template,
-    detect_frequency,
     load_and_validate_upload,
-    validate_returns_schema,
 )
 
 
@@ -91,14 +88,14 @@ def test_validation_summary_reports_all_warnings() -> None:
     assert any("policy applied" in warning.lower() for warning in warnings)
 
 
-def test_build_result_propagates_metadata() -> None:
+def test_validation_report_propagates_metadata() -> None:
     metadata = _metadata_with_warnings()
     frame = pd.DataFrame({"FundA": [0.01] * metadata.rows})
     validated = ValidatedMarketData(frame=frame, metadata=metadata)
-    result = _build_result(validated)
-    assert isinstance(result, ValidationResult)
-    assert result.metadata is metadata
-    assert result.warnings  # populated by summary helper
+    report = _validation_report(validated)
+    assert report["is_valid"] is True
+    assert report["metadata"] is metadata
+    assert report["warnings"]
 
 
 def test_validation_summary_handles_clean_dataset() -> None:
@@ -299,7 +296,8 @@ def test_load_and_validate_upload_returns_metadata(
     monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", fake_validate)
 
     loaded_frame, meta = load_and_validate_upload("dummy")
-    assert isinstance(meta["validation"], ValidationResult)
+    assert meta["validation"]["is_valid"] is True
+    assert meta["validation"]["warnings"]
     assert meta["metadata"] == metadata.model_dump(mode="json")
     assert meta["mode"] == metadata.mode.value
     assert list(meta["original_columns"]) == metadata.columns
@@ -337,100 +335,3 @@ def test_create_sample_template_has_expected_shape() -> None:
     template = create_sample_template()
     assert template.shape == (12, 7)
     assert template.columns[0] == "Date"
-
-
-def test_validation_result_report_includes_metadata() -> None:
-    metadata = _metadata_with_warnings()
-    result = ValidationResult(
-        True,
-        [],
-        ["be mindful"],
-        frequency="Monthly",
-        date_range=("2024-01-31", "2024-10-31"),
-        metadata=metadata,
-    )
-    report = result.get_report()
-    assert "✅" in report
-    assert "📊 Detected frequency" in report
-    assert "🧹 Missing data policy" in report
-
-    failure = ValidationResult(False, ["broken"], [])
-    assert "❌" in failure.get_report()
-
-
-def test_validation_result_report_omits_optional_metadata() -> None:
-    """Ensure optional fields are skipped when absent."""
-
-    result = ValidationResult(True, [], [], frequency=None, date_range=None, metadata=None)
-    report = result.get_report()
-    assert "✅ Schema validation passed" in report
-    assert "Detected frequency" not in report
-    assert "Date range" not in report
-    assert "Detected mode" not in report
-
-
-def test_detect_frequency_handles_irregular(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="ME")
-    df = pd.DataFrame(index=index)
-
-    def raise_error(_index: pd.Index) -> dict[str, str]:
-        raise MarketDataValidationError("Irregular cadence detected")
-
-    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", raise_error)
-    assert "irregular" in detect_frequency(df)
-
-
-def test_detect_frequency_returns_code(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="ME")
-    df = pd.DataFrame(index=index)
-    monkeypatch.setattr(
-        "trend_analysis.io.validators.classify_frequency",
-        lambda _index: {"label": "unknown", "code": "M"},
-    )
-    assert detect_frequency(df) == "M"
-
-
-def test_detect_frequency_handles_non_datetime_index() -> None:
-    df = pd.DataFrame({"FundA": [0.1, 0.2]}, index=[0, 1])
-    assert detect_frequency(df) == "unknown"
-
-
-def test_detect_frequency_returns_label(monkeypatch: pytest.MonkeyPatch) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="ME")
-    df = pd.DataFrame(index=index)
-
-    def classify(idx: pd.Index) -> dict[str, Any]:
-        assert idx is index
-        return {"label": "Monthly", "code": "M"}
-
-    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", classify)
-    assert detect_frequency(df) == "Monthly"
-
-
-def test_detect_frequency_returns_unknown_on_generic_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    index = pd.date_range("2024-01-01", periods=3, freq="ME")
-    df = pd.DataFrame(index=index)
-
-    def raise_error(_index: pd.Index) -> dict[str, str]:
-        raise MarketDataValidationError("Validation failed")
-
-    monkeypatch.setattr("trend_analysis.io.validators.classify_frequency", raise_error)
-    assert detect_frequency(df) == "unknown"
-
-
-def test_validate_returns_schema_handles_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    df = pd.DataFrame({"FundA": [0.1, 0.2]})
-    error = MarketDataValidationError("boom", issues=["broken"])
-
-    def raise_error(_df: Any) -> Any:
-        raise error
-
-    monkeypatch.setattr("trend_analysis.io.validators.validate_market_data", raise_error)
-
-    result = validate_returns_schema(df)
-    assert not result.is_valid
-    assert result.issues == ["broken"]

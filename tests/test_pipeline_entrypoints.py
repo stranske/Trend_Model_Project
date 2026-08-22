@@ -156,7 +156,7 @@ def test_run_converts_stats_payload_to_frame(
             "in_sample_stats": {},
         }
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     result = pipeline.run(base_config)
     assert list(result.index) == ["FundA", "FundB"]
@@ -183,7 +183,7 @@ def test_run_returns_empty_frame_when_analysis_none(
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", lambda *_, **__: None)
 
     result = pipeline.run(base_config)
     assert result.empty
@@ -231,7 +231,7 @@ def test_run_resolves_risk_free_defaults(
             "in_sample_stats": {},
         }
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     pipeline.run(base_config)
 
@@ -273,7 +273,7 @@ def test_both_entrypoints_share_risk_free_resolution(
         captured.append(kwargs)
         return pipeline._empty_run_full_result()
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     pipeline.run(config)
     pipeline.run_full(config)
@@ -306,7 +306,7 @@ def test_both_entrypoints_preserve_object_backed_risk_free_settings(
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(
         pipeline,
-        "_run_analysis",
+        "_run_analysis_with_diagnostics",
         lambda *_, **kwargs: captured.append(kwargs) or pipeline._empty_run_full_result(),
     )
 
@@ -346,7 +346,7 @@ def test_run_full_propagates_analysis_payload(
         captured_kwargs.update(kwargs)
         return payload
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     result = pipeline.run_full(base_config)
     assert result.unwrap() is payload
@@ -363,7 +363,7 @@ def test_run_full_returns_empty_when_analysis_none(
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
+    monkeypatch.setattr(pipeline, "_run_analysis_with_diagnostics", lambda *_, **__: None)
 
     result = pipeline.run_full(base_config)
     assert result.unwrap() is None

@@ -207,7 +207,7 @@ def _run_analysis(
     weight_engine_params: Mapping[str, Any] | None = None,
     risk_free_override: float | pd.Series | None = None,
 ) -> AnalysisResult | None:
-    """Backward-compatible wrapper returning raw payloads for tests."""
+    """Run analysis and return the canonical result payload."""
 
     result = _run_analysis_with_diagnostics(
         df,

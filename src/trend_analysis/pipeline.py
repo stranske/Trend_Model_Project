@@ -48,9 +48,6 @@ from .pipeline_helpers import (
     position_from_signal as _position_from_signal_impl,
 )
 from .pipeline_runner import (
-    _run_analysis as _run_analysis_impl,
-)
-from .pipeline_runner import (
     _run_analysis_with_diagnostics as _run_analysis_with_diagnostics_impl,
 )
 from .portfolio import apply_weight_policy
@@ -189,33 +186,23 @@ def _run_analysis_with_diagnostics(*args: Any, **kwargs: Any) -> PipelineResult:
     return result  # type: ignore[no-any-return]
 
 
-def _run_analysis(*args: Any, **kwargs: Any) -> Any:
-    """Backward-compatible wrapper returning raw payloads for tests."""
-    return _call_with_sync(_run_analysis_impl, *args, **kwargs)
-
-
 def _resolve_sample_split(*args: Any, **kwargs: Any) -> Any:
     pipeline_helpers._derive_split_from_periods = _derive_split_from_periods
     return _resolve_sample_split_impl(*args, **kwargs)
 
 
-_DEFAULT_RUN_ANALYSIS = _run_analysis
-
-
 def _invoke_analysis_with_diag(*args: Any, **kwargs: Any) -> PipelineResult:
-    """Call the patched analysis hook and normalise into a PipelineResult."""
+    """Run the diagnostics-aware pipeline entry point."""
 
-    if _run_analysis is _DEFAULT_RUN_ANALYSIS:
-        return _run_analysis_with_diagnostics(*args, **kwargs)
-    patched_result = _run_analysis(*args, **kwargs)
-    if isinstance(patched_result, PipelineResult):
-        return patched_result
-    if isinstance(patched_result, DiagnosticResult):
+    result = _run_analysis_with_diagnostics(*args, **kwargs)
+    if isinstance(result, PipelineResult):
+        return result
+    if isinstance(result, DiagnosticResult):
         return PipelineResult(
-            value=patched_result.value,
-            diagnostic=patched_result.diagnostic,
+            value=result.value,
+            diagnostic=result.diagnostic,
         )
-    return PipelineResult(value=patched_result, diagnostic=None)
+    return PipelineResult(value=result, diagnostic=None)
 
 
 def run_analysis(
@@ -428,7 +415,6 @@ __all__ = [
     "_resolve_risk_free_column",
     "_resolve_sample_split",
     "_resolve_target_vol",
-    "_run_analysis",
     "_run_analysis_with_diagnostics",
     "_section_get",
     "_select_universe",

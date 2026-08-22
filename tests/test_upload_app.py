@@ -37,10 +37,10 @@ except ImportError as e:
     st.markdown("**Fallback:** Running upload functionality directly...")
 
     # Direct implementation for testing
+    from trend_analysis.io.market_data import MarketDataValidationError, validate_market_data
     from trend_analysis.io.validators import (
         create_sample_template,
         load_and_validate_upload,
-        validate_returns_schema,
     )
 
     st.header("📤 File Upload Test")
@@ -81,10 +81,13 @@ except ImportError as e:
                 df_preview = pd.read_csv(uploaded_file)
             uploaded_file.seek(0)  # Reset
 
-            validation = validate_returns_schema(df_preview)
-            st.text(validation.get_report())
+            validation = validate_market_data(df_preview)
+            st.text(
+                f"Validated {validation.metadata.rows} rows at "
+                f"{validation.metadata.frequency_label} frequency."
+            )
 
-            if validation.is_valid:
+            if validation.metadata.rows > 0:
                 # Full processing
                 df, meta = load_and_validate_upload(uploaded_file)
 
