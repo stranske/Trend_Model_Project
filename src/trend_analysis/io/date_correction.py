@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 
@@ -187,11 +188,12 @@ def analyze_date_column(
     droppable_empty: list[int] = []
 
     raw_dates = df[date_column].astype(str)
-    parsed = pd.to_datetime(raw_dates, errors="coerce")
+    parsed = pd.to_datetime(raw_dates, errors="coerce", format="mixed")
 
     failed_mask = parsed.isna()
     unsupported_year_mask = df[date_column].map(lambda value: not _has_supported_year(str(value)))
-    failed_indices = df.index[failed_mask | unsupported_year_mask].tolist()
+    combined_mask = failed_mask.to_numpy() | unsupported_year_mask.to_numpy()
+    failed_indices = np.flatnonzero(combined_mask).tolist()
 
     trailing_empty = _find_trailing_empty_rows(df, date_column, failed_indices)
     trailing_set = set(trailing_empty)

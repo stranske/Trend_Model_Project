@@ -128,3 +128,21 @@ def test_date_correction_matches_canonical_overflow_tolerance() -> None:
 
     assert len(corrected) == 1
     assert corrections[0]["action"] == "dropped"
+
+
+def test_correct_invalid_dates_drop_action() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "not-a-date"], "ret": [0.1, 0.2]})
+
+    corrected, corrections = correct_invalid_dates(frame, "Date", action="drop")
+
+    assert corrected["Date"].tolist() == ["2020-01-31"]
+    assert corrections == [
+        {"row": 2, "original": "not-a-date", "corrected": None, "action": "dropped"}
+    ]
+
+
+def test_correct_invalid_dates_raise_action() -> None:
+    frame = pd.DataFrame({"Date": ["2020-01-31", "not-a-date"], "ret": [0.1, 0.2]})
+
+    with pytest.raises(InputValidationError, match="Unable to parse 'Date' at row 2"):
+        correct_invalid_dates(frame, "Date", action="raise")

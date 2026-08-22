@@ -27,11 +27,6 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from trend_analysis.io.date_correction import (
-    analyze_date_column,
-    apply_date_corrections,
-)
-
 __all__ = [
     "InputSchema",
     "InputValidationError",
@@ -146,6 +141,11 @@ def correct_invalid_dates(
     if date_column not in df.columns:
         return df, []
 
+    from trend_analysis.io.date_correction import (
+        analyze_date_column,
+        apply_date_corrections,
+    )
+
     # The canonical engine uses positional row indexes.  Normalize only for
     # analysis, then restore the caller's surviving index on the returned
     # frame so this public helper retains its historical result shape.
@@ -185,7 +185,8 @@ def correct_invalid_dates(
         rows_to_drop = invalid_rows
         applied = normalized.drop(index=rows_to_drop)
 
-    kept_rows = [row for row in range(len(df)) if row not in set(rows_to_drop)]
+    rows_to_drop_set = set(rows_to_drop)
+    kept_rows = [row for row in range(len(df)) if row not in rows_to_drop_set]
     applied.index = df.index.take(kept_rows)
     corrections: list[dict[str, Any]] = []
     for row in invalid_rows:
@@ -293,7 +294,7 @@ def validate_input(
                     )
 
     raw_dates = working[date_column]
-    parsed = pd.to_datetime(raw_dates, utc=True, errors="coerce")
+    parsed = pd.to_datetime(raw_dates, utc=True, errors="coerce", format="mixed")
     invalid_mask = parsed.isna()
     if invalid_mask.any():
         pos = _first_true_position(invalid_mask.to_numpy())
