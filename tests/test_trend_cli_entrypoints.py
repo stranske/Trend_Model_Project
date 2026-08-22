@@ -1410,9 +1410,11 @@ def test_main_nl_run_command_executes_pipeline(
     monkeypatch.setattr(
         trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame()
     )
-    _valid = lambda *_args, **_kwargs: ValidationResult(valid=True)
-    monkeypatch.setattr(owned, "validate_config", _valid)
-    monkeypatch.setattr(trend_cli, "validate_config", _valid)
+    def _valid_config(*_args: object, **_kwargs: object) -> ValidationResult:
+        return ValidationResult(valid=True)
+
+    monkeypatch.setattr(owned, "validate_config", _valid_config)
+    monkeypatch.setattr(trend_cli, "validate_config", _valid_config)
     monkeypatch.setattr(
         owned,
         "validate_config",
