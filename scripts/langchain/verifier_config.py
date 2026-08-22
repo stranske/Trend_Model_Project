@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from scripts.langchain.issue_pr_context import DEFAULT_TOKEN_BUDGET
-from scripts.langchain.structured_output import MAX_REPAIR_ATTEMPTS, clamp_repair_attempts
+from scripts.langchain.structured_output import (
+    MAX_REPAIR_ATTEMPTS,
+    clamp_repair_attempts,
+)
 
 EVAL_PAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_SCHEMA_REPAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET

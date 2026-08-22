@@ -1,3 +1,4 @@
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -5,9 +6,12 @@ import pandas as pd
 import pytest
 
 import trend_analysis.pipeline as pipeline
+from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.pipeline_entrypoints import (
     _resolve_single_period_monthly_cost,
     _resolve_single_period_weighting_scheme,
+    run_from_config,
+    run_full_from_config,
 )
 
 
@@ -23,6 +27,15 @@ def _sample_stats(value: float = 0.1) -> pipeline._Stats:  # type: ignore[name-d
         information_ratio=value + 0.5,
         is_avg_corr=value + 0.6,
         os_avg_corr=value + 0.7,
+    )
+
+
+def _bindings_with_analysis(invoke_analysis_with_diag: object):
+    """Inject analysis behavior through the public ConfigBindings seam."""
+
+    return replace(
+        pipeline._bindings(),
+        invoke_analysis_with_diag=invoke_analysis_with_diag,
     )
 
 
@@ -156,9 +169,7 @@ def test_run_converts_stats_payload_to_frame(
             "in_sample_stats": {},
         }
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
-
-    result = pipeline.run(base_config)
+    result = run_from_config(base_config, bindings=_bindings_with_analysis(fake_run_analysis))
     assert list(result.index) == ["FundA", "FundB"]
     assert set(result.columns) >= {
         "cagr",
@@ -183,10 +194,59 @@ def test_run_returns_empty_frame_when_analysis_none(
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
-
-    result = pipeline.run(base_config)
+    result = run_from_config(base_config, bindings=_bindings_with_analysis(lambda *_, **__: None))
     assert result.empty
+
+
+def test_run_preserves_diagnostic_result_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+    base_config: dict[str, object],
+) -> None:
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
+    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    diagnostic = DiagnosticPayload("partial-result", "analysis completed with a warning")
+    payload = {
+        "out_sample_stats": {"FundA": _sample_stats(0.1)},
+        "benchmark_ir": {},
+        "risk_diagnostics": {},
+        "fund_weights": {},
+        "in_sample_stats": {},
+    }
+
+    result = run_from_config(
+        base_config,
+        bindings=_bindings_with_analysis(
+            lambda *_, **__: DiagnosticResult(value=payload, diagnostic=diagnostic)
+        ),
+    )
+
+    assert list(result.index) == ["FundA"]
+    assert result.attrs["diagnostic"] is diagnostic
+
+
+def test_run_preserves_diagnostic_result_without_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+    base_config: dict[str, object],
+) -> None:
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
+    monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    diagnostic = DiagnosticPayload("no-result", "analysis returned no payload")
+
+    result = run_from_config(
+        base_config,
+        bindings=_bindings_with_analysis(
+            lambda *_, **__: DiagnosticResult(value=None, diagnostic=diagnostic)
+        ),
+    )
+
+    assert result.empty
+    assert result.attrs["diagnostic"] is diagnostic
 
 
 @pytest.mark.parametrize(
@@ -231,9 +291,7 @@ def test_run_resolves_risk_free_defaults(
             "in_sample_stats": {},
         }
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
-
-    pipeline.run(base_config)
+    run_from_config(base_config, bindings=_bindings_with_analysis(fake_run_analysis))
 
     assert captured_kwargs["allow_risk_free_fallback"] is expected_allow
 
@@ -273,10 +331,9 @@ def test_both_entrypoints_share_risk_free_resolution(
         captured.append(kwargs)
         return pipeline._empty_run_full_result()
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
-
-    pipeline.run(config)
-    pipeline.run_full(config)
+    bindings = _bindings_with_analysis(fake_run_analysis)
+    run_from_config(config, bindings=bindings)
+    run_full_from_config(config, bindings=bindings)
 
     observed = [
         (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for kwargs in captured
@@ -304,14 +361,11 @@ def test_both_entrypoints_preserve_object_backed_risk_free_settings(
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(
-        pipeline,
-        "_run_analysis",
-        lambda *_, **kwargs: captured.append(kwargs) or pipeline._empty_run_full_result(),
+    bindings = _bindings_with_analysis(
+        lambda *_, **kwargs: captured.append(kwargs) or pipeline._empty_run_full_result()
     )
-
-    pipeline.run(config)
-    pipeline.run_full(config)
+    run_from_config(config, bindings=bindings)
+    run_full_from_config(config, bindings=bindings)
 
     assert [
         (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for kwargs in captured
@@ -346,9 +400,10 @@ def test_run_full_propagates_analysis_payload(
         captured_kwargs.update(kwargs)
         return payload
 
-    monkeypatch.setattr(pipeline, "_run_analysis", fake_run_analysis)
-
-    result = pipeline.run_full(base_config)
+    result = run_full_from_config(
+        base_config,
+        bindings=_bindings_with_analysis(fake_run_analysis),
+    )
     assert result.unwrap() is payload
     assert captured_kwargs["weighting_scheme"] == "score_prop_bayes"
     assert captured_args[6] == pytest.approx(0.0015)
@@ -363,9 +418,10 @@ def test_run_full_returns_empty_when_analysis_none(
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(pipeline, "_run_analysis", lambda *_, **__: None)
-
-    result = pipeline.run_full(base_config)
+    result = run_full_from_config(
+        base_config,
+        bindings=_bindings_with_analysis(lambda *_, **__: None),
+    )
     assert result.unwrap() is None
 
 

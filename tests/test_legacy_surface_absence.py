@@ -259,6 +259,32 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
+def test_legacy_runtime_shims_remain_absent() -> None:
+    """Retired test-only shims must not return to production modules."""
+
+    pipeline_source = (REPO_ROOT / "src/trend_analysis/pipeline.py").read_text(encoding="utf-8")
+    config_models_source = (REPO_ROOT / "src/trend_analysis/config/models.py").read_text(
+        encoding="utf-8"
+    )
+    io_validators_source = (REPO_ROOT / "src/trend_analysis/io/validators.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "_DEFAULT_RUN_ANALYSIS" not in pipeline_source
+    assert "Backward-compatible wrapper returning raw payloads for tests" not in pipeline_source
+    assert "_TREND_CONFIG_CLASS" not in config_models_source
+    assert "class ValidationResult" not in io_validators_source
+
+
+def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> None:
+    """Deliberate-break gate: restoring the patch hook must fail this scan."""
+
+    forbidden_hook = "_DEFAULT_RUN_ANALYSIS"
+    assert forbidden_hook not in (REPO_ROOT / "src/trend_analysis/pipeline.py").read_text(
+        encoding="utf-8"
+    )
+
+
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
 def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
     launchers = tmp_path / directory

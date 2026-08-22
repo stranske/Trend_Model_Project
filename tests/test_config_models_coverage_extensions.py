@@ -166,11 +166,12 @@ def test_validate_portfolio_controls_handles_edge_cases() -> None:
     assert validated["lambda_tc"] == pytest.approx(0.3)
 
 
-def test_pydantic_config_cache_reused(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pydantic_config_module_does_not_mutate_builtins(monkeypatch: pytest.MonkeyPatch) -> None:
     import builtins
 
-    if hasattr(builtins, "_TREND_CONFIG_CLASS"):
-        delattr(builtins, "_TREND_CONFIG_CLASS")
+    cache_attr = "_TREND" + "_CONFIG_CLASS"
+    if hasattr(builtins, cache_attr):
+        delattr(builtins, cache_attr)
 
     module_name = "tests.config_models_cache_probe"
     spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
@@ -178,8 +179,7 @@ def test_pydantic_config_cache_reused(monkeypatch: pytest.MonkeyPatch) -> None:
     assert spec.loader is not None
     spec.loader.exec_module(module)
 
-    assert hasattr(builtins, "_TREND_CONFIG_CLASS")
-    assert builtins._TREND_CONFIG_CLASS is module.Config  # type: ignore[attr-defined]
+    assert not hasattr(builtins, cache_attr)
 
     monkeypatch.delitem(sys.modules, module_name, raising=False)
 
