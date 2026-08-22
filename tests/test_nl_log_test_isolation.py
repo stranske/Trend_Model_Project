@@ -15,7 +15,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_cli_logging_does_not_write_repository_root(tmp_path: Path) -> None:
     root_log_dir = REPO_ROOT / ".trend_nl_logs"
-    assert not root_log_dir.exists()
+    root_log_dir_existed = root_log_dir.exists()
+    root_log_contents_before = (
+        {
+            path.relative_to(root_log_dir): path.read_bytes()
+            for path in root_log_dir.rglob("*")
+            if path.is_file()
+        }
+        if root_log_dir_existed
+        else {}
+    )
 
     write_nl_log(
         NLOperationLog(
@@ -38,7 +47,13 @@ def test_cli_logging_does_not_write_repository_root(tmp_path: Path) -> None:
 
     isolated_logs = list((tmp_path / ".trend_nl_logs").glob("nl_ops_*.jsonl"))
     assert len(isolated_logs) == 1
-    assert not root_log_dir.exists()
+    assert root_log_dir.exists() is root_log_dir_existed
+    if root_log_dir_existed:
+        assert {
+            path.relative_to(root_log_dir): path.read_bytes()
+            for path in root_log_dir.rglob("*")
+            if path.is_file()
+        } == root_log_contents_before
 
 
 def test_production_default_log_path_remains_repository_relative(
