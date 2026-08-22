@@ -38,9 +38,7 @@ MIGRATED_REPORT_AND_NL_HANDLERS = {
 def _defined_functions(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     return {
-        node.name
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
 
 
