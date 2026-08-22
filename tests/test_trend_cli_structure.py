@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLI_PATH = ROOT / "src/trend/cli.py"
 MC_VIZ_PATH = ROOT / "src/trend/mc/viz.py"
+OWNED_COMMANDS_PATH = ROOT / "src/trend/cli_owned_commands.py"
 
 MIGRATED_MC_VIZ_HANDLERS = {
     "_validate_mc_viz_output_flags",
@@ -19,6 +20,19 @@ MIGRATED_MC_VIZ_HANDLERS = {
     "_export_mc_chart_artifacts",
     "_inject_mc_html_chart_markers",
     "_run_mc_viz_command",
+}
+
+MIGRATED_REPORT_AND_NL_HANDLERS = {
+    "_prepare_export_config",
+    "_run_pipeline",
+    "_handle_exports",
+    "_write_trend_run_artifacts",
+    "_write_report_files",
+    "_resolve_explain_details_path",
+    "_build_explain_artifact_payload",
+    "_build_nl_chain",
+    "_apply_nl_instruction",
+    "_validate_nl_run_config",
 }
 
 
@@ -49,3 +63,13 @@ def test_cli_does_not_redefine_migrated_command_handlers() -> None:
         "_inject_mc_html_chart_markers",
         "execute_mc_viz_cli",
     } <= viz_functions
+
+
+def test_cli_delegates_report_and_nl_implementations_to_owned_module() -> None:
+    """Report/export and explain/NL implementations have one supported owner."""
+
+    cli_functions = _defined_functions(CLI_PATH)
+    owned_functions = _defined_functions(OWNED_COMMANDS_PATH)
+
+    assert not (MIGRATED_REPORT_AND_NL_HANDLERS & cli_functions)
+    assert MIGRATED_REPORT_AND_NL_HANDLERS <= owned_functions

@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
+from trend import cli_owned_commands as owned
 from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.logging_setup import RUNS_ROOT
@@ -60,7 +61,9 @@ def test_resolve_returns_path_relative(tmp_path: Path) -> None:
     resolved = trend_cli._resolve_returns_path(cfg_path, config, None)
     assert resolved == (cfg_path.parent / "returns.csv").resolve()
 
-    override = trend_cli._resolve_returns_path(cfg_path, config, str(tmp_path / "override.csv"))
+    override = trend_cli._resolve_returns_path(
+        cfg_path, config, str(tmp_path / "override.csv")
+    )
     assert override == (tmp_path / "override.csv").resolve()
 
 
@@ -349,34 +352,42 @@ def test_prepare_export_config_ignores_setattr_failures() -> None:
     trend_cli._prepare_export_config(cfg, Path("dir"), ["txt"])
 
 
-def test_handle_exports_invokes_exporters(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_handle_exports_invokes_exporters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     cfg = _make_config(export={"directory": str(tmp_path), "formats": ["xlsx", "csv"]})
     result = DummyResult()
 
     summary_called: list[dict[str, object]] = []
     export_calls: list[tuple] = []
 
-    monkeypatch.setattr(trend_cli.export, "make_summary_formatter", lambda *_: lambda name, df: df)
-    monkeypatch.setattr(trend_cli.export, "summary_frame_from_result", lambda *_: pd.DataFrame())
+    monkeypatch.setattr(
+        owned.export, "make_summary_formatter", lambda *_: lambda name, df: df
+    )
+    monkeypatch.setattr(
+        owned.export, "summary_frame_from_result", lambda *_: pd.DataFrame()
+    )
 
     def fake_export_to_excel(data, path, default_sheet_formatter=None):
         summary_called.append({"path": path, "data": data})
         Path(path).touch()
 
-    monkeypatch.setattr(trend_cli.export, "export_to_excel", fake_export_to_excel)
+    monkeypatch.setattr(owned.export, "export_to_excel", fake_export_to_excel)
     monkeypatch.setattr(
-        trend_cli.export,
+        owned.export,
         "export_data",
         lambda data, path, formats: export_calls.append((tuple(sorted(formats)), path)),
     )
     log_events: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(
-        trend_cli,
+        owned,
         "maybe_log_step",
-        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append(
+            (step, fields)
+        ),
     )
 
-    trend_cli._handle_exports(cfg, result, structured_log=True, run_id="abc")
+    owned._handle_exports(cfg, result, structured_log=True, run_id="abc")
 
     assert summary_called and export_calls
     assert (tmp_path / "analysis.xlsx").exists()
@@ -386,19 +397,21 @@ def test_handle_exports_invokes_exporters(monkeypatch: pytest.MonkeyPatch, tmp_p
     ]
 
 
-def test_handle_exports_without_excel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_handle_exports_without_excel(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     cfg = _make_config(export={"directory": str(tmp_path), "formats": ["json"]})
     result = DummyResult()
 
     calls: list[tuple] = []
     monkeypatch.setattr(
-        trend_cli.export,
+        owned.export,
         "export_data",
         lambda data, path, formats: calls.append((tuple(formats), path)),
     )
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *args, **kwargs: None)
 
-    trend_cli._handle_exports(cfg, result, structured_log=False, run_id="abc")
+    owned._handle_exports(cfg, result, structured_log=False, run_id="abc")
     assert calls == [(("json",), str(Path(cfg.export["directory"]) / "analysis"))]
 
 
@@ -410,24 +423,30 @@ def test_run_pipeline_sets_metadata_and_bundle(
     result = DummyResult()
     monkeypatch.chdir(tmp_path)
 
-    monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: result)
+    monkeypatch.setattr(owned, "run_simulation", lambda *_: result)
     log_events: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(
-        trend_cli,
+        owned,
         "maybe_log_step",
-        lambda _enabled, _run_id, step, _message, **fields: log_events.append((step, fields)),
+        lambda _enabled, _run_id, step, _message, **fields: log_events.append(
+            (step, fields)
+        ),
     )
     handled: list[tuple] = []
-    monkeypatch.setattr(trend_cli, "_handle_exports", lambda *args, **kwargs: handled.append(args))
-    written: list[tuple] = []
-    monkeypatch.setattr(trend_cli, "_write_bundle", lambda *args, **kwargs: written.append(args))
     monkeypatch.setattr(
-        trend_cli.run_logging,
+        owned, "_handle_exports", lambda *args, **kwargs: handled.append(args)
+    )
+    written: list[tuple] = []
+    monkeypatch.setattr(
+        owned, "_write_bundle", lambda *args, **kwargs: written.append(args)
+    )
+    monkeypatch.setattr(
+        owned.run_logging,
         "get_default_log_path",
         lambda run_id: Path(tmp_path / f"{run_id}.log"),
     )
 
-    result_obj, run_id, log_path = trend_cli._run_pipeline(
+    result_obj, run_id, log_path = owned._run_pipeline(
         cfg,
         returns,
         source_path=tmp_path / "returns.csv",
@@ -450,7 +469,7 @@ def test_run_pipeline_sets_metadata_and_bundle(
     assert ledger.exists()
     df = pd.read_csv(ledger)
     assert df["turnover"].sum() == pytest.approx(0.3)
-    log_path = trend_cli.get_last_perf_log_path()
+    log_path = owned.get_last_perf_log_path()
     assert log_path is not None
     assert log_path.name == "app.log"
     assert log_path.exists()
@@ -464,11 +483,11 @@ def test_run_pipeline_requires_transaction_cost(
     cfg.portfolio = {}
     returns = pd.DataFrame({"x": [1, 2, 3]})
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(trend_cli, "run_simulation", lambda *_: DummyResult())
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(owned, "run_simulation", lambda *_: DummyResult())
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *args, **kwargs: None)
 
-    with pytest.raises(trend_cli.TrendCLIError, match="cost_model"):
-        trend_cli._run_pipeline(
+    with pytest.raises(owned.TrendCLIError, match="cost_model"):
+        owned._run_pipeline(
             cfg,
             returns,
             source_path=None,
@@ -478,7 +497,9 @@ def test_run_pipeline_requires_transaction_cost(
         )
 
 
-def test_write_bundle_normalises_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_write_bundle_normalises_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
 
@@ -487,11 +508,11 @@ def test_write_bundle_normalises_directory(monkeypatch: pytest.MonkeyPatch, tmp_
         "trend_analysis.export.bundle.export_bundle",
         lambda result, path: recorded.append(path),
     )
-    monkeypatch.setattr(trend_cli, "maybe_log_step", lambda *args, **kwargs: None)
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *args, **kwargs: None)
 
     result = DummyResult()
     cfg = _make_config()
-    trend_cli._write_bundle(
+    owned._write_bundle(
         cfg,
         result,
         tmp_path / "returns.csv",
@@ -509,10 +530,10 @@ def test_print_summary_emits_cache_stats(
 ) -> None:
     result = DummyResult()
     cfg = _make_config(sample_split={"in_start": "2020-01", "in_end": "2020-02"})
-    monkeypatch.setattr(trend_cli.export, "format_summary_text", lambda *_: "SUMMARY")
-    monkeypatch.setattr(trend_cli, "extract_cache_stats", lambda *_: {"hits": 2})
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_: "SUMMARY")
+    monkeypatch.setattr(owned, "extract_cache_stats", lambda *_: {"hits": 2})
 
-    trend_cli._print_summary(cfg, result)
+    owned._print_summary(cfg, result)
     out = capsys.readouterr().out
     assert "SUMMARY" in out and "Cache statistics" in out
 
@@ -521,14 +542,14 @@ def test_finish_structured_log_emits_cache_stats_before_end(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list[str] = []
-    monkeypatch.setattr(trend_cli, "extract_cache_stats", lambda *_: {"hits": 2})
+    monkeypatch.setattr(owned, "extract_cache_stats", lambda *_: {"hits": 2})
     monkeypatch.setattr(
-        trend_cli,
+        owned,
         "maybe_log_step",
         lambda _enabled, _run_id, event, _message, **_fields: events.append(event),
     )
 
-    trend_cli._finish_structured_log(True, "run123", Path("run.jsonl"), DummyResult())
+    owned._finish_structured_log(True, "run123", Path("run.jsonl"), DummyResult())
 
     assert events == ["cache_stats", "end"]
 
@@ -538,9 +559,9 @@ def test_write_report_files_creates_expected_outputs(
 ) -> None:
     result = DummyResult()
     cfg = _make_config(sample_split={"in_start": "2020-01", "in_end": "2020-02"})
-    monkeypatch.setattr(trend_cli.export, "format_summary_text", lambda *_: "SUMMARY")
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_: "SUMMARY")
 
-    trend_cli._write_report_files(tmp_path, cfg, result, run_id="xyz")
+    owned._write_report_files(tmp_path, cfg, result, run_id="xyz")
 
     metrics_path = tmp_path / "metrics_xyz.csv"
     summary_path = tmp_path / "summary_xyz.txt"
@@ -577,7 +598,9 @@ def test_adjust_for_scenario_handles_attr_failure() -> None:
     trend_cli._adjust_for_scenario(cfg, "2008")
 
 
-def test_load_configuration_reads_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_configuration_reads_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     cfg_file = tmp_path / "config.yml"
     csv_path = tmp_path / "returns.csv"
     csv_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
@@ -651,7 +674,9 @@ def test_load_configuration_runs_core_then_full_validation(
         calls.append(("full", Path(path)))
         return {"version": "1"}
 
-    def fake_ensure_run_spec(cfg: object, base_path: Path, required: bool = False) -> None:
+    def fake_ensure_run_spec(
+        cfg: object, base_path: Path, required: bool = False
+    ) -> None:
         assert required is True
         calls.append(("run_spec", base_path))
 
@@ -691,7 +716,9 @@ def test_main_check_flag_without_subcommand(
     assert callable(received["environment_check"])
 
 
-def test_main_run_applies_named_universe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_run_applies_named_universe(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     cfg = _make_config()
     cfg_path = tmp_path / "cfg.yml"
     returns_path = tmp_path / "returns.csv"
@@ -715,7 +742,9 @@ def test_main_run_applies_named_universe(monkeypatch: pytest.MonkeyPatch, tmp_pa
         recorded["prices_snapshot"] = prices.copy()
         return mask, SimpleNamespace(date_column="Date", membership_path=Path("m.csv"))
 
-    def fake_attach_universe_paths(config: object, universe_spec: object, *, csv_path: str) -> None:
+    def fake_attach_universe_paths(
+        config: object, universe_spec: object, *, csv_path: str
+    ) -> None:
         recorded["attach_called"] = True
         getattr(config, "data")["universe_membership_path"] = str(
             getattr(universe_spec, "membership_path")
@@ -727,7 +756,9 @@ def test_main_run_applies_named_universe(monkeypatch: pytest.MonkeyPatch, tmp_pa
         pipeline_returns["returns"] = returns_df.copy()
         return DummyResult(), "run123", None
 
-    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
+    monkeypatch.setattr(
+        trend_cli, "_load_configuration", lambda path: (Path(path), cfg)
+    )
     monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: base_frame.copy())
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
     monkeypatch.setattr(trend_cli, "load_universe", fake_load_universe)
@@ -765,8 +796,12 @@ def test_main_run_command(
     returns_path = tmp_path / "returns.csv"
     returns_path.write_text("csv", encoding="utf-8")
 
-    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]}))
+    monkeypatch.setattr(
+        trend_cli, "_load_configuration", lambda path: (Path(path), cfg)
+    )
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]})
+    )
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
     monkeypatch.setattr(
         trend_cli,
@@ -777,7 +812,7 @@ def test_main_run_command(
     monkeypatch.setattr(trend_cli, "_print_summary", lambda *args, **kwargs: None)
     log_steps: list[tuple[object, ...]] = []
     monkeypatch.setattr(
-        trend_cli,
+        owned,
         "maybe_log_step",
         lambda *args, **_kwargs: log_steps.append(args),
     )
@@ -812,9 +847,13 @@ def test_main_run_command_uses_extracted_shared_preparation(
     )
     received: dict[str, object] = {}
 
-    monkeypatch.setattr(trend_cli, "prepare_command_inputs", lambda *_args, **_kwargs: prepared)
+    monkeypatch.setattr(
+        trend_cli, "prepare_command_inputs", lambda *_args, **_kwargs: prepared
+    )
 
-    def fake_run_analysis_command(args, cfg_path, command_cfg, returns_path, returns_df, **_kwargs):
+    def fake_run_analysis_command(
+        args, cfg_path, command_cfg, returns_path, returns_df, **_kwargs
+    ):
         received.update(
             args=args,
             cfg_path=cfg_path,
@@ -874,7 +913,9 @@ def test_skip_if_exists_emits_complete_structured_log(tmp_path: Path) -> None:
         calculate_run_id=lambda _cfg, _path: "existing123",
         get_default_log_path=lambda _run_id: tmp_path / "default.jsonl",
         init_run_logger=lambda run_id, path: initialized.append((run_id, path)),
-        log_step=lambda _enabled, _run_id, step, _message, **fields: events.append((step, fields)),
+        log_step=lambda _enabled, _run_id, step, _message, **fields: events.append(
+            (step, fields)
+        ),
         run_pipeline=unexpected_pipeline,
         write_artifacts=lambda **_kwargs: None,
         print_summary=lambda *_args: None,
@@ -954,11 +995,15 @@ def test_main_run_replays_streamlit_json_through_canonical_mapping(
         )
 
     monkeypatch.setattr(trend_cli, "load_ui_dataset", fake_load_ui_dataset)
-    monkeypatch.setattr(trend_cli, "build_config_from_ui_state", fake_build_config_from_ui_state)
+    monkeypatch.setattr(
+        trend_cli, "build_config_from_ui_state", fake_build_config_from_ui_state
+    )
     monkeypatch.setattr(trend_cli, "ensure_run_spec", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(trend_cli, "run_analysis_command", fake_run_analysis_command)
 
-    exit_code = trend_cli.main(["run", "--config", str(params_path), "--input", str(data_path)])
+    exit_code = trend_cli.main(
+        ["run", "--config", str(params_path), "--input", str(data_path)]
+    )
 
     assert exit_code == 0
     assert mapped["benchmark"] == "SPX"
@@ -1004,8 +1049,12 @@ def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     returns_path = tmp_path / "returns.csv"
     returns_path.write_text("csv", encoding="utf-8")
 
-    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]}))
+    monkeypatch.setattr(
+        trend_cli, "_load_configuration", lambda path: (Path(path), cfg)
+    )
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]})
+    )
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
     monkeypatch.setattr(
         trend_cli,
@@ -1022,7 +1071,9 @@ def test_main_report_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.setattr(
         trend_cli,
         "generate_unified_report",
-        lambda *a, **k: SimpleNamespace(html="<html>report</html>", pdf_bytes=None, context={}),
+        lambda *a, **k: SimpleNamespace(
+            html="<html>report</html>", pdf_bytes=None, context={}
+        ),
     )
 
     exit_code = trend_cli.main(
@@ -1069,9 +1120,13 @@ def test_main_nl_diff_command(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
 
-    exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
+    exit_code = trend_cli.main(
+        ["nl", "Lower max weight", "--in", str(cfg_path), "--diff"]
+    )
 
     output = capsys.readouterr().out
     assert exit_code == 0
@@ -1122,7 +1177,7 @@ def test_main_nl_passes_model_and_temperature(
         captured["temperature"] = temperature
         return DummyChain()
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", _capture_build_chain)
+    monkeypatch.setattr(owned, "_build_nl_chain", _capture_build_chain)
 
     exit_code = trend_cli.main(
         [
@@ -1176,7 +1231,9 @@ def test_main_nl_explain_command(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
 
     exit_code = trend_cli.main(
         ["nl", "Lower max weight", "--in", str(cfg_path), "--explain", "--diff"]
@@ -1241,7 +1298,9 @@ def test_main_explain_command_accepts_cited_metrics(
         def run(self, **kwargs: object) -> SimpleNamespace:
             return SimpleNamespace(text="CAGR was 8% [from out_sample_stats].")
 
-    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain()
+    )
 
     exit_code = trend_cli.main(["explain", "--details", str(details_path)])
 
@@ -1261,7 +1320,9 @@ def test_main_explain_command_blocks_unknown_metrics(
         def run(self, **kwargs: object) -> SimpleNamespace:
             return SimpleNamespace(text="Alpha was 1.2 [from alpha_stats].")
 
-    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain()
+    )
 
     exit_code = trend_cli.main(
         ["explain", "--details", str(details_path), "--question", "What is alpha?"]
@@ -1289,7 +1350,9 @@ def test_main_explain_command_writes_json_artifact(
                 trace_url="trace://cli",
             )
 
-    monkeypatch.setattr(trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        trend_cli, "_build_result_chain", lambda *_args, **_kwargs: DummyChain()
+    )
 
     exit_code = trend_cli.main(
         [
@@ -1341,16 +1404,25 @@ def test_main_nl_run_command_executes_pipeline(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame())
     monkeypatch.setattr(
-        trend_cli,
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame()
+    )
+    _valid = lambda *_args, **_kwargs: ValidationResult(valid=True)
+    monkeypatch.setattr(owned, "validate_config", _valid)
+    monkeypatch.setattr(trend_cli, "validate_config", _valid)
+    monkeypatch.setattr(
+        owned,
         "validate_config",
         lambda *_args, **_kwargs: ValidationResult(valid=True),
     )
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
-    def _fake_run_pipeline(*args: object, **kwargs: object) -> tuple[DummyResult, str, None]:
+    def _fake_run_pipeline(
+        *args: object, **kwargs: object
+    ) -> tuple[DummyResult, str, None]:
         calls.append((args, kwargs))
         return DummyResult(), "run123", None
 
@@ -1371,11 +1443,15 @@ def test_main_nl_run_command_executes_pipeline(
 
     assert exit_code == 0
     assert output_path.exists()
-    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(encoding="utf-8")
+    assert "csv_path: data/raw/indices/sample_index.csv" in output_path.read_text(
+        encoding="utf-8"
+    )
     assert calls
 
 
-def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_nl_run_requires_valid_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     output_path = tmp_path / "invalid.yml"
     patch = ConfigPatch(
         operations=[PatchOperation(op="set", path="version", value="")],
@@ -1389,11 +1465,15 @@ def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
-        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid config"),
+        lambda *_args, **_kwargs: pytest.fail(
+            "Pipeline should not run for invalid config"
+        ),
     )
 
     exit_code = trend_cli.main(
@@ -1417,7 +1497,9 @@ def test_main_nl_run_requires_existing_csv_path(
 ) -> None:
     output_path = tmp_path / "invalid.yml"
     patch = ConfigPatch(
-        operations=[PatchOperation(op="set", path="data.csv_path", value="missing.csv")],
+        operations=[
+            PatchOperation(op="set", path="data.csv_path", value="missing.csv")
+        ],
         summary="Missing CSV path",
     )
 
@@ -1428,11 +1510,15 @@ def test_main_nl_run_requires_existing_csv_path(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
-        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for invalid CSV"),
+        lambda *_args, **_kwargs: pytest.fail(
+            "Pipeline should not run for invalid CSV"
+        ),
     )
 
     exit_code = trend_cli.main(
@@ -1489,8 +1575,8 @@ def test_main_nl_replay_command(
         calls["temperature"] = temperature
         return result
 
-    monkeypatch.setattr(trend_cli, "_load_nl_log_entry", _fake_load)
-    monkeypatch.setattr(trend_cli, "_replay_nl_entry", _fake_replay)
+    monkeypatch.setattr(owned, "_load_nl_log_entry", _fake_load)
+    monkeypatch.setattr(owned, "_replay_nl_entry", _fake_replay)
 
     exit_code = trend_cli.main(["nl", "replay", str(log_path), "--entry", "2"])
 
@@ -1531,11 +1617,15 @@ def test_main_nl_run_schema_validation_blocks_invalid_config(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
-        lambda *_args, **_kwargs: pytest.fail("Pipeline should not run for schema errors"),
+        lambda *_args, **_kwargs: pytest.fail(
+            "Pipeline should not run for schema errors"
+        ),
     )
 
     exit_code = trend_cli.main(
@@ -1578,7 +1668,9 @@ def test_main_nl_requires_confirmation_for_risky_patch(
         called["prompt"] = prompt
         return "n"
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", _fake_input)
 
@@ -1599,7 +1691,9 @@ def test_main_nl_requires_confirmation_for_unknown_keys(
     output_path = tmp_path / "confirmed.yml"
     patch = ConfigPatch(
         operations=[
-            PatchOperation(op="set", path="portfolio.constraints", value={"max_weight": 0.5})
+            PatchOperation(
+                op="set", path="portfolio.constraints", value={"max_weight": 0.5}
+            )
         ],
         summary="Set max weight",
         needs_review=True,
@@ -1617,7 +1711,9 @@ def test_main_nl_requires_confirmation_for_unknown_keys(
         called["prompt"] = prompt
         return "n"
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", _fake_input)
 
@@ -1651,7 +1747,9 @@ def test_main_nl_no_confirm_skips_prompt_for_risky_patch(
     def _fail_input(prompt: str = "") -> str:
         raise AssertionError("Prompt should be skipped when --no-confirm is set.")
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(
+        owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain()
+    )
     monkeypatch.setattr(builtins, "input", _fail_input)
 
     exit_code = trend_cli.main(
@@ -1679,8 +1777,12 @@ def test_main_stress_command(
     returns_path = tmp_path / "returns.csv"
     returns_path.write_text("csv", encoding="utf-8")
 
-    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]}))
+    monkeypatch.setattr(
+        trend_cli, "_load_configuration", lambda path: (Path(path), cfg)
+    )
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]})
+    )
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
     monkeypatch.setattr(
         trend_cli,
@@ -1706,13 +1808,19 @@ def test_main_stress_command(
     assert exit_code == 0 and "Stress scenario" in captured
 
 
-def test_main_stress_with_export_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_stress_with_export_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     cfg = _make_config()
     returns_path = tmp_path / "returns.csv"
     returns_path.write_text("csv", encoding="utf-8")
 
-    monkeypatch.setattr(trend_cli, "_load_configuration", lambda path: (Path(path), cfg))
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]}))
+    monkeypatch.setattr(
+        trend_cli, "_load_configuration", lambda path: (Path(path), cfg)
+    )
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda path: pd.DataFrame({"x": [1]})
+    )
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda cfg, override: 123)
     monkeypatch.setattr(
         trend_cli,
@@ -1751,7 +1859,9 @@ def test_main_app_command(monkeypatch: pytest.MonkeyPatch) -> None:
     assert trend_cli.main(["app"]) == 5
 
 
-def test_main_app_command_uses_extracted_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_app_command_uses_extracted_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     received: dict[str, object] = {}
 
     def fake_run_app_command(args, extra_args, *, app_path, run_process):
@@ -1794,7 +1904,9 @@ def test_main_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         trend_cli, "_load_configuration", lambda *_: (Path("cfg.yml"), _make_config())
     )
-    monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_: pd.DataFrame({"x": [1]}))
+    monkeypatch.setattr(
+        trend_cli, "_ensure_dataframe", lambda *_: pd.DataFrame({"x": [1]})
+    )
     monkeypatch.setattr(trend_cli, "_determine_seed", lambda *_: 1)
     with pytest.raises(SystemExit) as excinfo:
         trend_cli.main(["unknown", "--config", "cfg.yml", "--returns", "data.csv"])
