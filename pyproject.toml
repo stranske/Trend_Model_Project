@@ -161,7 +161,6 @@ extend-exclude = [
     "*.ipynb",
     "scripts",
     "manager_attribution_analysis.py",
-    "examples/portfolio_analysis_report.py",
     "examples/debug_fund_selection.py",
     "test_multi_period_selection.py",
     ".autofix-venv",
@@ -193,7 +192,6 @@ module = [
     "demo_malformed_date_fix",
     "demo_proxy",
     "examples.demo_robust_weighting",
-    "examples.demo_turnover_cap",
 ]
 ignore_errors = true
 
