@@ -89,6 +89,17 @@ def autofix_recorder() -> DiagnosticsRecorder:
     return get_recorder()
 
 
+def _load_nl_logging_for_tests():
+    """Load NL logging only when its required model dependency is installed."""
+
+    if importlib.util.find_spec("pydantic") is None:
+        return None
+
+    from trend_analysis.llm import nl_logging
+
+    return nl_logging
+
+
 @pytest.fixture(autouse=True)
 def _isolate_nl_operation_logs(
     monkeypatch: pytest.MonkeyPatch,
@@ -96,7 +107,9 @@ def _isolate_nl_operation_logs(
 ) -> None:
     """Keep structured NL logs inside each test's temporary directory."""
 
-    from trend_analysis.llm import nl_logging
+    nl_logging = _load_nl_logging_for_tests()
+    if nl_logging is None:
+        return
 
     monkeypatch.setattr(nl_logging, "_NL_LOG_DIR", tmp_path / ".trend_nl_logs")
 
