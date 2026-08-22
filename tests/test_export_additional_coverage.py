@@ -103,15 +103,15 @@ def _make_period_result(
     rf_out = pd.Series(0.0, index=idx_out)
 
     # Per-fund statistics reused by summary helpers
-    fund_in_stats = _compute_stats(in_df, rf_in)
-    fund_out_stats = _compute_stats(out_df, rf_out)
+    fund_in_stats = _compute_stats(in_df, rf_in, periods_per_year=12)
+    fund_out_stats = _compute_stats(out_df, rf_out, periods_per_year=12)
 
     def _portfolio_stats(
         weights: dict[str, float], frame: pd.DataFrame, rf: pd.Series
     ) -> dict[str, object]:
         arr = np.array([weights.get(col, 0.0) for col in frame.columns], dtype=float)
         returns = calc_portfolio_returns(arr, frame)
-        return _compute_stats(pd.DataFrame({"p": returns}), rf)["p"]
+        return _compute_stats(pd.DataFrame({"p": returns}), rf, periods_per_year=12)["p"]
 
     in_ew_stats = _portfolio_stats(ew_weights, in_df, rf_in)
     out_ew_stats = _portfolio_stats(ew_weights, out_df, rf_out)
@@ -135,6 +135,7 @@ def _make_period_result(
         "out_sample_scaled": out_df,
         "ew_weights": ew_weights,
         "fund_weights": fund_weights,
+        "periods_per_year": 12,
         "in_ew_stats": in_ew_stats,
         "out_ew_stats": out_ew_stats,
         "in_user_stats": in_user_stats,

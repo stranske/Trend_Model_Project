@@ -717,6 +717,7 @@ def _assemble_period_result(
     period_cost: float,
     holdings_tenure: Mapping[str, int],
     effective_weights: pd.Series,
+    periods_per_year: int,
     eps: float,
 ) -> _PeriodResultAssembly:
     """Attach final per-period metadata and prepare next-period state."""
@@ -733,6 +734,7 @@ def _assemble_period_result(
     result["manager_changes"] = manager_changes
     result["turnover"] = period_turnover
     result["transaction_cost"] = float(period_cost)
+    result["periods_per_year"] = int(periods_per_year)
 
     updated_tenure: dict[str, int] = {}
     for mgr in realised_holdings:
@@ -4142,6 +4144,7 @@ def _run_threshold_hold_multi_periods(
                 period_cost=period_cost,
                 holdings_tenure=holdings_tenure,
                 effective_weights=pd.Series(dtype=float),
+                periods_per_year=periods_per_year,
                 eps=eps,
             )
             holdings_tenure = period_result.holdings_tenure
@@ -4441,7 +4444,9 @@ def _run_threshold_hold_multi_periods(
                 res_dict["weights_user_weight"] = rebalance_frame
 
                 res_dict["out_user_stats"] = _compute_stats(
-                    pd.DataFrame({"user": rebalance_returns}), rf_out
+                    pd.DataFrame({"user": rebalance_returns}),
+                    rf_out,
+                    periods_per_year=periods_per_year,
                 )["user"]
 
                 out_raw = out_df.reindex(columns=out_scaled.columns)
@@ -4454,7 +4459,9 @@ def _run_threshold_hold_multi_periods(
                     )
                     res_dict["portfolio_user_weight_raw"] = rebalance_raw
                     res_dict["out_user_stats_raw"] = _compute_stats(
-                        pd.DataFrame({"user": rebalance_raw}), rf_out
+                        pd.DataFrame({"user": rebalance_raw}),
+                        rf_out,
+                        periods_per_year=periods_per_year,
                     )["user"]
 
         period_result = _assemble_period_result(
@@ -4468,6 +4475,7 @@ def _run_threshold_hold_multi_periods(
             period_cost=period_cost,
             holdings_tenure=holdings_tenure,
             effective_weights=effective_w,
+            periods_per_year=periods_per_year,
             eps=eps,
         )
         res_dict = period_result.result
