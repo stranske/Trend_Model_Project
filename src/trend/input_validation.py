@@ -20,14 +20,13 @@ that includes the first offending row when an issue is detected.
 
 from __future__ import annotations
 
-import calendar
-import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Sequence
 
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from trend_analysis.io.date_correction import analyze_date_column, apply_date_corrections
 
 __all__ = [
     "InputSchema",
@@ -114,52 +113,6 @@ def _row_context(df: pd.DataFrame, position: int, date_column: str) -> str:
     return f" ({', '.join(context)})" if context else ""
 
 
-def _fix_invalid_day(date_str: str) -> str | None:
-    """Attempt to correct an invalid day-of-month in a date string.
-
-    Common data entry errors include dates like 11/31/2017 (November only has
-    30 days) or 9/31/2017 (September has 30 days). This function detects these
-    patterns and corrects the day to the last valid day of the month.
-
-    Returns the corrected date string, or None if the date cannot be fixed.
-    """
-    date_str = str(date_str).strip()
-
-    # Try M/D/YYYY or MM/DD/YYYY format
-    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
-    if match:
-        try:
-            month, day, year = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{month}/{max_day}/{year}"
-        except (ValueError, IndexError):
-            pass
-
-    # Try YYYY-MM-DD format
-    match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
-    if match:
-        try:
-            year, month, day = (
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-            if 1 <= month <= 12:
-                max_day = calendar.monthrange(year, month)[1]
-                if day > max_day:
-                    return f"{year}-{month:02d}-{max_day}"
-        except (ValueError, IndexError):
-            pass
-
-    return None
-
-
 def correct_invalid_dates(
     df: pd.DataFrame,
     date_column: str = "Date",
@@ -189,63 +142,59 @@ def correct_invalid_dates(
     if date_column not in df.columns:
         return df, []
 
-    working = df.copy()
-    raw_dates = working[date_column].astype(str)
-    parsed = pd.to_datetime(raw_dates, errors="coerce")
-    invalid_mask = parsed.isna()
+    # The canonical engine uses positional row indexes.  Normalize only for
+    # analysis, then restore the caller's surviving index on the returned
+    # frame so this public helper retains its historical result shape.
+    normalized = df.copy().reset_index(drop=True)
+    result = analyze_date_column(normalized, date_column)
+    invalid_rows = sorted(
+        {
+            *(correction.row_index for correction in result.corrections),
+            *(row for row, _value in result.unfixable),
+            *result.trailing_empty_rows,
+            *result.droppable_empty_rows,
+        }
+    )
+    if not invalid_rows:
+        return df.copy(), []
 
-    if not invalid_mask.any():
-        return working, []
+    raw_dates = normalized[date_column].astype(str)
+    if action == "raise":
+        row = invalid_rows[0]
+        raise InputValidationError(
+            f"Unable to parse '{date_column}' at row {row + 1}: {raw_dates.iloc[row]!r}."
+        )
 
+    corrected_by_row = {correction.row_index: correction for correction in result.corrections}
+    if action == "fix":
+        rows_to_drop = sorted(
+            {
+                *(row for row, _value in result.unfixable),
+                *result.trailing_empty_rows,
+                *result.droppable_empty_rows,
+            }
+        )
+        applied = apply_date_corrections(
+            normalized, date_column, result.corrections, drop_rows=rows_to_drop
+        )
+    else:  # action == "drop"
+        rows_to_drop = invalid_rows
+        applied = normalized.drop(index=rows_to_drop)
+
+    kept_rows = [row for row in range(len(df)) if row not in set(rows_to_drop)]
+    applied.index = df.index.take(kept_rows)
     corrections: list[dict[str, Any]] = []
-    rows_to_drop: list[int] = []
-
-    for idx in invalid_mask[invalid_mask].index:
-        pos = df.index.get_loc(idx) if isinstance(idx, int) else idx
-        original_value = raw_dates.loc[idx]
-
-        if action == "fix":
-            fixed = _fix_invalid_day(original_value)
-            if fixed is not None:
-                working.at[idx, date_column] = fixed
-                corrections.append(
-                    {
-                        "row": pos + 1,
-                        "original": original_value,
-                        "corrected": fixed,
-                        "action": "fixed",
-                    }
-                )
-            else:
-                # Cannot fix, will drop
-                rows_to_drop.append(idx)
-                corrections.append(
-                    {
-                        "row": pos + 1,
-                        "original": original_value,
-                        "corrected": None,
-                        "action": "dropped",
-                    }
-                )
-        elif action == "drop":
-            rows_to_drop.append(idx)
-            corrections.append(
-                {
-                    "row": pos + 1,
-                    "original": original_value,
-                    "corrected": None,
-                    "action": "dropped",
-                }
-            )
-        else:  # action == "raise"
-            raise InputValidationError(
-                f"Unable to parse '{date_column}' at row {pos + 1}: {original_value!r}."
-            )
-
-    if rows_to_drop:
-        working = working.drop(index=rows_to_drop)
-
-    return working, corrections
+    for row in invalid_rows:
+        correction = corrected_by_row.get(row) if action == "fix" else None
+        corrections.append(
+            {
+                "row": row + 1,
+                "original": raw_dates.iloc[row],
+                "corrected": correction.corrected_value if correction else None,
+                "action": "fixed" if correction else "dropped",
+            }
+        )
+    return applied, corrections
 
 
 def _check_monotonic(parsed: pd.Series, date_column: str) -> bool:

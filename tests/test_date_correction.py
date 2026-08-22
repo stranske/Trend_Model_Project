@@ -276,3 +276,9 @@ class TestDateCorrection:
         # and corrected to 30/11/2017
         assert result.has_corrections
         assert "30" in result.corrections[0].corrected_value
+
+    def test_invalid_year_is_not_correctable(self):
+        result = analyze_date_column(pd.DataFrame({"Date": ["12/31/2201"]}), "Date")
+
+        assert result.has_unfixable
+        assert result.unfixable == [(0, "12/31/2201")]
