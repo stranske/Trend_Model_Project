@@ -296,12 +296,23 @@ def test_pipeline_private_run_facade_is_absent() -> None:
     assert "_run_analysis" not in definitions
 
     offenders: list[str] = []
-    for source_path in (REPO_ROOT / "src").rglob("*.py"):
-        source = source_path.read_text(encoding="utf-8")
-        if "from trend_analysis.pipeline import _run_analysis" in source:
-            offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
-        if "pipeline._run_analysis" in source:
-            offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+    for root_name in ("src", "tests"):
+        for source_path in (REPO_ROOT / root_name).rglob("*.py"):
+            source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
+            for node in ast.walk(source_tree):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "trend_analysis.pipeline"
+                    and any(alias.name == "_run_analysis" for alias in node.names)
+                ):
+                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr == "_run_analysis"
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == "pipeline"
+                ):
+                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
     assert offenders == []
 
 
