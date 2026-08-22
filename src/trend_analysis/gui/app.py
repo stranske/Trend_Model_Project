@@ -364,8 +364,10 @@ def _normalized_export_formats(value: Any) -> list[str]:
 
     if isinstance(value, str) and value:
         return [value]
-    if isinstance(value, (list, tuple)) and value and all(
-        isinstance(format_name, str) and format_name for format_name in value
+    if (
+        isinstance(value, (list, tuple))
+        and value
+        and all(isinstance(format_name, str) and format_name for format_name in value)
     ):
         return list(value)
     return ["xlsx"]

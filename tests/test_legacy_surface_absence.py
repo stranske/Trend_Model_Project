@@ -299,8 +299,7 @@ def _retired_output_format_aliases(
     """Return unsupported format aliases exposed by either public format surface."""
 
     return {"excel"} & (
-        {value.lower() for value in default_formats}
-        | {value.lower() for value in exporter_formats}
+        {value.lower() for value in default_formats} | {value.lower() for value in exporter_formats}
     )
 
 
