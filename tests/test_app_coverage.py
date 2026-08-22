@@ -67,6 +67,20 @@ class TestLoadSaveState:
                     assert isinstance(store, ParamStore)
                     mock_warn.assert_called()
 
+    def test_load_state_rejects_retired_top_level_keys(self, tmp_path):
+        """Persisted legacy GUI state warns and falls back to an empty store."""
+
+        state_file = tmp_path / "state.yml"
+        state_file.write_text("mode: rank\n", encoding="utf-8")
+        with (
+            patch("trend_analysis.gui.app.STATE_FILE", state_file),
+            patch("trend_analysis.gui.app.WEIGHT_STATE_FILE", tmp_path / "missing.pkl"),
+            pytest.warns(UserWarning, match="retired top-level configuration key"),
+        ):
+            store = load_state()
+
+        assert store.cfg == {}
+
     def test_save_state(self):
         """Test saving state to file."""
         store = ParamStore()
@@ -290,6 +304,31 @@ class TestBuildStep0:
             store = ParamStore(cfg={"portfolio": {"selection_mode": "all"}})
             app_module._build_step0(store)
             upload.observe.call_args[0][0]({"new": upload.value}, store=store)
+
+        assert store.cfg == {"portfolio": {"selection_mode": "all"}}
+        assert store.dirty is False
+
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_template_rejects_retired_top_level_keys(self, mock_list_cfgs, monkeypatch, tmp_path):
+        """Built-in templates use the same canonical-key validation as uploads."""
+
+        mock_list_cfgs.return_value = ["old"]
+        mock_widgets = MagicMock()
+        monkeypatch.setattr(app_module, "widgets", mock_widgets)
+        template = MagicMock()
+        mock_widgets.FileUpload.return_value = MagicMock()
+        mock_widgets.Dropdown.return_value = template
+        mock_widgets.Button.return_value = MagicMock()
+        mock_widgets.VBox.return_value = MagicMock()
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "old.yml").write_text("use_vol_adjust: true\n", encoding="utf-8")
+        monkeypatch.setattr(app_module, "_find_config_directory", lambda: config_dir)
+
+        with pytest.warns(UserWarning, match="retired top-level configuration key"):
+            store = ParamStore(cfg={"portfolio": {"selection_mode": "all"}})
+            app_module._build_step0(store)
+            template.observe.call_args[0][0]({"new": "old"}, store=store)
 
         assert store.cfg == {"portfolio": {"selection_mode": "all"}}
         assert store.dirty is False
@@ -1371,9 +1410,15 @@ def test_launch_interactions(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.widgets, "Button", DummyButton)
     monkeypatch.setattr(app_module.widgets, "VBox", DummyBox)
 
-    rank_box = DummyBox()
-    manual_box = DummyBox()
-    weight_box = DummyBox()
+    rank_box = DummyBox(["initial-rank"])
+    manual_box = DummyBox(["initial-manual"])
+    weight_box = DummyBox(["initial-weight"])
+    refreshed_rank_box = DummyBox(["refreshed-rank"])
+    refreshed_manual_box = DummyBox(["refreshed-manual"])
+    refreshed_weight_box = DummyBox(["refreshed-weight"])
+    rank_builds = iter((rank_box, refreshed_rank_box))
+    manual_builds = iter((manual_box, refreshed_manual_box))
+    weight_builds = iter((weight_box, refreshed_weight_box))
 
     replacement_callbacks = []
 
@@ -1382,9 +1427,9 @@ def test_launch_interactions(monkeypatch, tmp_path):
         return DummyBox()
 
     monkeypatch.setattr(app_module, "_build_step0", fake_step0)
-    monkeypatch.setattr(app_module, "_build_rank_options", lambda store: rank_box)
-    monkeypatch.setattr(app_module, "_build_manual_override", lambda store: manual_box)
-    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: weight_box)
+    monkeypatch.setattr(app_module, "_build_rank_options", lambda store: next(rank_builds))
+    monkeypatch.setattr(app_module, "_build_manual_override", lambda store: next(manual_builds))
+    monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: next(weight_builds))
     monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
 
     store = ParamStore()
@@ -1457,6 +1502,9 @@ def test_launch_interactions(monkeypatch, tmp_path):
     assert mode.value == "random"
     assert vol_adj.value is False
     assert fmt_dd.value == "json"
+    assert rank_box.children == refreshed_rank_box.children
+    assert manual_box.children == refreshed_manual_box.children
+    assert weight_box.children == refreshed_weight_box.children
 
     # Simulate the config-loader replacing the entire state mapping after the
     # launch callbacks were registered.

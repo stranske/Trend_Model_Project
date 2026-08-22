@@ -320,8 +320,9 @@ def load_state() -> ParamStore:
     store = ParamStore()
     try:
         if STATE_FILE.exists():
-            store = ParamStore.from_yaml(STATE_FILE)
-            store.cfg = _validate_loaded_gui_config(store.cfg)
+            loaded_store = ParamStore.from_yaml(STATE_FILE)
+            loaded_store.cfg = _validate_loaded_gui_config(loaded_store.cfg)
+            store = loaded_store
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load state: {exc}")
     try:
@@ -482,7 +483,9 @@ def _build_step0(
             new = event["new"]
             try:
                 parsed = yaml.safe_load(new)
-                store.cfg[key] = parsed
+                candidate = dict(store.cfg)
+                candidate[key] = parsed
+                store.cfg = _validate_loaded_gui_config(candidate)
                 grid_df.iloc[event["row"], 1] = parsed
                 store.dirty = True
             except Exception:
