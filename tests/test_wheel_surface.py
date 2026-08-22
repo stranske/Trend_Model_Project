@@ -143,7 +143,11 @@ def test_wheel_contains_only_supported_entry_points_and_no_retired_surfaces(tmp_
 
     python = tmp_path / "wheel-build-env" / "bin" / "python"
     subprocess.run(
-        [python, "-m", "pip", "install", "--no-deps", str(wheel)],
+        [python, "-m", "pip", "install", "--force-reinstall", "--no-deps", str(wheel)],
+        # Keep checkout metadata and any relative PYTHONPATH out of pip's
+        # installed-distribution discovery. The assertion below must exercise
+        # this wheel, not an editable install visible from the repository root.
+        cwd=tmp_path,
         check=True,
         capture_output=True,
         text=True,
