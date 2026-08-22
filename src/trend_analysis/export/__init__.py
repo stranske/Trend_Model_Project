@@ -1410,13 +1410,16 @@ def combined_summary_result(
     if not results_list:
         raise ValueError("combined summary requires at least one period result")
 
-    annualisation_values = {
-        float(res["periods_per_year"])
-        for res in results_list
-        if isinstance(res.get("periods_per_year"), (int, float))
-    }
-    if not annualisation_values:
-        raise ValueError("period results must record periods_per_year for aggregate statistics")
+    annualisation_values: set[float] = set()
+    for res in results_list:
+        value = res.get("periods_per_year")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("each period result must record a valid periods_per_year value")
+        annualisation = float(value)
+        if not math.isfinite(annualisation) or annualisation <= 0:
+            raise ValueError("each period result must record a valid periods_per_year value")
+        annualisation_values.add(annualisation)
+
     if len(annualisation_values) != 1:
         raise ValueError("combined summary requires one effective periods_per_year value")
     periods_per_year = annualisation_values.pop()

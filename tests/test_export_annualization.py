@@ -70,3 +70,22 @@ def test_combined_summary_uses_effective_annualization(periods_per_year: int) ->
 def test_compute_stats_requires_explicit_annualization() -> None:
     parameter = inspect.signature(_compute_stats).parameters["periods_per_year"]
     assert parameter.default is inspect.Parameter.empty
+
+
+@pytest.mark.parametrize("value", [None, "12", float("nan"), float("inf"), 0, -12])
+def test_combined_summary_rejects_missing_or_invalid_annualization(value: object) -> None:
+    result = _period_result([0.01, -0.005], start="2024-01-01", periods_per_year=12)
+    result["periods_per_year"] = value
+
+    with pytest.raises(ValueError, match="valid periods_per_year"):
+        combined_summary_result([result])
+
+
+def test_combined_summary_rejects_mixed_annualization() -> None:
+    with pytest.raises(ValueError, match="one effective periods_per_year"):
+        combined_summary_result(
+            [
+                _period_result([0.01, -0.005], start="2024-01-01", periods_per_year=12),
+                _period_result([0.02, -0.01], start="2024-02-01", periods_per_year=252),
+            ]
+        )
