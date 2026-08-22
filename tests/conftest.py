@@ -89,6 +89,18 @@ def autofix_recorder() -> DiagnosticsRecorder:
     return get_recorder()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_nl_operation_logs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Keep structured NL logs inside each test's temporary directory."""
+
+    from trend_analysis.llm import nl_logging
+
+    monkeypatch.setattr(nl_logging, "_NL_LOG_DIR", tmp_path / ".trend_nl_logs")
+
+
 def pytest_collection_modifyitems(config, items):
     qfile = pathlib.Path(__file__).with_name("quarantine.yml")
     if qfile.exists() and yaml is not None:
