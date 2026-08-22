@@ -102,6 +102,7 @@ _REQUIRED_PROPERTIES: dict[str, list[str]] = {
     "": ["portfolio"],
     "portfolio": ["cost_model"],
     "portfolio.cost_model": ["half_spread_bps", "per_trade_bps"],
+    "vol_adjust.window": ["length"],
 }
 
 # Manual descriptions for common fields that lack inline comments.
@@ -674,6 +675,7 @@ def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
         "required",
         "items",
         "exclusiveMinimum",
+        "exclusiveMaximum",
     }
     compact: dict[str, Any] = {k: v for k, v in schema.items() if k in allowed_keys}
     if "properties" in schema:

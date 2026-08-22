@@ -2102,6 +2102,7 @@
             "lambda": {
               "default": 0.94,
               "description": "EWMA decay",
+              "exclusiveMaximum": 1,
               "exclusiveMinimum": 0,
               "nl_editable": true,
               "type": "number"
@@ -2113,6 +2114,9 @@
               "type": "integer"
             }
           },
+          "required": [
+            "length"
+          ],
           "type": "object"
         }
       },
