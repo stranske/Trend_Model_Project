@@ -60,9 +60,7 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
     monkeypatch.setattr(
         owned,
         "_write_bundle",
-        lambda cfg, res, source_path, bundle_path, structured, run_id: bundles.append(
-            bundle_path
-        ),
+        lambda cfg, res, source_path, bundle_path, structured, run_id: bundles.append(bundle_path),
     )
 
     cfg = SimpleNamespace(
@@ -96,12 +94,8 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
 def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
     export_calls: list[str] = []
 
-    monkeypatch.setattr(
-        owned.export, "make_summary_formatter", lambda *a, **k: "formatter"
-    )
-    monkeypatch.setattr(
-        owned.export, "summary_frame_from_result", lambda details: {"rows": 1}
-    )
+    monkeypatch.setattr(owned.export, "make_summary_formatter", lambda *a, **k: "formatter")
+    monkeypatch.setattr(owned.export, "summary_frame_from_result", lambda details: {"rows": 1})
     monkeypatch.setattr(
         owned.export,
         "export_to_excel",
@@ -112,9 +106,7 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
         "export_data",
         lambda data, path, formats: export_calls.append("data:" + ",".join(formats)),
     )
-    monkeypatch.setattr(
-        owned, "maybe_log_step", lambda *a, **k: export_calls.append("log")
-    )
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *a, **k: export_calls.append("log"))
 
     cfg = SimpleNamespace(
         export={
@@ -149,12 +141,8 @@ def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):
     log_events: list[str] = []
 
     monkeypatch.setattr(owned, "write_run_artifacts", lambda **_kwargs: manifest_dir)
-    monkeypatch.setattr(
-        owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object()
-    )
-    monkeypatch.setattr(
-        owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary"
-    )
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
 
     def fake_write_run_envelope(run_result, **kwargs):
         recorded["result"] = run_result
@@ -204,12 +192,8 @@ def test_write_run_artifacts_normalizes_scalar_export_format(monkeypatch, tmp_pa
         "write_run_artifacts",
         lambda **kwargs: recorded.update(kwargs) or tmp_path,
     )
-    monkeypatch.setattr(
-        owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object()
-    )
-    monkeypatch.setattr(
-        owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary"
-    )
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
     monkeypatch.setattr(
         owned,
         "write_run_envelope",
@@ -245,18 +229,12 @@ def test_write_run_artifacts_survives_envelope_failure(monkeypatch, tmp_path):
     log_events: list[str] = []
 
     monkeypatch.setattr(owned, "write_run_artifacts", lambda **_kwargs: manifest_dir)
-    monkeypatch.setattr(
-        owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object()
-    )
-    monkeypatch.setattr(
-        owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary"
-    )
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
     monkeypatch.setattr(
         owned,
         "write_run_envelope",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            RuntimeError("envelope failed")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("envelope failed")),
     )
     monkeypatch.setattr(
         owned,
@@ -325,9 +303,7 @@ def test_print_summary_displays_cache_stats(monkeypatch, capsys):
 
 @pytest.mark.parametrize("key", ["per_trade_bps", "half_spread_bps"])
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
-def test_transaction_cost_controls_reject_non_finite_values(
-    key: str, value: float
-) -> None:
+def test_transaction_cost_controls_reject_non_finite_values(key: str, value: float) -> None:
     cost_model = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
     cost_model[key] = value
     cfg = SimpleNamespace(portfolio={"cost_model": cost_model})

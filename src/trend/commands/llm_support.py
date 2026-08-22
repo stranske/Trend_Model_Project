@@ -20,9 +20,7 @@ def _resolve_llm_provider_config(
     *,
     model: str | None = None,
 ) -> LLMProviderConfig:
-    provider_name = (
-        provider or os.environ.get("TREND_LLM_PROVIDER") or "openai"
-    ).lower()
+    provider_name = (provider or os.environ.get("TREND_LLM_PROVIDER") or "openai").lower()
     supported = {"openai", "anthropic", "ollama"}
     if provider_name not in supported:
         raise TrendCLIError(

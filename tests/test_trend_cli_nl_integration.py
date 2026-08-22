@@ -45,9 +45,7 @@ def test_nl_diff_outputs_expected_patch(
     )
     monkeypatch.setattr(owned, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
 
-    exit_code = trend_cli.main(
-        ["nl", "Lower max weight", "--in", str(cfg_path), "--diff"]
-    )
+    exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
 
     output = capsys.readouterr().out
     expected_diff = diff_configs(
