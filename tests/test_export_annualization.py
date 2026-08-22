@@ -72,7 +72,10 @@ def test_compute_stats_requires_explicit_annualization() -> None:
     assert parameter.default is inspect.Parameter.empty
 
 
-@pytest.mark.parametrize("value", [None, "12", float("nan"), float("inf"), 0, -12])
+@pytest.mark.parametrize(
+    "value",
+    [None, True, False, "12", float("nan"), float("inf"), 0, -12],
+)
 def test_combined_summary_rejects_missing_or_invalid_annualization(value: object) -> None:
     result = _period_result([0.01, -0.005], start="2024-01-01", periods_per_year=12)
     result["periods_per_year"] = value
