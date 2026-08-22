@@ -18,9 +18,7 @@ by these examples. The supported interactive surface is `streamlit_app`.
 | Script | What it shows | How to run |
 | --- | --- | --- |
 | `examples/demo_robust_weighting.py` | Exercises the robust weighting engines (Ledoit-Wolf/OAS shrinkage, safe-mode fallbacks, logging). | `python examples/demo_robust_weighting.py` |
-| `examples/demo_turnover_cap.py` | Backwards-compatible wrapper that delegates to the `trend` CLI with the demo config, keeping the historical turnover-cap shortcut alive. | `python examples/demo_turnover_cap.py` |
 | `examples/debug_fund_selection.py` | Replays the fund-selection pipeline from `config/portfolio_test.yml`, highlighting missing data, risk-free detection, and final ranked picks. | `python examples/debug_fund_selection.py` |
-| `examples/portfolio_analysis_report.py` | Deprecated script that forwards directly to `trend.cli:main`, helping teams migrate to the CLI while retaining the old entry point. | `python examples/portfolio_analysis_report.py --help` |
 | `examples/integration_example.py` | Launches the Streamlit app plus the FastAPI/WebSocket proxy, or prints a dry-run summary with `--demo-only`. Requires optional `app` extras. | `python examples/integration_example.py --demo-only` |
 
 > **Tip:** The integration example spawns subprocesses; use the `--demo-only`
@@ -29,3 +27,24 @@ by these examples. The supported interactive surface is `streamlit_app`.
 
 Each example relies on the documented CLI and plugin APIs—no manual `sys.path`
 manipulation is needed.
+
+## Canonical turnover and report workflows
+
+Turnover constraints are configuration, not a separate executable surface.
+`config/long_backtest.yml` sets `portfolio.max_turnover: 0.50` and uses the
+checked-in long-backtest dataset:
+
+```bash
+trend run -c config/long_backtest.yml \
+  --returns data/hedge_fund_returns_with_indexes.csv
+```
+
+Generate the supported unified report and summary artifacts through the same
+configuration:
+
+```bash
+trend report -c config/long_backtest.yml \
+  --returns data/hedge_fund_returns_with_indexes.csv \
+  --out outputs/long_backtest-report \
+  --output outputs/long_backtest-report/report.html
+```

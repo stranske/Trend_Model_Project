@@ -13,6 +13,7 @@ from trend.commands import report_export as owned
 from trend_analysis import walk_forward
 from trend_analysis.backtesting import harness
 from trend_analysis.core import rank_selection
+from trend_analysis.stages.portfolio import _Stats
 from trend_analysis.util.json_compat import json_compatible, json_primitive
 
 
@@ -49,6 +50,18 @@ def test_callers_preserve_their_documented_container_shapes() -> None:
     expected = {str(timestamp): 1.5, "b": None}
     assert decoded["series"] == expected
     assert decoded["frame"]["x"] == expected
+
+    stats = _Stats(0.1, 0.2, 0.3, 0.4, -0.5, 0.6)
+    assert json.loads(json.dumps(stats, default=owned._json_default)) == {
+        "cagr": 0.1,
+        "vol": 0.2,
+        "sharpe": 0.3,
+        "sortino": 0.4,
+        "max_drawdown": -0.5,
+        "information_ratio": 0.6,
+        "is_avg_corr": None,
+        "os_avg_corr": None,
+    }
 
     with pytest.raises(TypeError, match="not JSON serialisable"):
         rank_selection._json_default(object())

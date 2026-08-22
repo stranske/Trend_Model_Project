@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence, cast
 
@@ -508,6 +509,8 @@ def _resolve_report_output_path(output: str | None, export_dir: Path | None, run
 
 
 def _json_default(obj: Any) -> Any:  # pragma: no cover - helper
+    if is_dataclass(obj) and not isinstance(obj, type):
+        return asdict(obj)
     if isinstance(obj, pd.Series):
         data: dict[str | int | float, Any] = {}
         for key, value in obj.items():

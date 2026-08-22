@@ -104,7 +104,9 @@ Use this index to find the current contributor guides and to understand which ov
 
 **`examples/` folder (reviewed 2025-11-30):**
 - Contains usage examples with clear README documentation
-- Active scripts: `demo_robust_weighting.py`, `demo_turnover_cap.py`, `debug_fund_selection.py`, `integration_example.py`, `portfolio_analysis_report.py`
+- Active scripts: `demo_robust_weighting.py`, `debug_fund_selection.py`, `integration_example.py`
+- Turnover and report demonstrations use the canonical `trend run` and
+  `trend report` commands documented in `examples/README.md`.
 
 **`notebooks/` folder (reviewed 2025-11-30):**
 - Single maintained notebook: `Vol_Adj_Trend_Analysis1.5.TrEx.ipynb`

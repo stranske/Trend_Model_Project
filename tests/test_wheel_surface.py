@@ -21,6 +21,8 @@ REMOVED_WHEEL_PREFIXES = (
     "trend_portfolio_app/",
     "retired/",
     "examples/legacy_streamlit_app/",
+    "examples/demo_" + "turnover_cap.py",
+    "examples/portfolio_" + "analysis_report.py",
 )
 EXPECTED_CONSOLE_SCRIPTS = {
     "trend": "trend.cli:main",

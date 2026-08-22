@@ -133,7 +133,19 @@ REMOVED_PATHS = (
     "retired/trend_portfolio_app",
     "retired/tests",
     "examples/legacy_streamlit_app",
+    "examples/demo_" + "turnover_cap.py",
+    "examples/portfolio_" + "analysis_report.py",
     "scripts/trend-model",
+)
+RETIRED_EXAMPLE_NAMES = (
+    "demo_" + "turnover_cap.py",
+    "portfolio_" + "analysis_report.py",
+)
+ACTIVE_EXAMPLE_REFERENCE_PATHS = (
+    REPO_ROOT / "examples" / "README.md",
+    REPO_ROOT / "docs" / "INDEX.md",
+    REPO_ROOT / "docs" / "turnover_cap_strategy.md",
+    REPO_ROOT / "pyproject.toml",
 )
 NOTEBOOK_TRANSFORMER = TransformerManager()
 
@@ -373,6 +385,31 @@ def test_removed_runtime_surfaces_do_not_return() -> None:
 
     returned = [path for path in REMOVED_PATHS if (REPO_ROOT / path).exists()]
     assert not returned, "Retired runtime surfaces returned:\n" + "\n".join(returned)
+
+    built_copies = (
+        [
+            path.relative_to(REPO_ROOT)
+            for name in RETIRED_EXAMPLE_NAMES
+            for path in (REPO_ROOT / "build").rglob(name)
+        ]
+        if (REPO_ROOT / "build").exists()
+        else []
+    )
+    assert not built_copies, "Retired examples returned in build artifacts:\n" + "\n".join(
+        map(str, built_copies)
+    )
+
+
+def test_active_docs_do_not_advertise_retired_examples() -> None:
+    """Current indexes and usage guides must point to canonical CLI commands."""
+
+    offenders = [
+        f"{path.relative_to(REPO_ROOT)}: {name}"
+        for path in ACTIVE_EXAMPLE_REFERENCE_PATHS
+        for name in RETIRED_EXAMPLE_NAMES
+        if name in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, "Active docs advertise retired examples:\n" + "\n".join(offenders)
 
 
 def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
