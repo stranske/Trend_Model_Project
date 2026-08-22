@@ -5,8 +5,10 @@ from __future__ import annotations
 import difflib
 import json
 import logging
+import math
 import re
 from copy import deepcopy
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -28,8 +30,6 @@ _DOTPATH_RE = re.compile(
 )
 _JSON_POINTER_RE = re.compile(r"^(/[^/\s]+)+$")
 
-_VOL_TARGET_RISK_THRESHOLD = 0.15
-
 _logger = logging.getLogger(__name__)
 
 
@@ -38,6 +38,31 @@ class RiskFlag(str, Enum):
     INCREASES_LEVERAGE = "INCREASES_LEVERAGE"
     REMOVES_VALIDATION = "REMOVES_VALIDATION"
     BROAD_SCOPE = "BROAD_SCOPE"
+
+
+@dataclass(frozen=True, slots=True)
+class VolatilityTargetRiskPolicy:
+    """Confirmation policy for NL changes to annualized volatility targets.
+
+    ``target_vol`` values are decimal annualized volatility values, so ``0.15``
+    represents a 15% annualized target. Values strictly above the default need
+    confirmation because they can increase strategy leverage; the boundary
+    itself remains part of the ordinary, non-risky configuration contract.
+    """
+
+    confirmation_threshold: float
+
+    def requires_confirmation(self, target_vol: object) -> bool:
+        """Return whether a proposed decimal annualized target needs review."""
+
+        return (
+            isinstance(target_vol, (int, float))
+            and math.isfinite(target_vol)
+            and target_vol > self.confirmation_threshold
+        )
+
+
+VOLATILITY_TARGET_RISK_POLICY = VolatilityTargetRiskPolicy(confirmation_threshold=0.15)
 
 
 class PatchOperation(BaseModel):
@@ -476,15 +501,22 @@ def _increases_leverage(op: PatchOperation, dotpath: str) -> bool:
     if op.op not in {"set", "merge"}:
         return False
     if dotpath == "vol_adjust.target_vol":
-        return isinstance(op.value, (int, float)) and op.value > _VOL_TARGET_RISK_THRESHOLD
+        return VOLATILITY_TARGET_RISK_POLICY.requires_confirmation(op.value)
     if dotpath == "vol_adjust" and isinstance(op.value, dict):
         target_vol = op.value.get("target_vol")
-        return isinstance(target_vol, (int, float)) and target_vol > _VOL_TARGET_RISK_THRESHOLD
+        return VOLATILITY_TARGET_RISK_POLICY.requires_confirmation(target_vol)
     return False
 
 
 def _is_broad_scope(op: PatchOperation) -> bool:
     if op.op == "append":
+        return False
+    if (
+        op.op == "merge"
+        and _to_dotpath(op.path) == "vol_adjust"
+        and isinstance(op.value, dict)
+        and set(op.value) == {"target_vol"}
+    ):
         return False
     return _path_depth(op.path) <= 1
 
