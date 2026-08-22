@@ -133,7 +133,13 @@ for _name in _EAGER_SUBMODULES:
 # modules merely as an import side effect of package bootstrap.
 if "metrics" in globals():
     _metrics_module = cast(ModuleType, globals()["metrics"])
-    for _retired_metrics_module in ("attribution", "factor_attribution", "rolling", "summary", "turnover"):
+    for _retired_metrics_module in (
+        "attribution",
+        "factor_attribution",
+        "rolling",
+        "summary",
+        "turnover",
+    ):
         _metrics_module.__dict__.pop(_retired_metrics_module, None)
 
 
