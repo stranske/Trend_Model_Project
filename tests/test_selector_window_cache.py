@@ -17,7 +17,7 @@ def _sample_window() -> pd.DataFrame:
 
 
 def test_rank_selector_reuses_metric_bundle() -> None:
-    rs.reset_selector_cache()
+    rs.clear_window_metric_cache()
     window = _sample_window()
     stats_cfg = rs.RiskStatsConfig()
     window_key = rs.make_window_key("2020-01", "2020-06", window.columns, stats_cfg)
@@ -30,7 +30,7 @@ def test_rank_selector_reuses_metric_bundle() -> None:
         score_by="Sharpe",
         window_key=window_key,
     )
-    assert rs.selector_cache_hits == 0
+    assert rs.selector_cache_stats()["selector_cache_hits"] == 0
 
     rs.rank_select_funds(
         window,
@@ -40,11 +40,11 @@ def test_rank_selector_reuses_metric_bundle() -> None:
         score_by="Sharpe",
         window_key=window_key,
     )
-    assert rs.selector_cache_hits >= 1
+    assert rs.selector_cache_stats()["selector_cache_hits"] >= 1
 
     bundle = rs.get_window_metric_bundle(window_key)
     assert bundle is not None
-    frame = bundle.as_frame()
+    frame = bundle.metrics_frame()
     assert "Sharpe" in frame.columns
 
     rs.rank_select_funds(
@@ -58,7 +58,7 @@ def test_rank_selector_reuses_metric_bundle() -> None:
     )
     assert bundle.cov_payload is not None
 
-    hits_before = rs.selector_cache_hits
+    hits_before = rs.selector_cache_stats()["selector_cache_hits"]
     rs.rank_select_funds(
         window,
         stats_cfg,
@@ -68,4 +68,4 @@ def test_rank_selector_reuses_metric_bundle() -> None:
         window_key=window_key,
         bundle=bundle,
     )
-    assert rs.selector_cache_hits > hits_before
+    assert rs.selector_cache_stats()["selector_cache_hits"] > hits_before

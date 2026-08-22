@@ -134,22 +134,8 @@ SCENARIO_WINDOWS: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 from trend.mc.commands import (  # noqa: E402
     add_mc_subparsers,
     handle_mc_command,
-    is_valid_tqdm_instance,
-    write_mc_manifest,
 )
 from trend.mc.viz import TrendCLIError  # noqa: E402
-
-
-def _write_mc_manifest(*args: Any, **kwargs: Any) -> Path:
-    """Compatibility test hook for the shared Monte Carlo manifest writer."""
-
-    return write_mc_manifest(*args, **kwargs)
-
-
-def _is_valid_tqdm_instance(candidate: Any) -> bool:
-    """Compatibility test hook for the shared Monte Carlo progress validator."""
-
-    return is_valid_tqdm_instance(candidate)
 
 
 def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:

@@ -79,6 +79,28 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
     "load_market_data_" + "parquet",
 )
+REMOVED_TEST_ONLY_SYMBOLS = {
+    "src/trend/cli.py": {
+        "_write_" + "mc_manifest",
+        "_is_valid_" + "tqdm_instance",
+    },
+    "src/trend_analysis/metrics/__init__.py": {
+        "annualize_" + "return",
+        "annualize_" + "volatility",
+        "annualize_" + "sharpe_ratio",
+        "annualize_" + "sortino_ratio",
+        "info_" + "ratio",
+    },
+    "src/trend_analysis/core/rank_selection.py": {
+        "as_" + "frame",
+        "reset_" + "selector_cache",
+        "selector_cache_" + "hits",
+        "selector_cache_" + "misses",
+        "_call_metric_" + "series",
+        "_metric_fn_" + "accepts_risk_free_override",
+    },
+    "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
+}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -141,6 +163,51 @@ def _text_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root] if _include_text_file(root) else []
     return [path for path in root.rglob("*") if _include_text_file(path)]
+
+
+def _defined_symbols(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    }
+    for node in ast.walk(tree):
+        targets: list[ast.expr] = []
+        if isinstance(node, ast.Assign):
+            targets.extend(node.targets)
+        elif isinstance(node, ast.AnnAssign):
+            targets.append(node.target)
+        names.update(target.id for target in targets if isinstance(target, ast.Name))
+    return names
+
+
+def _static_string(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_string(node.left)
+        right = _static_string(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _removed_symbol_offenders(path: Path, removed_names: set[str]) -> set[str]:
+    """Find direct definitions and names served through module ``__getattr__``."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    offenders = _defined_symbols(path) & removed_names
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != "__getattr__":
+            continue
+        dynamic_names = {
+            value for child in ast.walk(node) if (value := _static_string(child)) is not None
+        }
+        offenders.update(dynamic_names & removed_names)
+    return offenders
 
 
 def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
@@ -243,6 +310,37 @@ def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {symbol}")
 
     assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(offenders)
+
+
+def test_test_only_runtime_seams_remain_absent() -> None:
+    """Tests must use canonical APIs without restoring production compatibility hooks."""
+
+    offenders: list[str] = []
+    for relative_path, removed_names in REMOVED_TEST_ONLY_SYMBOLS.items():
+        returned = sorted(_removed_symbol_offenders(REPO_ROOT / relative_path, removed_names))
+        offenders.extend(f"{relative_path}: {name}" for name in returned)
+
+    assert not offenders, "Test-only runtime seams returned:\n" + "\n".join(offenders)
+
+
+def test_test_only_runtime_seam_gate_detects_deliberate_restoration(tmp_path: Path) -> None:
+    """Deliberate-break proof exercises the same offender logic as the real gate."""
+
+    candidate = tmp_path / "runner.py"
+    candidate.write_text(
+        "class Runner:\n"
+        "    def _inject_cash_returns(self, returns):\n"
+        "        return returns\n"
+        "\n"
+        "def __getattr__(name):\n"
+        "    if name == 'selector_cache_' + 'hits':\n"
+        "        return 0\n"
+        "    raise AttributeError(name)\n",
+        encoding="utf-8",
+    )
+
+    removed = {"_inject_" + "cash_returns", "selector_cache_" + "hits"}
+    assert _removed_symbol_offenders(candidate, removed) == removed
 
 
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:

@@ -25,7 +25,7 @@ def _dummy_prices():
     return 100 * (1 + rets).cumprod()
 
 
-# Special function for info_ratio that ensures benchmark and data consistency
+# Information-ratio input needs a benchmark aligned to the returns frame.
 def _dummy_returns_with_benchmark():
     """Generate returns data and return both the data and its benchmark (mean
     across columns)."""
@@ -39,14 +39,14 @@ CASES = [
     ("sharpe_ratio", _dummy_returns, {"risk_free": 0.0}),
     ("max_drawdown", _dummy_prices, {}),
     ("sortino_ratio", _dummy_returns, {"target": 0.0}),
-    ("info_ratio", _dummy_returns_with_benchmark, {}),
+    ("information_ratio", _dummy_returns_with_benchmark, {}),
 ]
 
 
 @pytest.mark.parametrize("name, data_fn, kw", CASES)
 def test_vectorised_metric_matches_explicit_scalar_contract(name, data_fn, kw):
     # The vector path must agree with applying the canonical scalar API per column.
-    if name == "info_ratio":
+    if name == "information_ratio":
         data, benchmark = data_fn()
         kw = {"benchmark": benchmark}
     else:

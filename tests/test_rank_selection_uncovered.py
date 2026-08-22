@@ -7,36 +7,19 @@ import trend_analysis.core.rank_selection as rs
 import trend_analysis.perf.cache as perf_cache
 
 
-def test_call_metric_series_forwards_risk_free_override(monkeypatch):
-    df = pd.DataFrame({"FundA": [0.01, 0.02]})
+def test_compute_metric_series_with_cache_forwards_risk_free_override():
+    df = pd.DataFrame({"FundA": [0.01, 0.02, -0.005, 0.03]})
     cfg = rs.RiskStatsConfig(risk_free=0.0)
-    captured: dict[str, float | None] = {"value": None}
+    result = rs.compute_metric_series_with_cache(
+        df,
+        "Sharpe",
+        cfg,
+        risk_free_override=0.001,
+    )
+    expected = rs.METRIC_REGISTRY["Sharpe"](df["FundA"], periods_per_year=12, risk_free=0.001)
 
-    def with_override(in_sample_df, metric_name, stats_cfg, *, risk_free_override=None):
-        captured["value"] = risk_free_override
-        return pd.Series([1.0], index=in_sample_df.columns)
-
-    monkeypatch.setattr(rs, "_compute_metric_series", with_override)
-
-    result = rs._call_metric_series(df, "AnnualReturn", cfg, risk_free_override=0.25)
-    assert captured["value"] == 0.25
     assert result.index.tolist() == ["FundA"]
-
-
-def test_call_metric_series_skips_risk_free_override_when_unsupported(monkeypatch):
-    df = pd.DataFrame({"FundA": [0.01, 0.02]})
-    cfg = rs.RiskStatsConfig(risk_free=0.0)
-    calls = {"count": 0}
-
-    def no_override(in_sample_df, metric_name, stats_cfg):
-        calls["count"] += 1
-        return pd.Series([2.0], index=in_sample_df.columns)
-
-    monkeypatch.setattr(rs, "_compute_metric_series", no_override)
-
-    result = rs._call_metric_series(df, "AnnualReturn", cfg, risk_free_override=0.25)
-    assert calls["count"] == 1
-    assert result.iloc[0] == 2.0
+    assert result.iloc[0] == expected
 
 
 def _make_bundle(df: pd.DataFrame) -> rs.WindowMetricBundle:

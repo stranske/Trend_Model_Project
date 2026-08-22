@@ -14,7 +14,6 @@ from __future__ import annotations
 import hashlib
 import importlib
 import importlib.util
-import inspect
 import json
 import re
 import warnings
@@ -22,7 +21,6 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List
 
 import numpy as np
@@ -158,11 +156,6 @@ class WindowMetricBundle:
             return pd.DataFrame(index=self.in_sample_df.columns)
         return self._metrics.copy()
 
-    def as_frame(self) -> pd.DataFrame:
-        """Backward compatible alias for :meth:`metrics_frame`."""
-
-        return self.metrics_frame()
-
     def available_metrics(self) -> list[str]:
         """Return the metric names cached in this bundle."""
 
@@ -284,23 +277,6 @@ class WindowMetricCache:
 _CACHE_SCOPE: ContextVar[str] = ContextVar("RANK_SELECTOR_CACHE_SCOPE", default="default")
 _WINDOW_METRIC_CACHE = WindowMetricCache()
 
-# Backwards-compatibility read-only views. ``selector_cache_hits`` and
-# ``selector_cache_misses`` are derived live from the active cache instance's
-# ``stats()`` via module ``__getattr__`` (PEP 562) instead of being mirrored into
-# mutable module globals. This keeps the counters from persisting across cache
-# instances or leaking state between tests sharing a process.
-#
-# Declared (not assigned) so static tooling and ``__all__`` see the names while
-# ``__getattr__`` still serves them live -- a real assignment would shadow it.
-selector_cache_hits: int
-selector_cache_misses: int
-
-
-def __getattr__(name: str) -> Any:
-    if name in ("selector_cache_hits", "selector_cache_misses"):
-        return _WINDOW_METRIC_CACHE.stats()[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 @contextmanager
 def selector_cache_scope(scope: str) -> Iterator[None]:
@@ -393,12 +369,6 @@ def clear_window_metric_cache(scope: str | None = None) -> None:
     """
 
     _WINDOW_METRIC_CACHE.clear(scope)
-
-
-def reset_selector_cache(scope: str | None = None) -> None:
-    """Compatibility alias for :func:`clear_window_metric_cache`."""
-
-    clear_window_metric_cache(scope)
 
 
 def selector_cache_stats() -> dict[str, int]:
@@ -586,7 +556,12 @@ def rank_select_funds(
                 incremental_cov=incremental_cov,
             ).copy()
         else:
-            scores = _call_metric_series(df, metric_name, cfg, risk_free_override=risk_free)
+            scores = _compute_metric_series(
+                df,
+                metric_name,
+                cfg,
+                risk_free_override=risk_free,
+            )
 
     # Normalise metric representation before transforming it.  In particular,
     # MaxDrawdown may arrive as either a signed depth or a positive magnitude.
@@ -954,42 +929,6 @@ def _compute_metric_series(
         _METRIC_CONTEXT.reset(token)
 
 
-@lru_cache(maxsize=None)
-def _metric_fn_accepts_risk_free_override(func: Callable[..., Any]) -> bool:
-    """Return True if *func* accepts ``risk_free_override`` keyword."""
-
-    try:
-        return "risk_free_override" in inspect.signature(func).parameters
-    except (ValueError, TypeError):  # pragma: no cover - defensive
-        return False
-
-
-def _call_metric_series(
-    in_sample_df: pd.DataFrame,
-    metric_name: str,
-    stats_cfg: RiskStatsConfig,
-    *,
-    risk_free_override: float | pd.Series | None = None,
-) -> pd.Series:
-    """Invoke :func:`_compute_metric_series` with optional RF override.
-
-    Tests frequently monkeypatch ``_compute_metric_series`` with simplified
-    stand-ins that do not accept ``risk_free_override``.  This helper inspects
-    the active callable at runtime and only forwards the override when it is
-    supported, preserving backwards compatibility.
-    """
-
-    fn = _compute_metric_series
-    if risk_free_override is not None and _metric_fn_accepts_risk_free_override(fn):
-        return fn(
-            in_sample_df,
-            metric_name,
-            stats_cfg,
-            risk_free_override=risk_free_override,
-        )
-    return fn(in_sample_df, metric_name, stats_cfg)
-
-
 def _ensure_cov_payload(
     in_sample_df: pd.DataFrame, bundle: WindowMetricBundle | None
 ) -> "CovPayload":
@@ -1047,7 +986,7 @@ def compute_metric_series_with_cache(
     path without altering existing registry semantics.
     """
     if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _call_metric_series(
+        return _compute_metric_series(
             in_sample_df,
             metric_name,
             stats_cfg,
@@ -1135,7 +1074,7 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
-            raw = _call_metric_series(
+            raw = _compute_metric_series(
                 in_sample_df,
                 metric,
                 stats_cfg,
@@ -1171,11 +1110,7 @@ __all__ = [
     "WindowMetricBundle",
     "make_window_key",
     "get_window_metric_bundle",
-    "reset_selector_cache",
-    "selector_cache_hits",
-    "selector_cache_misses",
     "blended_score",
-    "_call_metric_series",
     "compute_metric_series_with_cache",
     "rank_select_funds",
     "selector_cache_stats",

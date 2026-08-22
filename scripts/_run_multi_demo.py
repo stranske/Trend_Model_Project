@@ -605,13 +605,6 @@ def _check_metrics_basic() -> None:
         raise SystemExit("DataFrame metric information_ratio failed")
     if not isinstance(metrics.max_drawdown(df).iloc[0], float):
         raise SystemExit("DataFrame metric max_drawdown failed")
-    # legacy aliases
-    if metrics.annualize_return(s) != metrics.annual_return(s):
-        raise SystemExit("annualize_return mismatch")
-    if metrics.annualize_volatility(s) != metrics.volatility(s):
-        raise SystemExit("annualize_volatility mismatch")
-    if metrics.info_ratio(s, bench) != metrics.information_ratio(s, bench):
-        raise SystemExit("info_ratio mismatch")
 
 
 def _check_metric_helpers() -> None:
@@ -2123,9 +2116,6 @@ def _check_module_exports() -> None:
             "WindowMetricBundle",
             "make_window_key",
             "get_window_metric_bundle",
-            "reset_selector_cache",
-            "selector_cache_hits",
-            "selector_cache_misses",
             "blended_score",
             "compute_metric_series_with_cache",
             "rank_select_funds",

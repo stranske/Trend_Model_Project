@@ -20,8 +20,8 @@ def test_metrics_import_does_not_patch_builtins(monkeypatch) -> None:
 
     metrics = importlib.import_module("trend_analysis.metrics")
 
-    assert metrics.annualize_return is metrics.annual_return
-    assert metrics.annualize_volatility is metrics.volatility
+    assert not hasattr(metrics, "annualize_" + "return")
+    assert not hasattr(metrics, "annualize_" + "volatility")
     assert not hasattr(builtins, "annualize_return")
     assert not hasattr(builtins, "annualize_volatility")
 

@@ -2266,22 +2266,6 @@ def test_apply_cash_handling_aligns_rf_series_by_returns_index(
     )
 
 
-def test_inject_cash_returns_aliases_apply_cash_handling() -> None:
-    cfg = _base_config()
-    cfg["metrics"] = {
-        "registry": ["sharpe_ratio"],
-        "rf_override_enabled": True,
-        "rf_rate_annual": 0.06,
-    }
-    runner = MonteCarloRunner(_scenario("two_layer"), base_config=cfg)
-    returns = _returns_without_rf()
-
-    expected = runner._apply_cash_handling(returns)
-    actual = runner._inject_cash_returns(returns)
-
-    pd.testing.assert_frame_equal(actual, expected)
-
-
 def test_run_mixture_requires_matching_seed_lengths() -> None:
     scenario = _scenario("mixture")
     runner = MonteCarloRunner(
