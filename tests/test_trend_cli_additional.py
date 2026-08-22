@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 import trend.cli as cli
+import trend.cli_owned_commands as owned
 
 # Pre-import the bundle module at collection time to avoid lazy-loading race
 # conditions when pytest-xdist runs tests in parallel. This ensures the module
@@ -17,7 +18,7 @@ import trend_analysis.export.bundle as _bundle_mod  # noqa: F401
 
 def test_cli_uses_canonical_logging_and_cache_helpers() -> None:
     assert callable(cli.maybe_log_step)
-    assert callable(cli.extract_cache_stats)
+    assert callable(owned.extract_cache_stats)
 
 
 def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
@@ -32,7 +33,7 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
     )
     monkeypatch.chdir(tmp_path)
 
-    monkeypatch.setattr(cli, "run_simulation", lambda cfg, df: result)
+    monkeypatch.setattr(owned, "run_simulation", lambda cfg, df: result)
 
     class FakeRunLogging:
         @staticmethod
@@ -43,21 +44,21 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
         def init_run_logger(run_id: str, log_path: Path) -> None:
             log_path.touch()
 
-    monkeypatch.setattr(cli, "run_logging", FakeRunLogging)
+    monkeypatch.setattr(owned, "run_logging", FakeRunLogging)
 
     steps: list[tuple[tuple[object, ...], dict[str, object]]] = []
-    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: steps.append((a, k)))
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *a, **k: steps.append((a, k)))
 
     exports: list[tuple[bool, str]] = []
     monkeypatch.setattr(
-        cli,
+        owned,
         "_handle_exports",
         lambda cfg, res, structured, run_id: exports.append((structured, run_id)),
     )
 
     bundles: list[Path] = []
     monkeypatch.setattr(
-        cli,
+        owned,
         "_write_bundle",
         lambda cfg, res, source_path, bundle_path, structured, run_id: bundles.append(bundle_path),
     )
@@ -70,7 +71,7 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
 
-    run_result, run_id, log_path = cli._run_pipeline(
+    run_result, run_id, log_path = owned._run_pipeline(
         cfg,
         fake_returns,
         source_path=Path("returns.csv"),
@@ -93,19 +94,19 @@ def test_run_pipeline_captures_portfolio_and_logging(monkeypatch, tmp_path):
 def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
     export_calls: list[str] = []
 
-    monkeypatch.setattr(cli.export, "make_summary_formatter", lambda *a, **k: "formatter")
-    monkeypatch.setattr(cli.export, "summary_frame_from_result", lambda details: {"rows": 1})
+    monkeypatch.setattr(owned.export, "make_summary_formatter", lambda *a, **k: "formatter")
+    monkeypatch.setattr(owned.export, "summary_frame_from_result", lambda details: {"rows": 1})
     monkeypatch.setattr(
-        cli.export,
+        owned.export,
         "export_to_excel",
         lambda data, path, default_sheet_formatter=None: export_calls.append("excel"),
     )
     monkeypatch.setattr(
-        cli.export,
+        owned.export,
         "export_data",
         lambda data, path, formats: export_calls.append("data:" + ",".join(formats)),
     )
-    monkeypatch.setattr(cli, "maybe_log_step", lambda *a, **k: export_calls.append("log"))
+    monkeypatch.setattr(owned, "maybe_log_step", lambda *a, **k: export_calls.append("log"))
 
     cfg = SimpleNamespace(
         export={
@@ -117,7 +118,7 @@ def test_handle_exports_excel_and_remaining(monkeypatch, tmp_path):
     )
     result = SimpleNamespace(metrics=pd.DataFrame({"Sharpe": [0.7]}), details={})
 
-    cli._handle_exports(cfg, result, structured_log=False, run_id="run42")
+    owned._handle_exports(cfg, result, structured_log=False, run_id="run42")
 
     assert export_calls == ["log", "excel", "data:csv", "log"]
 
@@ -139,23 +140,23 @@ def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):
     recorded: dict[str, object] = {}
     log_events: list[str] = []
 
-    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_kwargs: manifest_dir)
-    monkeypatch.setattr(cli.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+    monkeypatch.setattr(owned, "write_run_artifacts", lambda **_kwargs: manifest_dir)
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
 
     def fake_write_run_envelope(run_result, **kwargs):
         recorded["result"] = run_result
         recorded.update(kwargs)
         return manifest_dir / "run_envelope.json"
 
-    monkeypatch.setattr(cli, "write_run_envelope", fake_write_run_envelope)
+    monkeypatch.setattr(owned, "write_run_envelope", fake_write_run_envelope)
     monkeypatch.setattr(
-        cli,
+        owned,
         "maybe_log_step",
         lambda _enabled, _run_id, event, _message, **_fields: log_events.append(event),
     )
 
-    written = cli._write_trend_run_artifacts(
+    written = owned._write_trend_run_artifacts(
         cfg=cfg,
         result=result,
         config_path=config_path,
@@ -173,6 +174,41 @@ def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):
     assert log_events == ["run_artifacts", "run_envelope"]
 
 
+def test_write_run_artifacts_normalizes_scalar_export_format(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("version: '1'\n", encoding="utf-8")
+    input_path = tmp_path / "returns.csv"
+    input_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    result = SimpleNamespace(details=None, metrics=pd.DataFrame({"Sharpe": [0.7]}))
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": "csv", "filename": "analysis"},
+        sample_split={},
+        model_dump=lambda: {"version": "1"},
+    )
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        owned, "write_run_artifacts", lambda **kwargs: recorded.update(kwargs) or tmp_path
+    )
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+    monkeypatch.setattr(
+        owned, "write_run_envelope", lambda *_args, **_kwargs: tmp_path / "run_envelope.json"
+    )
+
+    owned._write_trend_run_artifacts(
+        cfg=cfg,
+        result=result,
+        config_path=config_path,
+        input_path=input_path,
+        data_frame=pd.DataFrame({"A": [0.1]}),
+        run_id="run42",
+        structured_log=False,
+    )
+
+    assert recorded["exported_files"] == [tmp_path / "analysis_metrics.csv"]
+
+
 def test_write_run_artifacts_survives_envelope_failure(monkeypatch, tmp_path):
     manifest_dir = tmp_path / "runs" / "run42"
     manifest_dir.mkdir(parents=True)
@@ -188,21 +224,21 @@ def test_write_run_artifacts_survives_envelope_failure(monkeypatch, tmp_path):
     )
     log_events: list[str] = []
 
-    monkeypatch.setattr(cli, "write_run_artifacts", lambda **_kwargs: manifest_dir)
-    monkeypatch.setattr(cli.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+    monkeypatch.setattr(owned, "write_run_artifacts", lambda **_kwargs: manifest_dir)
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
     monkeypatch.setattr(
-        cli,
+        owned,
         "write_run_envelope",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("envelope failed")),
     )
     monkeypatch.setattr(
-        cli,
+        owned,
         "maybe_log_step",
         lambda _enabled, _run_id, event, _message, **_fields: log_events.append(event),
     )
 
-    written = cli._write_trend_run_artifacts(
+    written = owned._write_trend_run_artifacts(
         cfg=cfg,
         result=result,
         config_path=config_path,
@@ -229,13 +265,13 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
         lambda result, path: recorded.append(path),
     )
     monkeypatch.setattr(
-        cli,
+        owned,
         "maybe_log_step",
         lambda *a, **k: recorded.append(Path(k["bundle"])),
     )
 
     result = SimpleNamespace(details={}, metrics=pd.DataFrame())
-    cli._write_bundle(
+    owned._write_bundle(
         SimpleNamespace(),
         result,
         source_path=Path("input.csv"),
@@ -250,15 +286,26 @@ def test_write_bundle_into_directory(monkeypatch, tmp_path):
 
 
 def test_print_summary_displays_cache_stats(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "extract_cache_stats", lambda details: {"hits": 3})
-    monkeypatch.setattr(cli.export, "format_summary_text", lambda *a, **k: "Summary")
+    monkeypatch.setattr(owned, "extract_cache_stats", lambda details: {"hits": 3})
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *a, **k: "Summary")
     cfg = SimpleNamespace(sample_split={})
     result = SimpleNamespace(details={}, metrics=pd.DataFrame())
 
-    cli._print_summary(cfg, result)
+    owned._print_summary(cfg, result)
     captured = capsys.readouterr()
     assert "Summary" in captured.out
     assert "Cache statistics" in captured.out
+
+
+@pytest.mark.parametrize("key", ["per_trade_bps", "half_spread_bps"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_transaction_cost_controls_reject_non_finite_values(key: str, value: float) -> None:
+    cost_model = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
+    cost_model[key] = value
+    cfg = SimpleNamespace(portfolio={"cost_model": cost_model})
+
+    with pytest.raises(owned.TrendCLIError, match=f"{key} must be a finite number"):
+        owned._require_transaction_cost_controls(cfg)
 
 
 def test_resolve_report_output_path_variants(tmp_path):

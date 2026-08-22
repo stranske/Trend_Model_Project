@@ -61,6 +61,8 @@ def replay_nl_entry(
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> ReplayResult:
+    if entry.operation != "nl_to_patch":
+        raise ValueError(f"Only nl_to_patch entries can be replayed, not {entry.operation!r}.")
     started = time.perf_counter()
     prompt_text = render_prompt(entry)
     active_provider = _normalize_provider(provider or os.environ.get("TREND_LLM_PROVIDER"))

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend import cli
+from trend import cli_owned_commands as owned
 from trend_analysis import walk_forward
 from trend_analysis.backtesting import harness
 from trend_analysis.core import rank_selection
@@ -42,7 +42,7 @@ def test_callers_preserve_their_documented_container_shapes() -> None:
 
     series = pd.Series([np.float32(1.5), np.float32("nan")], index=[timestamp, "b"])
     encoded = json.dumps(
-        {"series": series, "frame": pd.DataFrame({"x": series})}, default=cli._json_default
+        {"series": series, "frame": pd.DataFrame({"x": series})}, default=owned._json_default
     )
     decoded = json.loads(encoded)
     expected = {str(timestamp): 1.5, "b": None}
