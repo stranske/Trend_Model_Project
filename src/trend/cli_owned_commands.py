@@ -35,7 +35,6 @@ from trend_analysis.config import (
     apply_patch as apply_config_patch,
 )
 from trend_analysis.config.schema_validation import load_config as load_config_yaml
-from trend_analysis.config.schema_validation import load_config as load_schema_config
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.constants import DEFAULT_OUTPUT_DIRECTORY, DEFAULT_OUTPUT_FORMATS
 from trend_analysis.export.run_envelope import write_run_envelope
@@ -138,6 +137,30 @@ def get_last_perf_log_path() -> Path | None:
     return _PERF_LOG_STATE.last_path
 
 
+def _resolved_export_settings(cfg: Any) -> tuple[str, list[str] | str, str] | None:
+    export_cfg = getattr(cfg, "export", {}) or {}
+    out_dir = export_cfg.get("directory")
+    out_formats = export_cfg.get("formats")
+    filename = export_cfg.get("filename", "analysis")
+    if not out_dir and not out_formats:
+        out_dir = DEFAULT_OUTPUT_DIRECTORY
+        out_formats = DEFAULT_OUTPUT_FORMATS
+    if not out_dir or not out_formats:
+        return None
+    return str(out_dir), out_formats, filename
+
+
+def _summary_text(cfg: Any, details: Any) -> str:
+    split = getattr(cfg, "sample_split", {})
+    return export.format_summary_text(
+        details,
+        str(split.get("in_start", "")),
+        str(split.get("in_end", "")),
+        str(split.get("out_start", "")),
+        str(split.get("out_end", "")),
+    )
+
+
 def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
     if directory is None and formats is None:
         return
@@ -168,8 +191,8 @@ def _run_pipeline(
     run_id = working_run_id(cfg, source_path)
     try:
         setattr(cfg, "run_id", run_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to apply run_id to config: %s", exc)
 
     log_path = None
     if structured_log:
@@ -262,15 +285,10 @@ def _finish_structured_log(
 
 
 def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
-    export_cfg = getattr(cfg, "export", {}) or {}
-    out_dir = export_cfg.get("directory")
-    out_formats = export_cfg.get("formats")
-    filename = export_cfg.get("filename", "analysis")
-    if not out_dir and not out_formats:
-        out_dir = DEFAULT_OUTPUT_DIRECTORY
-        out_formats = DEFAULT_OUTPUT_FORMATS
-    if not out_dir or not out_formats:
+    resolved = _resolved_export_settings(cfg)
+    if resolved is None:
         return
+    out_dir, out_formats, filename = resolved
     format_list = [out_formats] if isinstance(out_formats, str) else list(out_formats)
     out_dir_path = Path(out_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
@@ -353,15 +371,10 @@ def _write_trend_run_artifacts(
 ) -> Path | None:
     """Write the replay manifest and run envelope used by ``trend run``."""
 
-    export_cfg = getattr(cfg, "export", {}) or {}
-    out_dir = export_cfg.get("directory")
-    out_formats = export_cfg.get("formats")
-    filename = export_cfg.get("filename", "analysis")
-    if not out_dir and not out_formats:
-        out_dir = DEFAULT_OUTPUT_DIRECTORY
-        out_formats = DEFAULT_OUTPUT_FORMATS
-    if not out_dir or not out_formats:
+    resolved = _resolved_export_settings(cfg)
+    if resolved is None:
         return None
+    out_dir, out_formats, filename = resolved
 
     out_dir_path = Path(out_dir)
     fmt_list = list(out_formats)
@@ -373,14 +386,7 @@ def _write_trend_run_artifacts(
         if any(fmt.lower() in {"excel", "xlsx"} for fmt in fmt_list):
             data_keys.append("summary")
     artifact_paths = _resolve_export_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
-    split = getattr(cfg, "sample_split", {})
-    summary_text = export.format_summary_text(
-        result.details,
-        str(split.get("in_start", "")),
-        str(split.get("in_end", "")),
-        str(split.get("out_start", "")),
-        str(split.get("out_end", "")),
-    )
+    summary_text = _summary_text(cfg, result.details)
     try:
         raw_config_payload = load_config_yaml(config_path)
         config_payload: Any
@@ -490,14 +496,7 @@ def _write_bundle(
 
 
 def _print_summary(cfg: Any, result: RunResult) -> None:
-    split = getattr(cfg, "sample_split", {})
-    text = export.format_summary_text(
-        result.details,
-        str(split.get("in_start", "")),
-        str(split.get("in_end", "")),
-        str(split.get("out_start", "")),
-        str(split.get("out_end", "")),
-    )
+    text = _summary_text(cfg, result.details)
     print(text)
     cache_stats = extract_cache_stats(result.details)
     if cache_stats:
@@ -511,14 +510,7 @@ def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: s
     metrics_path = out_dir / f"metrics_{run_id}.csv"
     result.metrics.to_csv(metrics_path)
     summary_path = out_dir / f"summary_{run_id}.txt"
-    split = getattr(cfg, "sample_split", {})
-    summary_text = export.format_summary_text(
-        result.details,
-        str(split.get("in_start", "")),
-        str(split.get("in_end", "")),
-        str(split.get("out_start", "")),
-        str(split.get("out_end", "")),
-    )
+    summary_text = _summary_text(cfg, result.details)
     summary_path.write_text(summary_text, encoding="utf-8")
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
@@ -732,7 +724,8 @@ def _render_analysis_output(details: Mapping[str, Any]) -> str:
     summary = pd.DataFrame()
     try:
         summary = export.summary_frame_from_result(details)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to build summary frame from explain details: %s", exc)
         summary = pd.DataFrame()
     if not summary.empty:
         parts.append("Summary table:\n" + summary.to_string(index=False))
@@ -765,13 +758,17 @@ def _infer_explain_run_id(
 ) -> str:
     if run_id:
         return run_id
+    def _mapping(value: Any) -> Mapping[str, Any]:
+        return value if isinstance(value, Mapping) else {}
+
     candidates = []
     if isinstance(details, Mapping):
+        metadata = _mapping(details.get("metadata"))
         candidates = [
             details.get("run_id"),
-            (details.get("metadata") or {}).get("run_id"),
-            ((details.get("metadata") or {}).get("reporting") or {}).get("run_id"),
-            (details.get("reporting") or {}).get("run_id"),
+            metadata.get("run_id"),
+            _mapping(metadata.get("reporting")).get("run_id"),
+            _mapping(details.get("reporting")).get("run_id"),
         ]
     for candidate in candidates:
         if isinstance(candidate, str) and candidate.strip():
@@ -1033,7 +1030,7 @@ def _maybe_handle_nl_replay(argv: list[str]) -> int | None:
 
 def _load_nl_config(path: Path) -> dict[str, Any]:
     try:
-        payload = load_schema_config(path)
+        payload = load_config_yaml(path)
     except Exception as exc:
         raise TrendCLIError(str(exc)) from exc
     if not isinstance(payload, dict):
@@ -1103,20 +1100,23 @@ def _apply_nl_instruction(
         apply_error = str(exc) or type(exc).__name__
         raise TrendCLIError(str(exc)) from exc
     finally:
-        _log_nl_operation(
-            request_id=request_id,
-            operation="apply_patch",
-            input_payload={
-                "config": config,
-                "patch": patch.model_dump(mode="json"),
-            },
-            model_name=chain.model or "unknown",
-            temperature=chain.temperature,
-            parsed_patch=patch,
-            error=apply_error,
-            started_at=apply_started,
-            timestamp=apply_timestamp,
-        )
+        try:
+            _log_nl_operation(
+                request_id=request_id,
+                operation="apply_patch",
+                input_payload={
+                    "config": config,
+                    "patch": patch.model_dump(mode="json"),
+                },
+                model_name=chain.model or "unknown",
+                temperature=chain.temperature,
+                parsed_patch=patch,
+                error=apply_error,
+                started_at=apply_started,
+                timestamp=apply_timestamp,
+            )
+        except Exception as log_exc:  # noqa: BLE001 - logging must not mask the patch error
+            logger.warning("Failed to write NL operation log: %s", log_exc)
     diff = diff_configs(config, updated)
     return patch, updated, diff, chain.model or "unknown", chain.temperature
 
