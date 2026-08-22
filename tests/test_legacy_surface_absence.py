@@ -46,7 +46,10 @@ ROOT_RUNTIME_TEXT_FILES = tuple(
     for path in REPO_ROOT.iterdir()
     if path.is_file()
     and path not in ROOT_HISTORY_TEXT_FILES
-    and (path.suffix.lower() in TEXT_SUFFIXES or path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES)
+    and (
+        path.suffix.lower() in TEXT_SUFFIXES
+        or path.name in ROOT_EXTENSIONLESS_RUNTIME_FILES
+    )
 )
 RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "analysis",
@@ -162,7 +165,9 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
                     (index for index, line in enumerate(lines) if line.strip()),
                     None,
                 )
-                if first_content is not None and lines[first_content].lstrip().startswith("%%"):
+                if first_content is not None and lines[
+                    first_content
+                ].lstrip().startswith("%%"):
                     raw_body = "".join(lines[first_content + 1 :])
                     code_units.append(NOTEBOOK_TRANSFORMER.transform_cell(raw_body))
         except (AttributeError, TypeError, ValueError):
@@ -205,7 +210,9 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
     return [
         f"{display_path}: {forbidden}"
         for forbidden in FORBIDDEN_RUNTIME_IMPORTS
-        if any(name == forbidden or name.startswith(f"{forbidden}.") for name in modules)
+        if any(
+            name == forbidden or name.startswith(f"{forbidden}.") for name in modules
+        )
     ]
 
 
@@ -228,7 +235,9 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {reference}")
             offenders.extend(_forbidden_import_offenders(path, text))
 
-    assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
+    assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(
+        offenders
+    )
 
 
 def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
@@ -242,7 +251,9 @@ def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
                 if symbol in text:
                     offenders.append(f"{path.relative_to(REPO_ROOT)}: {symbol}")
 
-    assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(offenders)
+    assert not offenders, "Active surfaces restore removed data loaders:\n" + "\n".join(
+        offenders
+    )
 
 
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:
@@ -254,7 +265,9 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(candidate, candidate.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        candidate, candidate.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
@@ -262,16 +275,21 @@ def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> N
 def test_legacy_runtime_shims_remain_absent() -> None:
     """Retired test-only shims must not return to production modules."""
 
-    pipeline_source = (REPO_ROOT / "src/trend_analysis/pipeline.py").read_text(encoding="utf-8")
-    config_models_source = (REPO_ROOT / "src/trend_analysis/config/models.py").read_text(
+    pipeline_source = (REPO_ROOT / "src/trend_analysis/pipeline.py").read_text(
         encoding="utf-8"
     )
-    io_validators_source = (REPO_ROOT / "src/trend_analysis/io/validators.py").read_text(
-        encoding="utf-8"
-    )
+    config_models_source = (
+        REPO_ROOT / "src/trend_analysis/config/models.py"
+    ).read_text(encoding="utf-8")
+    io_validators_source = (
+        REPO_ROOT / "src/trend_analysis/io/validators.py"
+    ).read_text(encoding="utf-8")
 
     assert "_DEFAULT_RUN_ANALYSIS" not in pipeline_source
-    assert "Backward-compatible wrapper returning raw payloads for tests" not in pipeline_source
+    assert (
+        "Backward-compatible wrapper returning raw payloads for tests"
+        not in pipeline_source
+    )
     assert "_TREND_CONFIG_CLASS" not in config_models_source
     assert "class ValidationResult" not in io_validators_source
 
@@ -280,9 +298,9 @@ def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> N
     """Deliberate-break gate: restoring the patch hook must fail this scan."""
 
     forbidden_hook = "_DEFAULT_RUN_ANALYSIS"
-    assert forbidden_hook not in (REPO_ROOT / "src/trend_analysis/pipeline.py").read_text(
-        encoding="utf-8"
-    )
+    assert forbidden_hook not in (
+        REPO_ROOT / "src/trend_analysis/pipeline.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_pipeline_private_run_facade_is_absent() -> None:
@@ -308,7 +326,9 @@ def test_pipeline_private_run_facade_is_absent() -> None:
 
 
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
-def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
+def test_extensionless_launchers_remain_in_text_scan(
+    tmp_path: Path, directory: str
+) -> None:
     launchers = tmp_path / directory
     launchers.mkdir()
     launcher = launchers / "trend"
@@ -319,7 +339,9 @@ def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: 
     launcher.chmod(0o755)
 
     assert launcher in _text_files(tmp_path)
-    offenders = _forbidden_import_offenders(launcher, launcher.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        launcher, launcher.read_text(encoding="utf-8")
+    )
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
@@ -339,7 +361,9 @@ def test_workflow_and_tooling_entry_points_remain_in_text_scan(tmp_path: Path) -
     helper.parent.mkdir(parents=True)
     helper.write_text("from trend import cli\n", encoding="utf-8")
     action_helper = tmp_path / ".github" / "actions" / "path-classifier" / "classify.js"
-    action_helper.write_text("const { execFile } = require('child_process');\n", encoding="utf-8")
+    action_helper.write_text(
+        "const { execFile } = require('child_process');\n", encoding="utf-8"
+    )
 
     assert workflow in _text_files(tmp_path / ".github" / "workflows")
     assert tool in _text_files(tmp_path / "tools")
@@ -367,7 +391,9 @@ def test_active_notebooks_remain_in_text_scan() -> None:
     """Executable notebooks are active surfaces unless they live below ``old/``."""
 
     active_notebooks = {
-        path for path in (REPO_ROOT / "notebooks").rglob("*.ipynb") if not _is_archived(path)
+        path
+        for path in (REPO_ROOT / "notebooks").rglob("*.ipynb")
+        if not _is_archived(path)
     }
     scanned_notebooks = set(_text_files(REPO_ROOT / "notebooks"))
 
@@ -393,12 +419,16 @@ def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        notebook, notebook.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
-def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Path) -> None:
+def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(
+    tmp_path: Path,
+) -> None:
     """IPython-only lines must not suppress later Python in the same cell."""
     notebook = tmp_path / "active.ipynb"
     notebook.write_text(
@@ -418,7 +448,9 @@ def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Pat
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        notebook, notebook.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
@@ -446,7 +478,9 @@ def test_notebook_assignment_and_help_escapes_cannot_hide_later_import(
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        notebook, notebook.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
@@ -472,7 +506,9 @@ def test_notebook_cell_magic_body_cannot_hide_retired_import(tmp_path: Path) -> 
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        notebook, notebook.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
@@ -499,7 +535,9 @@ def test_non_python_cell_magic_cannot_hide_retired_import(tmp_path: Path) -> Non
         encoding="utf-8",
     )
 
-    offenders = _forbidden_import_offenders(notebook, notebook.read_text(encoding="utf-8"))
+    offenders = _forbidden_import_offenders(
+        notebook, notebook.read_text(encoding="utf-8")
+    )
 
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
@@ -507,7 +545,9 @@ def test_non_python_cell_magic_cannot_hide_retired_import(tmp_path: Path) -> Non
 def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
     """Every scanned surface must trigger the CI job that enforces this contract."""
 
-    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
+    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(
+        encoding="utf-8"
+    )
     marker = "  legacy-surface:\n"
     assert marker in gate, "legacy-surface job missing from gate workflow"
     legacy_job_header = gate.split(marker, 1)[1].split("    runs-on:", 1)[0]
@@ -532,7 +572,9 @@ def test_legacy_surface_ci_runs_for_every_classified_change() -> None:
         (("mc", "viz", "--help"), "usage: trend mc viz"),
     ],
 )
-def test_supported_cli_surface_smoke(arguments: tuple[str, ...], expected_output: str) -> None:
+def test_supported_cli_surface_smoke(
+    arguments: tuple[str, ...], expected_output: str
+) -> None:
     """The final command-tree smoke covers every supported public CLI surface."""
 
     result = subprocess.run(
