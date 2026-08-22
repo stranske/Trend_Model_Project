@@ -22,13 +22,13 @@ from trend_analysis.pipeline import (
     _prepare_input_data,
     _preprocessing_summary,
     _resolve_sample_split,
-    _run_analysis,
     _section_get,
     _Stats,
     _unwrap_cfg,
     compute_signal,
     single_period_run,
 )
+from tests._pipeline_test_utils import run_analysis_payload
 from trend_analysis.pipeline_helpers import (
     _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,
@@ -686,7 +686,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_empty)
     assert (
-        _run_analysis(
+        run_analysis_payload(
             pd.DataFrame({"Date": []}),
             "2020-01",
             "2020-02",
@@ -710,7 +710,7 @@ def test_run_analysis_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", prepare_no_values)
     assert (
-        _run_analysis(
+        run_analysis_payload(
             pd.DataFrame({"Date": ["2020-01-01"]}),
             "2020-01",
             "2020-02",
@@ -794,7 +794,7 @@ def test_run_analysis_rank_selection_with_fallbacks(
         mp.setattr(pipeline, "information_ratio", fake_information_ratio)
         mp.setattr(pipeline, "build_regime_payload", fake_regime_payload)
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-02",
@@ -886,7 +886,7 @@ def test_run_analysis_zero_weight_custom(monkeypatch: pytest.MonkeyPatch) -> Non
         mp.setattr(pipeline, "compute_constrained_weights", fake_weights)
         mp.setattr(pipeline, "build_regime_payload", lambda **kwargs: {})
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-02",
@@ -1252,7 +1252,7 @@ def test_run_analysis_random_selection(monkeypatch: pytest.MonkeyPatch) -> None:
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
         mp.setattr(np.random, "default_rng", lambda seed=None: DummyRng())
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-03",
@@ -1321,7 +1321,7 @@ def test_run_analysis_returns_none_when_copy_becomes_empty(
             "_prepare_input_data",
             lambda *args, **kwargs: (pretend, freq_summary, missing_result, False),
         )
-        result = _run_analysis(
+        result = run_analysis_payload(
             pretend,
             "2020-01",
             "2020-02",
@@ -1389,7 +1389,7 @@ def test_run_analysis_returns_none_when_ret_cols_consumed(
             "_prepare_input_data",
             lambda *args, **kwargs: (base, freq_summary, missing_result, False),
         )
-        result = _run_analysis(
+        result = run_analysis_payload(
             base,
             "2020-01",
             "2020-02",
@@ -1471,7 +1471,7 @@ def test_run_analysis_weight_engine_success(monkeypatch: pytest.MonkeyPatch) -> 
         )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-03",
@@ -1585,7 +1585,7 @@ def test_run_analysis_uses_empty_signal_frame(monkeypatch: pytest.MonkeyPatch) -
             lambda *a, **k: ("RF", ["FundA"], "mock"),
         )
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             frame,
             "2020-01",
             "2020-01",
@@ -1666,7 +1666,7 @@ def test_run_analysis_warmup_zeroes_initial_rows(
         )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-03",
@@ -1750,7 +1750,7 @@ def test_run_analysis_adds_valid_indices_and_skips_missing_benchmarks(
         )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-03",
@@ -1833,7 +1833,7 @@ def test_run_analysis_handles_benchmark_overrides(
         )
         mp.setattr(pipeline, "information_ratio", lambda *args, **kwargs: 0.0)
 
-        result = _run_analysis(
+        result = run_analysis_payload(
             prepared,
             "2020-01",
             "2020-02",

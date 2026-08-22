@@ -48,9 +48,6 @@ from .pipeline_helpers import (
     position_from_signal as _position_from_signal_impl,
 )
 from .pipeline_runner import (
-    _run_analysis as _run_analysis_impl,
-)
-from .pipeline_runner import (
     _run_analysis_with_diagnostics as _run_analysis_with_diagnostics_impl,
 )
 from .portfolio import apply_weight_policy
@@ -187,12 +184,6 @@ def _assemble_analysis_output(*args: Any, **kwargs: Any) -> Any:
 def _run_analysis_with_diagnostics(*args: Any, **kwargs: Any) -> PipelineResult:
     result = _call_with_sync(_run_analysis_with_diagnostics_impl, *args, **kwargs)
     return result  # type: ignore[no-any-return]
-
-
-def _run_analysis(*args: Any, **kwargs: Any) -> Any:
-    """Return the canonical analysis payload (unwraps diagnostics)."""
-
-    return _call_with_sync(_run_analysis_impl, *args, **kwargs)
 
 
 def _resolve_sample_split(*args: Any, **kwargs: Any) -> Any:
@@ -343,7 +334,7 @@ def run(cfg: Any) -> pd.DataFrame:
             return empty
         if not isinstance(payload, pd.DataFrame):
             raise TypeError(
-                "pipeline.run expected a DataFrame payload; " f"received {type(payload)!r}"
+                f"pipeline.run expected a DataFrame payload; received {type(payload)!r}"
             )
         if result.diagnostic is not None:
             payload.attrs["diagnostic"] = result.diagnostic
@@ -424,7 +415,6 @@ __all__ = [
     "_resolve_risk_free_column",
     "_resolve_sample_split",
     "_resolve_target_vol",
-    "_run_analysis",
     "_run_analysis_with_diagnostics",
     "_section_get",
     "_select_universe",

@@ -3,7 +3,7 @@ import pandas as pd
 
 from trend_analysis import pipeline
 from trend_analysis.core.rank_selection import RiskStatsConfig
-from trend_analysis.pipeline import _run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 from trend_analysis.plugins import WeightEngine, weight_engine_registry
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
@@ -57,7 +57,7 @@ def make_low_vol_returns(n_months: int = 24) -> pd.DataFrame:
 
 def test_pipeline_applies_cash_and_max_weight_constraints():
     df = make_dummy_returns()
-    res = _run_analysis(
+    res = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",
@@ -87,7 +87,7 @@ def test_pipeline_applies_cash_and_max_weight_constraints():
 def test_pipeline_max_weight_with_vol_adjust_enabled():
     df = make_low_vol_returns()
     custom_weights = {"FundA": 80.0, "FundB": 10.0, "FundC": 10.0, "FundD": 0.0}
-    res = _run_analysis(
+    res = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",
@@ -154,7 +154,7 @@ def test_pipeline_long_only_blocks_negative_custom_weights():
     df = make_dummy_returns()
     custom_weights = {"FundA": 70.0, "FundB": -20.0, "FundC": 50.0, "FundD": 0.0}
 
-    res_long_only = _run_analysis(
+    res_long_only = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",
@@ -172,7 +172,7 @@ def test_pipeline_long_only_blocks_negative_custom_weights():
     weights_long = res_long_only["fund_weights"]
     assert all(weight >= 0 for weight in weights_long.values())
 
-    res_short_ok = _run_analysis(
+    res_short_ok = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",
@@ -193,7 +193,7 @@ def test_pipeline_long_only_blocks_negative_custom_weights():
 
 def test_pipeline_long_only_clips_negative_weight_engine_weights():
     df = make_dummy_returns()
-    res_long_only = _run_analysis(
+    res_long_only = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",
@@ -211,7 +211,7 @@ def test_pipeline_long_only_clips_negative_weight_engine_weights():
     weights_long = res_long_only["fund_weights"]
     assert all(weight >= 0 for weight in weights_long.values())
 
-    res_short_ok = _run_analysis(
+    res_short_ok = run_analysis(
         df,
         in_start="2022-01",
         in_end="2022-12",

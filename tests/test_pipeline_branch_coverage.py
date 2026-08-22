@@ -12,6 +12,7 @@ import pytest
 from trend_analysis import pipeline
 from trend_analysis.pipeline import RiskStatsConfig
 from trend_analysis.risk import RiskDiagnostics
+from tests._pipeline_test_utils import run_analysis_payload
 
 
 def _sample_frame() -> pd.DataFrame:
@@ -86,7 +87,7 @@ def test_single_period_run_adds_avg_corr_metric() -> None:
 
 def test_run_analysis_df_none_returns_none() -> None:
     assert (
-        pipeline._run_analysis(
+        run_analysis_payload(
             None,
             "2024-01",
             "2024-02",
@@ -103,7 +104,7 @@ def test_run_analysis_df_none_returns_none() -> None:
 def test_run_analysis_requires_date_column() -> None:
     df = pd.DataFrame({"Fund": [0.1, 0.2]})
     with pytest.raises(ValueError):
-        pipeline._run_analysis(
+        run_analysis_payload(
             df,
             "2024-01",
             "2024-02",
@@ -142,7 +143,7 @@ def test_run_analysis_returns_none_when_windows_empty(
         return prepared, summary, missing, False
 
     monkeypatch.setattr(pipeline, "_prepare_input_data", fake_prepare)
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2025-01",
         "2025-02",
@@ -212,7 +213,7 @@ def test_run_analysis_na_policy_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         "max_consecutive_gap": 1,
     }
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2024-01",
         "2024-03",
@@ -298,7 +299,7 @@ def test_run_analysis_information_ratio_fallback(
     stats_cfg = RiskStatsConfig(metrics_to_run=["Sharpe", "AvgCorr"])
     stats_cfg.extra_metrics = ["AvgCorr"]
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2024-01",
         "2024-03",

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
-from trend_analysis.pipeline import _run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 from trend_analysis.risk import RiskWindow, _scale_factors, realised_volatility
 
 RUN_KWARGS = {"risk_free_column": "RF", "allow_risk_free_fallback": False}
@@ -47,7 +47,7 @@ def test_floor_vol_limits_scaling() -> None:
 
 def test_warmup_zeroes_initial_rows() -> None:
     df = _constant_df()
-    res = _run_analysis(
+    res = run_analysis(
         df,
         "2020-01",
         "2020-03",
@@ -74,7 +74,7 @@ def test_nan_returns_become_zero_weight() -> None:
         "na_as_zero_cfg",
         {"enabled": True, "max_missing_per_window": 2, "max_consecutive_gap": 2},
     )
-    res = _run_analysis(
+    res = run_analysis(
         df,
         "2020-01",
         "2020-03",
@@ -96,7 +96,7 @@ def test_negative_floor_and_warmup_inputs_are_clamped() -> None:
 
     df = _constant_df()
 
-    baseline = _run_analysis(
+    baseline = run_analysis(
         df,
         "2020-01",
         "2020-03",
@@ -108,7 +108,7 @@ def test_negative_floor_and_warmup_inputs_are_clamped() -> None:
     )
     assert baseline is not None
 
-    clamped = _run_analysis(
+    clamped = run_analysis(
         df,
         "2020-01",
         "2020-03",

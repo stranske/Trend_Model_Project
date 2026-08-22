@@ -10,6 +10,7 @@ from trend_analysis import pipeline
 from trend_analysis.core import rank_selection as rank_selection_mod
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.engine import optimizer as optimizer_mod
+from tests._pipeline_test_utils import run_analysis_payload
 
 
 def _base_returns_frame() -> pd.DataFrame:
@@ -120,7 +121,7 @@ def test_run_analysis_na_tolerant_filtering_preserves_funds() -> None:
         },
     )
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -151,7 +152,7 @@ def test_run_analysis_na_tolerant_filtering_drops_excessive_gaps() -> None:
         },
     )
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -176,7 +177,7 @@ def test_regime_enabled_changes_selection_count() -> None:
         "score_by": "Sharpe",
         "transform": "raw",
     }
-    base = pipeline._run_analysis(
+    base = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -190,7 +191,7 @@ def test_regime_enabled_changes_selection_count() -> None:
         **RUN_KWARGS,
     )
     assert base is not None
-    enabled = pipeline._run_analysis(
+    enabled = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -216,7 +217,7 @@ def test_regime_proxy_changes_selection_count() -> None:
         "score_by": "Sharpe",
         "transform": "raw",
     }
-    spx = pipeline._run_analysis(
+    spx = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -229,7 +230,7 @@ def test_regime_proxy_changes_selection_count() -> None:
         regime_cfg={"enabled": True, "proxy": "SPX"},
         **RUN_KWARGS,
     )
-    acwi = pipeline._run_analysis(
+    acwi = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -260,7 +261,7 @@ def test_max_active_positions_caps_weights() -> None:
         "max_weight": 1.0,
         "max_active_positions": 2,
     }
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -288,7 +289,7 @@ def test_regime_proxy_resolves_benchmark_alias() -> None:
         "score_by": "Sharpe",
         "transform": "raw",
     }
-    baseline = pipeline._run_analysis(
+    baseline = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -302,7 +303,7 @@ def test_regime_proxy_resolves_benchmark_alias() -> None:
         regime_cfg={"enabled": False, "proxy": "spx"},
         **RUN_KWARGS,
     )
-    enabled = pipeline._run_analysis(
+    enabled = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -338,7 +339,7 @@ def test_regime_enabled_scales_top_pct_selection_count() -> None:
         "score_by": "Sharpe",
         "transform": "raw",
     }
-    base = pipeline._run_analysis(
+    base = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -351,7 +352,7 @@ def test_regime_enabled_scales_top_pct_selection_count() -> None:
         regime_cfg={"enabled": False, "proxy": "SPX"},
         **RUN_KWARGS,
     )
-    enabled = pipeline._run_analysis(
+    enabled = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -372,7 +373,7 @@ def test_regime_enabled_scales_top_pct_selection_count() -> None:
 
 def test_regime_enabled_scales_random_selection_count() -> None:
     df = _regime_returns_frame()
-    base = pipeline._run_analysis(
+    base = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -385,7 +386,7 @@ def test_regime_enabled_scales_random_selection_count() -> None:
         regime_cfg={"enabled": False, "proxy": "SPX"},
         **RUN_KWARGS,
     )
-    enabled = pipeline._run_analysis(
+    enabled = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -410,7 +411,7 @@ RISK_OFF_TARGET_VOL_MULTIPLIER = 0.5
 
 def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
     df = _regime_returns_frame()
-    base = pipeline._run_analysis(
+    base = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -423,7 +424,7 @@ def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
         regime_cfg={"enabled": False, "proxy": "SPX"},
         **RUN_KWARGS,
     )
-    enabled = pipeline._run_analysis(
+    enabled = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -452,7 +453,7 @@ def test_run_analysis_avg_corr_metrics_populate_stats() -> None:
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
     setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -482,7 +483,7 @@ def test_run_analysis_skips_avg_corr_for_single_fund() -> None:
     stats_cfg.metrics_to_run = list(stats_cfg.metrics_to_run) + ["AvgCorr"]
     setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -521,7 +522,7 @@ def test_run_analysis_does_not_duplicate_existing_avg_corr(
 
     monkeypatch.setattr(pipeline, "single_period_run", fake_single_period_run)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -557,7 +558,7 @@ def test_run_analysis_avg_corr_corr_failure(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(pd.DataFrame, "corr", flaky_corr)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -590,7 +591,7 @@ def test_run_analysis_constraint_failure_falls_back(
     monkeypatch.setattr(optimizer_mod, "apply_constraints", boom)
 
     custom_weights = {"FundA": 60.0, "FundB": 40.0}
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -627,7 +628,7 @@ def test_run_analysis_applies_constraints_on_success(
 
     monkeypatch.setattr(optimizer_mod, "apply_constraints", succeed)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -662,7 +663,7 @@ def test_run_analysis_constraint_violation_fallback(
     monkeypatch.setattr(optimizer_mod, "apply_constraints", raise_violation)
 
     custom_weights = {"FundA": 70.0, "FundB": 30.0}
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -696,7 +697,7 @@ def test_run_analysis_constraint_missing_groups_fallback(
     monkeypatch.setattr(optimizer_mod, "apply_constraints", raise_key_error)
 
     custom_weights = {"FundA": 55.0, "FundB": 45.0}
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -742,7 +743,7 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
     monkeypatch.setattr(pipeline, "information_ratio", flaky_information_ratio)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -775,7 +776,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_output(
 
     monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -801,7 +802,7 @@ def test_run_analysis_benchmark_ir_populates_portfolio_entries() -> None:
     df = _clean_returns_frame()
     stats_cfg = RiskStatsConfig()
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -841,7 +842,7 @@ def test_run_analysis_benchmark_ir_handles_scalar_response(
 
     monkeypatch.setattr(pipeline, "information_ratio", scalar_information_ratio)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -871,7 +872,7 @@ def test_run_analysis_constraints_missing_groups_fallbacks() -> None:
 
     custom_weights = {"FundA": 70.0, "FundB": 30.0}
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -921,7 +922,7 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
     monkeypatch.setattr(pipeline, "calc_portfolio_returns", tagging_calc)
     monkeypatch.setattr(pipeline, "information_ratio", fake_information_ratio)
 
-    result = pipeline._run_analysis(
+    result = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",

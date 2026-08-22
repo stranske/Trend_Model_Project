@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from trend_analysis.pipeline import _run_analysis
+from tests._pipeline_test_utils import run_analysis_payload as run_analysis
 from trend_analysis.risk import (
     RiskWindow,
     compute_constrained_weights,
@@ -28,7 +28,7 @@ def _analysis_with_heterogeneous_returns(
     risk_free_rate: float = 0.0,
 ) -> tuple[dict[object, object], pd.DataFrame]:
     returns = _heterogeneous_returns().assign(RF=risk_free_rate).reset_index(names="Date")
-    result = _run_analysis(
+    result = run_analysis(
         returns,
         in_start="2022-01",
         in_end="2022-12",
@@ -77,7 +77,10 @@ def test_scale_factor_has_one_effective_owner() -> None:
         .sum(axis=1)
     )
     pd.testing.assert_series_equal(
-        result["portfolio_user_weight"], expected_user, check_names=False, check_freq=False
+        result["portfolio_user_weight"],
+        expected_user,
+        check_names=False,
+        check_freq=False,
     )
 
 
@@ -86,7 +89,10 @@ def test_portfolio_volatility_diagnostic_matches_user_returns() -> None:
     raw_out_returns = returns.set_index("Date").loc["2023-01-01":, ["Steady", "Volatile"]]
     expected_user = raw_out_returns.mul(pd.Series(result["fund_weights"]), axis=1).sum(axis=1)
     pd.testing.assert_series_equal(
-        result["portfolio_user_weight"], expected_user, check_names=False, check_freq=False
+        result["portfolio_user_weight"],
+        expected_user,
+        check_names=False,
+        check_freq=False,
     )
     reported = result["risk_diagnostics"]["portfolio_volatility"]
     expected = realised_volatility(
@@ -133,7 +139,10 @@ def test_equal_weight_comparison_uses_documented_scaling_contract() -> None:
     out_returns = returns.set_index("Date").loc["2023-01-01":, ["Steady", "Volatile"]]
     expected_equal_weight = out_returns.mean(axis=1)
     pd.testing.assert_series_equal(
-        result["portfolio_equal_weight"], expected_equal_weight, check_names=False, check_freq=False
+        result["portfolio_equal_weight"],
+        expected_equal_weight,
+        check_names=False,
+        check_freq=False,
     )
 
 

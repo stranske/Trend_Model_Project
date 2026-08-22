@@ -8,6 +8,7 @@ from trend_analysis import config, pipeline, risk
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.diagnostics import PipelineReasonCode
+from tests._pipeline_test_utils import run_analysis_payload
 
 pytestmark = pytest.mark.runtime
 
@@ -104,7 +105,7 @@ def test_risk_free_series_used_for_score_frame():
     rf = pd.Series([0.001, 0.001, 0.002, 0.002], index=dates)
     a = pd.Series([0.011, 0.012, 0.01, 0.009], index=dates)
     df = pd.DataFrame({"Date": dates, "RF": rf, "A": a, "B": 0.0})
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-02",
@@ -125,7 +126,7 @@ def test_risk_free_fallback_logs_choice(caplog):
     caplog.set_level(logging.INFO, logger="trend_analysis.pipeline")
     df = _make_two_fund_df()
 
-    res = pipeline._run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -220,13 +221,13 @@ def test_run_analysis_none():
 def test_run_analysis_missing_date():
     df = pd.DataFrame({"A": [1, 2]})
     with pytest.raises(ValueError):
-        pipeline.run_analysis(df, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0)
+        run_analysis_payload(df, "2020-01", "2020-03", "2020-04", "2020-06", 1.0, 0.0)
 
 
 def test_run_analysis_string_dates():
     df = make_df()
     df["Date"] = df["Date"].astype(str)
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -302,7 +303,7 @@ def test_run_missing_csv_key(tmp_path):
 
 def test_run_analysis_custom_weights():
     df = make_df()
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -479,7 +480,7 @@ def test_run_analysis_applies_constraints(monkeypatch):
         "groups": {"A": "grp", "B": "grp"},
     }
 
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -512,7 +513,7 @@ def test_run_analysis_constraint_failure_falls_back(monkeypatch):
         boom,
     )
 
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -538,7 +539,7 @@ def test_run_analysis_injects_avg_corr_metric():
     )
     setattr(stats_cfg, "extra_metrics", ["AvgCorr"])
 
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",
@@ -577,7 +578,7 @@ def test_run_analysis_benchmark_ir_fallback(monkeypatch):
     # Patch the module-level binding in pipeline.py so run_analysis sees our stub
     monkeypatch.setattr(pipeline, "information_ratio", selective_boom)
 
-    res = pipeline.run_analysis(
+    res = run_analysis_payload(
         df,
         "2020-01",
         "2020-03",

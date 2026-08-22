@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from trend_analysis import pipeline
+from tests._pipeline_test_utils import run_analysis_payload
 
 
 def make_df():
@@ -29,7 +29,7 @@ def test_weight_engine_success_logging(caplog):
     df = make_df()
 
     with caplog.at_level(logging.DEBUG):
-        result = pipeline._run_analysis(
+        result = run_analysis_payload(
             df,
             "2020-01",
             "2020-03",  # in sample
@@ -56,7 +56,7 @@ def test_weight_engine_failure_logging(caplog):
     df = make_df()
 
     with caplog.at_level(logging.DEBUG):
-        result = pipeline._run_analysis(
+        result = run_analysis_payload(
             df,
             "2020-01",
             "2020-03",  # in sample
@@ -97,7 +97,7 @@ def test_weight_engine_import_failure_logging(caplog):
         mock_import.side_effect = ImportError("Mock import error")
 
         with caplog.at_level(logging.DEBUG):
-            result = pipeline._run_analysis(
+            result = run_analysis_payload(
                 df,
                 "2020-01",
                 "2020-03",  # in sample
@@ -128,7 +128,7 @@ def test_weight_engine_failure_preserves_logger_level(caplog):
     logger.setLevel(logging.INFO)
 
     try:
-        result = pipeline._run_analysis(
+        result = run_analysis_payload(
             df,
             "2020-01",
             "2020-03",  # in sample
@@ -154,7 +154,7 @@ def test_weight_engine_no_scheme_no_logging(caplog):
     df = make_df()
 
     with caplog.at_level(logging.DEBUG):
-        result = pipeline._run_analysis(
+        result = run_analysis_payload(
             df,
             "2020-01",
             "2020-03",  # in sample
@@ -180,7 +180,7 @@ def test_weight_engine_equal_scheme_no_logging(caplog):
     df = make_df()
 
     with caplog.at_level(logging.DEBUG):
-        result = pipeline._run_analysis(
+        result = run_analysis_payload(
             df,
             "2020-01",
             "2020-03",  # in sample

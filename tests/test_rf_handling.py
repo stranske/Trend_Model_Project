@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.metrics import sharpe_ratio
+from tests._pipeline_test_utils import run_analysis_payload
 
 
 def _mini_df():
@@ -19,10 +20,9 @@ def _mini_df():
 
 def test_pipeline_respects_lowest_vol_exclusion_as_rf():
     df = _mini_df()
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+    res = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2020-01",
         in_end="2020-03",
@@ -53,10 +53,9 @@ def test_risk_free_fallback_uses_in_sample_window_alignment():
             "Fund": [0.02, 0.01, -0.005, 0.003, 0.002, 0.004],
         }
     )
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+    res = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2020-01",
         in_end="2020-03",
@@ -86,10 +85,9 @@ def test_risk_free_fallback_requires_window_coverage():
             "Fund": [0.02, 0.01, -0.01, 0.015, 0.0, 0.012],
         }
     )
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+    res = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2021-02",
         in_end="2021-04",
@@ -117,11 +115,10 @@ def test_risk_free_fallback_rejects_all_sparse_series():
             "AlsoSparse": [pd.NA, pd.NA, pd.NA, 0.0003, pd.NA, pd.NA],
         }
     )
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
     with pytest.raises(ValueError, match="coverage requirement"):
-        pipeline._run_analysis(  # type: ignore[attr-defined]
+        run_analysis_payload(  # type: ignore[attr-defined]
             df,
             in_start="2021-02",
             in_end="2021-04",
@@ -137,11 +134,10 @@ def test_risk_free_fallback_rejects_all_sparse_series():
 
 def test_pipeline_constant_rf_via_stats_cfg_executes():
     df = _mini_df().drop(columns=["RF"])  # no RF column available
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
     # Ensure setting risk_free in stats_cfg executes and returns metrics
-    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+    res = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2020-01",
         in_end="2020-03",
@@ -166,11 +162,10 @@ def test_pipeline_constant_rf_via_stats_cfg_executes():
 
 def test_pipeline_requires_configured_risk_free_column():
     df = _mini_df().drop(columns=["RF"])
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
     with pytest.raises(ValueError, match="Configured risk-free column 'RF'"):
-        pipeline._run_analysis(  # type: ignore[attr-defined]
+        run_analysis_payload(  # type: ignore[attr-defined]
             df,
             in_start="2020-01",
             in_end="2020-03",
@@ -187,11 +182,10 @@ def test_pipeline_requires_configured_risk_free_column():
 
 def test_pipeline_requires_flag_for_fallback_when_missing_rf():
     df = _mini_df().drop(columns=["RF"])
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
     with pytest.raises(ValueError, match="allow_risk_free_fallback"):
-        pipeline._run_analysis(  # type: ignore[attr-defined]
+        run_analysis_payload(  # type: ignore[attr-defined]
             df,
             in_start="2020-01",
             in_end="2020-03",
@@ -207,11 +201,10 @@ def test_pipeline_requires_flag_for_fallback_when_missing_rf():
 
 def test_pipeline_requires_explicit_flag_when_missing_rf_defaults_off():
     df = _mini_df().drop(columns=["RF"])
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
     with pytest.raises(ValueError, match="allow_risk_free_fallback"):
-        pipeline._run_analysis(  # type: ignore[attr-defined]
+        run_analysis_payload(  # type: ignore[attr-defined]
             df,
             in_start="2020-01",
             in_end="2020-03",
@@ -226,10 +219,9 @@ def test_pipeline_requires_explicit_flag_when_missing_rf_defaults_off():
 
 def test_pipeline_enables_fallback_when_flag_true_and_rf_missing():
     df = _mini_df().drop(columns=["RF"])
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    result = pipeline._run_analysis(  # type: ignore[attr-defined]
+    result = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2020-01",
         in_end="2020-03",
@@ -277,10 +269,9 @@ def test_identify_risk_free_name_aliases_case_insensitive():
 
 def test_pipeline_uses_configured_series_for_metrics():
     df = _mini_df().rename(columns={"RF": "Cash"})
-    from trend_analysis import pipeline
     from trend_analysis.core.rank_selection import RiskStatsConfig
 
-    res = pipeline._run_analysis(  # type: ignore[attr-defined]
+    res = run_analysis_payload(  # type: ignore[attr-defined]
         df,
         in_start="2020-01",
         in_end="2020-03",

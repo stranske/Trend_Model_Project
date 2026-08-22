@@ -285,6 +285,37 @@ def test_legacy_runtime_shims_absence_gate_rejects_patch_hook_restoration() -> N
     )
 
 
+def test_pipeline_private_run_facade_is_absent() -> None:
+    """The public pipeline module must not restore its test-only raw facade."""
+
+    pipeline_path = REPO_ROOT / "src/trend_analysis/pipeline.py"
+    tree = ast.parse(pipeline_path.read_text(encoding="utf-8"))
+    definitions = {
+        node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "_run_analysis" not in definitions
+
+    offenders: list[str] = []
+    for root_name in ("src", "tests"):
+        for source_path in (REPO_ROOT / root_name).rglob("*.py"):
+            source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
+            for node in ast.walk(source_tree):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "trend_analysis.pipeline"
+                    and any(alias.name == "_run_analysis" for alias in node.names)
+                ):
+                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr == "_run_analysis"
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == "pipeline"
+                ):
+                    offenders.append(source_path.relative_to(REPO_ROOT).as_posix())
+    assert offenders == []
+
+
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
 def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
     launchers = tmp_path / directory
@@ -376,7 +407,9 @@ def test_notebook_code_cells_detect_retired_imports(tmp_path: Path) -> None:
     assert any("trend_analysis." + "cli" in offender for offender in offenders)
 
 
-def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(tmp_path: Path) -> None:
+def test_notebook_magic_line_cannot_hide_later_import_in_same_cell(
+    tmp_path: Path,
+) -> None:
     """IPython-only lines must not suppress later Python in the same cell."""
     notebook = tmp_path / "active.ipynb"
     notebook.write_text(
