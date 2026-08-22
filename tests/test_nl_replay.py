@@ -97,6 +97,23 @@ def test_replay_nl_entry_reports_diff_on_mismatch() -> None:
     assert result.diff.startswith("--- recorded")
 
 
+def test_replay_nl_entry_rejects_apply_patch_entries() -> None:
+    entry = _make_entry("req-apply-patch").model_copy(
+        update={
+            "operation": "apply_patch",
+            "prompt_template": "",
+            "prompt_variables": {},
+            "model_output": None,
+        }
+    )
+    fake_llm = FakeLLM("should not be invoked")
+
+    with pytest.raises(ValueError, match="Only nl_to_patch entries can be replayed"):
+        replay_nl_entry(entry, llm=fake_llm)
+
+    assert fake_llm.last_prompt is None
+
+
 def test_replay_nl_entry_emits_fleet_record(monkeypatch, tmp_path) -> None:
     entry = _make_entry("req-fleet", output="match")
     fake_llm = FakeLLM("different")

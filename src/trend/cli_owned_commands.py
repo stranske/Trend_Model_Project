@@ -147,17 +147,21 @@ def _resolved_export_settings(cfg: Any) -> tuple[str, list[str] | str, str] | No
         out_formats = DEFAULT_OUTPUT_FORMATS
     if not out_dir or not out_formats:
         return None
-    return str(out_dir), out_formats, filename
+    formats = cast(list[str] | str, out_formats)
+    return str(out_dir), formats, str(filename)
 
 
 def _summary_text(cfg: Any, details: Any) -> str:
     split = getattr(cfg, "sample_split", {})
-    return export.format_summary_text(
-        details,
-        str(split.get("in_start", "")),
-        str(split.get("in_end", "")),
-        str(split.get("out_start", "")),
-        str(split.get("out_end", "")),
+    return cast(
+        str,
+        export.format_summary_text(
+            details,
+            str(split.get("in_start", "")),
+            str(split.get("in_end", "")),
+            str(split.get("out_start", "")),
+            str(split.get("out_end", "")),
+        ),
     )
 
 
@@ -983,12 +987,15 @@ def _run_nl_replay(argv: list[str]) -> int:
         entry = _load_nl_log_entry(log_path, args.entry)
     except (ValueError, IndexError) as exc:
         raise TrendCLIError(str(exc)) from exc
-    result = _replay_nl_entry(
-        entry,
-        provider=args.provider,
-        model=args.model,
-        temperature=args.temperature,
-    )
+    try:
+        result = _replay_nl_entry(
+            entry,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+        )
+    except ValueError as exc:
+        raise TrendCLIError(str(exc)) from exc
     if args.show_prompt:
         print("Prompt:")
         print(result.prompt)

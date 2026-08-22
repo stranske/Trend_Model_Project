@@ -297,13 +297,14 @@ def test_print_summary_displays_cache_stats(monkeypatch, capsys):
     assert "Cache statistics" in captured.out
 
 
+@pytest.mark.parametrize("key", ["per_trade_bps", "half_spread_bps"])
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
-def test_transaction_cost_controls_reject_non_finite_values(value: float) -> None:
-    cfg = SimpleNamespace(
-        portfolio={"cost_model": {"per_trade_bps": value, "half_spread_bps": 0.0}}
-    )
+def test_transaction_cost_controls_reject_non_finite_values(key: str, value: float) -> None:
+    cost_model = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
+    cost_model[key] = value
+    cfg = SimpleNamespace(portfolio={"cost_model": cost_model})
 
-    with pytest.raises(owned.TrendCLIError, match="per_trade_bps must be a finite number"):
+    with pytest.raises(owned.TrendCLIError, match=f"{key} must be a finite number"):
         owned._require_transaction_cost_controls(cfg)
 
 
