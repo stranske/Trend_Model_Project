@@ -468,6 +468,7 @@ __all__ = [
 ]
 
 # Child-module imports attach modules to this package automatically. Keep the
-# supported function while avoiding the retired ``metrics.factor_attribution``
-# compatibility surface.
-globals().pop("factor_attribution", None)
+# supported functions while avoiding retired package-level compatibility
+# surfaces; their canonical submodule imports remain available.
+for _retired_module in ("attribution", "factor_attribution", "rolling", "summary", "turnover"):
+    globals().pop(_retired_module, None)

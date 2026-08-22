@@ -37,7 +37,8 @@ def test_metrics_package_exposes_only_documented_metric_functions() -> None:
 def test_metrics_package_has_no_compatibility_submodule_exports() -> None:
     probe = (
         "import trend_analysis.metrics as metrics\n"
-        "assert not hasattr(metrics, 'factor_attribution')\n"
+        "for name in ('attribution', 'factor_attribution', 'rolling', 'summary', 'turnover'):\n"
+        "    assert not hasattr(metrics, name), name\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", probe],
