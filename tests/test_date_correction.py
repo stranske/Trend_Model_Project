@@ -276,3 +276,20 @@ class TestDateCorrection:
         # and corrected to 30/11/2017
         assert result.has_corrections
         assert "30" in result.corrections[0].corrected_value
+
+    def test_invalid_year_is_not_correctable(self):
+        result = analyze_date_column(pd.DataFrame({"Date": ["12/31/2201"]}), "Date")
+
+        assert not result.has_corrections
+        assert result.has_unfixable
+        assert result.unfixable == [(0, "12/31/2201")]
+
+    def test_non_default_index_uses_positions_for_failed_rows(self):
+        frame = pd.DataFrame(
+            {"Date": ["2020-01-31", "12/35/2020", "2020-03-31"]},
+            index=[10, 20, 30],
+        )
+        result = analyze_date_column(frame, "Date")
+
+        assert result.has_unfixable
+        assert result.unfixable == [(1, "12/35/2020")]
