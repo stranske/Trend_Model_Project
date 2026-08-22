@@ -237,7 +237,7 @@ class TestBuildStep0:
         monkeypatch.setattr(app_module, "widgets", mock_widgets)
 
         upload = MagicMock()
-        upload.value = {"new.yml": {"content": b"mode: all"}}
+        upload.value = {"new.yml": {"content": app_module.DEFAULTS.read_bytes()}}
         mock_widgets.FileUpload.return_value = upload
         mock_widgets.Dropdown.return_value = MagicMock()
         mock_widgets.Button.return_value = MagicMock()
@@ -259,11 +259,40 @@ class TestBuildStep0:
             upload_callback = upload.observe.call_args[0][0]
             upload_callback({"new": upload.value}, store=store)
 
-        assert store.cfg == {"mode": "all"}
+        assert store.cfg["portfolio"]["selection_mode"] == "all"
+        assert app_module.build_config_from_store(store).portfolio["selection_mode"] == "all"
         assert store.dirty is True
         assert grid.data == [store.cfg]
         grid.hold_trait_notifications.assert_called()
         mock_reset.assert_called_once_with(store)
+
+    @patch("trend_analysis.gui.app.list_builtin_cfgs")
+    def test_upload_rejects_retired_top_level_keys(self, mock_list_cfgs, monkeypatch):
+        """Legacy GUI YAML is rejected rather than silently translated or stored."""
+
+        mock_list_cfgs.return_value = ["demo"]
+        mock_widgets = MagicMock()
+        monkeypatch.setattr(app_module, "widgets", mock_widgets)
+        upload = MagicMock()
+        upload.value = {"old.yml": {"content": b"mode: rank\nuse_ranking: true\n"}}
+        mock_widgets.FileUpload.return_value = upload
+        mock_widgets.Dropdown.return_value = MagicMock()
+        mock_widgets.Button.return_value = MagicMock()
+        mock_widgets.VBox.return_value = MagicMock()
+        grid = MagicMock()
+        grid.hold_trait_notifications.return_value = _cm_mock()
+
+        with (
+            patch("trend_analysis.gui.app.HAS_DATAGRID", True),
+            patch("trend_analysis.gui.app.DataGrid", return_value=grid),
+            pytest.warns(UserWarning, match="retired top-level configuration key"),
+        ):
+            store = ParamStore(cfg={"portfolio": {"selection_mode": "all"}})
+            app_module._build_step0(store)
+            upload.observe.call_args[0][0]({"new": upload.value}, store=store)
+
+        assert store.cfg == {"portfolio": {"selection_mode": "all"}}
+        assert store.dirty is False
 
     @patch("trend_analysis.gui.app.widgets")
     @patch("trend_analysis.gui.app.list_builtin_cfgs")
@@ -917,12 +946,12 @@ def test_datagrid_import_sets_flag(monkeypatch):
         importlib.reload(app_module)
 
 
-def test_load_state_with_weight_variants(tmp_path, monkeypatch):
-    """Ensure load_state handles both new and legacy weight files."""
+def test_load_state_requires_canonical_weight_shape(tmp_path, monkeypatch):
+    """Load the canonical weighting state and reject the retired raw payload."""
 
     state_file = tmp_path / "state.yml"
     weight_file = tmp_path / "weights.pkl"
-    state_file.write_text("mode: all\n")
+    state_file.write_text("portfolio:\n  selection_mode: all\n")
     weight_file.write_bytes(pickle.dumps({"adaptive_bayes_posteriors": {"fund": 1.0}}))
 
     monkeypatch.setattr(app_module, "STATE_FILE", state_file)
@@ -932,8 +961,9 @@ def test_load_state_with_weight_variants(tmp_path, monkeypatch):
     assert store.weight_state == {"fund": 1.0}
 
     weight_file.write_bytes(pickle.dumps([0.1, 0.2]))
-    store = app_module.load_state()
-    assert store.weight_state == [0.1, 0.2]
+    with pytest.warns(UserWarning, match="adaptive_bayes_posteriors mapping"):
+        store = app_module.load_state()
+    assert store.weight_state is None
 
 
 def test_reset_weight_state_removes_file(tmp_path, monkeypatch):
@@ -1207,6 +1237,12 @@ def test_build_manual_override_datagrid(monkeypatch):
     assert manual.count("FundB") == 1 and weights["FundA"] == 0.3
     assert store.dirty is True
 
+    store.cfg = {"portfolio": {"custom_weights": {}, "manual_list": []}}
+    grid.callbacks["cell_edited"]({"row": 1, "column": 1, "new": True})
+    grid.callbacks["cell_edited"]({"row": 0, "column": 2, "new": "0.4"})
+    assert store.cfg["portfolio"]["manual_list"] == ["FundB"]
+    assert store.cfg["portfolio"]["custom_weights"] == {"FundA": 0.4}
+
 
 def test_build_manual_override_datagrid_missing_on(monkeypatch):
     """Gracefully handle DataGrid implementations lacking an ``on`` method."""
@@ -1264,6 +1300,12 @@ def test_build_manual_override_import_error(monkeypatch):
     select.set_value(("FundA", "FundA"))
     assert store.cfg["portfolio"]["manual_list"] == ["FundA", "FundA"]
 
+    store.cfg = {"portfolio": {"custom_weights": {}, "manual_list": []}}
+    select.set_value(("FundA",))
+    weights_box.set_value(0.35)
+    assert store.cfg["portfolio"]["manual_list"] == ["FundA"]
+    assert store.cfg["portfolio"]["custom_weights"] == {"FundA": 0.35}
+
 
 def test_build_weighting_options_callbacks(monkeypatch):
     """Weighting widgets should keep params in sync with the store."""
@@ -1310,6 +1352,15 @@ def test_build_weighting_options_callbacks(monkeypatch):
     assert weight_cfg["params"]["prior_tau"] == 1.2
     assert adv_box.layout.display == "flex"
 
+    store.cfg = {}
+    method.value = "score_prop"
+    _call_observer(method._observers[0], {"new": "score_prop"}, store)
+    hl.value = 180
+    _call_observer(hl._observers[0], {"new": 180}, store)
+    current_weight_cfg = store.cfg["portfolio"]["weighting"]
+    assert current_weight_cfg["name"] == "score_prop"
+    assert current_weight_cfg["params"]["half_life"] == 180
+
 
 def test_launch_interactions(monkeypatch, tmp_path):
     """Validate launch wiring including run/export callbacks."""
@@ -1324,7 +1375,13 @@ def test_launch_interactions(monkeypatch, tmp_path):
     manual_box = DummyBox()
     weight_box = DummyBox()
 
-    monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
+    replacement_callbacks = []
+
+    def fake_step0(store, *, on_config_replaced=None):
+        replacement_callbacks.append(on_config_replaced)
+        return DummyBox()
+
+    monkeypatch.setattr(app_module, "_build_step0", fake_step0)
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: rank_box)
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: manual_box)
     monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: weight_box)
@@ -1390,6 +1447,16 @@ def test_launch_interactions(monkeypatch, tmp_path):
 
     container = app_module.launch()
     _, mode, vol_adj, _, _, _, fmt_dd, theme, reset_btn, run_btn = container.children
+
+    store.cfg = {
+        "portfolio": {"selection_mode": "random"},
+        "vol_adjust": {"enabled": False},
+        "output": {"format": "json"},
+    }
+    replacement_callbacks[0]()
+    assert mode.value == "random"
+    assert vol_adj.value is False
+    assert fmt_dd.value == "json"
 
     # Simulate the config-loader replacing the entire state mapping after the
     # launch callbacks were registered.
@@ -1500,7 +1567,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     """Execute alternative exporter paths when format is not Excel."""
 
     monkeypatch.setattr(app_module, "discover_plugins", lambda: None)
-    monkeypatch.setattr(app_module, "_build_step0", lambda store: DummyBox())
+    monkeypatch.setattr(app_module, "_build_step0", lambda store, **kwargs: DummyBox())
     monkeypatch.setattr(app_module, "_build_rank_options", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_manual_override", lambda store: DummyBox())
     monkeypatch.setattr(app_module, "_build_weighting_options", lambda store: DummyBox())

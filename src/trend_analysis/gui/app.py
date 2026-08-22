@@ -321,16 +321,19 @@ def load_state() -> ParamStore:
     try:
         if STATE_FILE.exists():
             store = ParamStore.from_yaml(STATE_FILE)
+            store.cfg = _validate_loaded_gui_config(store.cfg)
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load state: {exc}")
     try:
         if WEIGHT_STATE_FILE.exists():
             with WEIGHT_STATE_FILE.open("rb") as fh:
                 data = pickle.load(fh)
-            if isinstance(data, dict) and "adaptive_bayes_posteriors" in data:
-                store.weight_state = data["adaptive_bayes_posteriors"]
-            else:  # back-compat with old format
-                store.weight_state = data
+            if not isinstance(data, dict) or "adaptive_bayes_posteriors" not in data:
+                raise ValueError("weight state must use the adaptive_bayes_posteriors mapping")
+            posterior_state = data["adaptive_bayes_posteriors"]
+            if not isinstance(posterior_state, dict):
+                raise ValueError("adaptive_bayes_posteriors must be a mapping")
+            store.weight_state = posterior_state
     except Exception as exc:  # pragma: no cover - malformed file
         warnings.warn(f"Failed to load weight state: {exc}")
     return store
@@ -435,7 +438,27 @@ def _clear_grid_error_border(grid: Any) -> None:
         clear_border()
 
 
-def _build_step0(store: ParamStore) -> widgets.Widget:
+_RETIRED_GUI_TOP_LEVEL_KEYS = frozenset({"mode", "rank", "use_ranking", "use_vol_adjust"})
+
+
+def _validate_loaded_gui_config(raw: Any) -> dict[str, Any]:
+    """Reject non-canonical GUI configuration before replacing live state."""
+
+    if not isinstance(raw, dict):
+        raise ValueError("configuration must be a YAML mapping")
+    retired = sorted(_RETIRED_GUI_TOP_LEVEL_KEYS.intersection(raw))
+    if retired:
+        names = ", ".join(retired)
+        raise ValueError(
+            f"retired top-level configuration key(s): {names}; "
+            "use portfolio.selection_mode, portfolio.rank, and vol_adjust.enabled"
+        )
+    return raw
+
+
+def _build_step0(
+    store: ParamStore, *, on_config_replaced: Callable[[], None] | None = None
+) -> widgets.Widget:
     """Return widgets for Step 0 (config loader/editor)."""
 
     _load_notebook_deps()
@@ -485,11 +508,17 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
 
     def on_upload(change: dict[str, Any], *, store: ParamStore) -> None:
         if change["new"]:
-            item = next(iter(upload.value.values()))
-            store.cfg = yaml.safe_load(item["content"].decode("utf-8"))
-            store.dirty = True
-            reset_weight_state(store)
-            refresh_grid()
+            try:
+                item = next(iter(upload.value.values()))
+                loaded = yaml.safe_load(item["content"].decode("utf-8"))
+                store.cfg = _validate_loaded_gui_config(loaded)
+                store.dirty = True
+                reset_weight_state(store)
+                refresh_grid()
+                if on_config_replaced is not None:
+                    on_config_replaced()
+            except (TypeError, ValueError, yaml.YAMLError) as exc:
+                warnings.warn(f"Invalid uploaded configuration: {exc}")
 
     def on_template(change: dict[str, Any], *, store: ParamStore) -> None:
         name = change["new"]
@@ -497,15 +526,17 @@ def _build_step0(store: ParamStore) -> widgets.Widget:
         path = cfg_dir / f"{name}.yml"
         try:
             content = path.read_text()
-            store.cfg = yaml.safe_load(content)
+            store.cfg = _validate_loaded_gui_config(yaml.safe_load(content))
             store.dirty = True
             reset_weight_state(store)
             refresh_grid()
+            if on_config_replaced is not None:
+                on_config_replaced()
         except FileNotFoundError:
             warnings.warn(f"Template config file not found: {path}")
         except PermissionError:
             warnings.warn(f"Permission denied reading template config: {path}")
-        except yaml.YAMLError as exc:
+        except (TypeError, ValueError, yaml.YAMLError) as exc:
             warnings.warn(f"Invalid YAML in template config {path}: {exc}")
         except Exception as exc:
             warnings.warn(f"Failed to load template config {path}: {exc}")
@@ -651,12 +682,15 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
 
         def _on_edit(event: dict[str, Any], *, store: ParamStore) -> None:
             fund = df.loc[event["row"], "Fund"]
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_weights = current_port.setdefault("custom_weights", {})
+            current_manual = current_port.setdefault("manual_list", list(current_weights))
             if event.get("column") == 1:  # Include
                 include_val = bool(event.get("new"))
-                if include_val and fund not in manual:
-                    manual.append(fund)
-                elif not include_val and fund in manual:
-                    manual.remove(fund)
+                if include_val and fund not in current_manual:
+                    current_manual.append(fund)
+                elif not include_val and fund in current_manual:
+                    current_manual.remove(fund)
             elif event.get("column") == 2:  # Weight
                 new_val = event.get("new")
                 if new_val is None:
@@ -667,7 +701,7 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                         raise ValueError
                 except (TypeError, ValueError):
                     return
-                weights[fund] = weight_val
+                current_weights[fund] = weight_val
                 df.loc[event["row"], "Weight"] = weight_val
             store.dirty = True
 
@@ -686,7 +720,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
         ]
 
         def _on_select(change: dict[str, Any], *, store: ParamStore) -> None:
-            manual[:] = list(change["new"])
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_port["manual_list"] = list(change["new"])
             store.dirty = True
 
         def _on_weight(change: dict[str, Any], fund: str, *, store: ParamStore) -> None:
@@ -696,7 +731,8 @@ def _build_manual_override(store: ParamStore) -> widgets.Widget:
                     raise ValueError
             except Exception:
                 return
-            weights[fund] = val
+            current_port = store.cfg.setdefault("portfolio", {})
+            current_port.setdefault("custom_weights", {})[fund] = val
             store.dirty = True
 
         select.observe(lambda ch, store=store: _on_select(ch, store=store), names="value")
@@ -762,11 +798,15 @@ def _build_weighting_options(store: ParamStore) -> widgets.Widget:
     adv_box = widgets.VBox([hl, os_sl, mw_sl, pt_sl])
 
     def _store_weight(_: Any = None, *, store: ParamStore) -> None:
-        weight_cfg["name"] = method_dd.value
-        params["half_life"] = int(hl.value)
-        params["obs_sigma"] = float(os_sl.value)
-        params["max_w"] = float(mw_sl.value)
-        params["prior_tau"] = float(pt_sl.value)
+        current_weight_cfg = store.cfg.setdefault("portfolio", {}).setdefault(
+            "weighting", {"name": "equal", "params": {}}
+        )
+        current_params = current_weight_cfg.setdefault("params", {})
+        current_weight_cfg["name"] = method_dd.value
+        current_params["half_life"] = int(hl.value)
+        current_params["obs_sigma"] = float(os_sl.value)
+        current_params["max_w"] = float(mw_sl.value)
+        current_params["prior_tau"] = float(pt_sl.value)
         store.dirty = True
 
     method_dd.observe(lambda ch, store=store: _store_weight(ch, store=store), names="value")
@@ -895,7 +935,20 @@ def launch() -> widgets.Widget:
     mode.observe(lambda ch, store=store: _toggle_boxes(ch, store=store), names="value")
     _toggle_boxes({"new": mode.value}, store=store)
 
-    step0 = _build_step0(store)
+    def _refresh_config_widgets() -> None:
+        """Reflect a replacement config in the controls that remain mounted."""
+
+        portfolio_cfg = _as_dict(store.cfg.get("portfolio"))
+        mode.value = portfolio_cfg.get("selection_mode", "all")
+        vol_adj.value = _as_dict(store.cfg.get("vol_adjust")).get("enabled", True)
+        fmt_dd.value = _as_dict(store.cfg.get("output")).get("format", "excel")
+
+        rank_box.children = _build_rank_options(store).children
+        manual_box.children = _build_manual_override(store).children
+        weight_box.children = _build_weighting_options(store).children
+        _toggle_boxes({"new": mode.value}, store=store)
+
+    step0 = _build_step0(store, on_config_replaced=_refresh_config_widgets)
 
     container = widgets.VBox(
         [
