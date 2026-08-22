@@ -21,4 +21,5 @@ def test_validation_issue_dto_has_non_exception_name() -> None:
     assert config.ConfigIssue is validation.ConfigIssue
     assert "ConfigIssue" in config.__all__
     assert not hasattr(validation, "ValidationError")
+    assert not hasattr(config, "ValidationError")
     assert "ValidationError" not in config.__all__
