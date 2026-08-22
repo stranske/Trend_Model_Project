@@ -1016,9 +1016,7 @@ def test_model_timestamps_are_aware_utc_and_preserve_wire_format(
     stub = model_module.st
     stub.session_state.clear()
     model_module._record_config_change({"before": {"a": 1}, "after": {"a": 2}})
-    model_module._record_preview_timing(
-        {"timings": {"chain_cache_key": {}}}, total_seconds=0.1
-    )
+    model_module._record_preview_timing({"timings": {"chain_cache_key": {}}}, total_seconds=0.1)
     model_module._record_chain_cache_stats({}, chain_build_seconds=0.1)
 
     assert stub.session_state[model_module._CONFIG_HISTORY_KEY][0]["timestamp"] == sentinel

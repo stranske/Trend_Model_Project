@@ -91,6 +91,8 @@ def _utc_output_timestamp() -> str:
     """Return the stable, filename-safe UTC timestamp for MC outputs."""
 
     return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+
+
 # nav_paths schema requirements:
 # - DataFrame index: datetime-like period ends (DatetimeIndex preferred).
 # - Values: float NAVs normalized to start at 1.0 for each path.
