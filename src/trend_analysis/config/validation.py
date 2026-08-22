@@ -565,9 +565,7 @@ def _check_vol_adjust_required_fields(
     )
 
 
-def _collect_trend_errors(
-    config: Mapping[str, Any], errors: list[ConfigIssue], base: Path
-) -> None:
+def _collect_trend_errors(config: Mapping[str, Any], errors: list[ConfigIssue], base: Path) -> None:
     try:
         validate_trend_config(dict(config), base_path=base)
     except Exception as exc:
@@ -642,9 +640,7 @@ def _check_date_ranges(config: Mapping[str, Any], errors: list[ConfigIssue]) -> 
         _append_issue(errors, issue)
 
 
-def _check_sample_split_requirements(
-    config: Mapping[str, Any], errors: list[ConfigIssue]
-) -> None:
+def _check_sample_split_requirements(config: Mapping[str, Any], errors: list[ConfigIssue]) -> None:
     split = config.get("sample_split")
     if not isinstance(split, Mapping):
         return

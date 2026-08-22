@@ -64,7 +64,6 @@ class ResolvedDataSettings:
     universe_membership_path: Path | None
 
 
-
 @dataclass(frozen=True, slots=True)
 class CostSettings:
     """Portfolio cost parameters validated at startup."""
