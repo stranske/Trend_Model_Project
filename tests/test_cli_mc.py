@@ -12,6 +12,7 @@ import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
 from trend import cli
+from trend.mc.commands import is_valid_tqdm_instance, write_mc_manifest
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import MonteCarloResults
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
@@ -235,7 +236,7 @@ def test_mc_manifest_includes_required_keys_and_uses_utc_timestamp(tmp_path: Pat
     )
 
     output_dir = tmp_path / "manifest"
-    manifest_path = cli._write_mc_manifest(
+    manifest_path = write_mc_manifest(
         output_dir,
         scenario=scenario,
         results=results,
@@ -378,7 +379,7 @@ def test_is_valid_tqdm_instance_requires_callable_methods() -> None:
         def close(self) -> None:
             return None
 
-    assert cli._is_valid_tqdm_instance(_DummyTqdm()) is False
+    assert is_valid_tqdm_instance(_DummyTqdm()) is False
 
 
 def test_mc_run_reconfigures_tqdm_instance(

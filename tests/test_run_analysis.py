@@ -3,11 +3,11 @@ import pandas as pd
 
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.metrics import (
-    annualize_return,
-    annualize_volatility,
+    annual_return,
     max_drawdown,
     sharpe_ratio,
     sortino_ratio,
+    volatility,
 )
 from trend_analysis.pipeline import _Stats, calc_portfolio_returns, run_analysis
 
@@ -50,8 +50,8 @@ def test_metrics_roundtrip():
     df = make_df()
     series = df["A"]
     rf = df["RF"]
-    r = annualize_return(series)
-    v = annualize_volatility(series)
+    r = annual_return(series)
+    v = volatility(series)
     s = sharpe_ratio(series, rf)
     so = sortino_ratio(series, rf)
     mdd = max_drawdown(series)

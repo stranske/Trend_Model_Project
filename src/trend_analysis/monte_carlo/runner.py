@@ -1537,10 +1537,6 @@ class MonteCarloRunner:
         out["CASH"] = cash_values.to_numpy(dtype=float, copy=False)
         return out
 
-    def _inject_cash_returns(self, returns: pd.DataFrame) -> pd.DataFrame:
-        """Backward-compatible alias for cash injection behavior."""
-        return self._apply_cash_handling(returns)
-
     def _extract_portfolio_metrics(self, run_result: Any) -> tuple[dict[str, float], str | None]:
         """Return per-path metrics for the evaluated strategy's portfolio.
 

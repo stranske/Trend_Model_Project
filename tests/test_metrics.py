@@ -4,16 +4,16 @@ import pandas as pd
 from trend_analysis import metrics
 
 
-def test_annualize_return_series():
+def test_annual_return_series():
     s = pd.Series([0.02, -0.01, 0.03])
-    result = metrics.annualize_return(s)
+    result = metrics.annual_return(s)
     expected = (1 + s).prod() ** (12 / len(s)) - 1
     assert np.isclose(result, expected)
 
 
-def test_annualize_volatility_dataframe():
+def test_volatility_dataframe():
     df = pd.DataFrame({"a": [0.01, 0.02, 0.03, -0.01]})
-    res = metrics.annualize_volatility(df)
+    res = metrics.volatility(df)
     expected = df.std(ddof=1) * np.sqrt(12)
     assert np.allclose(res.values, expected.values)
 
@@ -23,7 +23,7 @@ def test_sharpe_ratio_simple():
     rf = pd.Series([0.01, 0.01, 0.01])
     res = metrics.sharpe_ratio(r, rf)
     ex = r - rf
-    expected = metrics.annualize_return(ex) / metrics.annualize_volatility(ex)
+    expected = metrics.annual_return(ex) / metrics.volatility(ex)
     assert np.isclose(res, expected, equal_nan=True)
 
 
@@ -53,8 +53,8 @@ def test_metric_golden_cases_cover_return_volatility_sharpe_and_sortino() -> Non
     downside = excess[excess < 0]
     expected_sortino = expected_excess_return / (2.0 * abs(downside.iloc[0]))
 
-    assert np.isclose(metrics.annualize_return(returns), expected_return)
-    assert np.isclose(metrics.annualize_volatility(returns), expected_volatility)
+    assert np.isclose(metrics.annual_return(returns), expected_return)
+    assert np.isclose(metrics.volatility(returns), expected_volatility)
     assert np.isclose(
         metrics.sharpe_ratio(returns, risk_free),
         expected_excess_return / expected_excess_volatility,

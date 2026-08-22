@@ -427,7 +427,7 @@ def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
     expected_periodic_rf = (1.0 + 0.03) ** (
         1.0 / float(periods_per_year_from_code(frequency))
     ) - 1.0
-    returns = runner._inject_cash_returns(
+    returns = runner._apply_cash_handling(
         pd.DataFrame({"AssetA": [0.01, 0.02]}, index=_price_history().index[:2])
     )
     assert "CASH" in returns.columns

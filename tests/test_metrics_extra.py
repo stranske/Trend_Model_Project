@@ -7,16 +7,16 @@ from trend_analysis import metrics
 
 def test_validate_input():
     with pytest.raises(TypeError):
-        metrics.annualize_return([1, 2])  # type: ignore
+        metrics.annual_return([1, 2])  # type: ignore
 
 
-def test_annualize_return_branches():
+def test_annual_return_branches():
     s = pd.Series([], dtype=float)
-    assert np.isnan(metrics.annualize_return(s))
+    assert np.isnan(metrics.annual_return(s))
     neg = pd.Series([-1.0])
-    assert metrics.annualize_return(neg) == -1.0
+    assert metrics.annual_return(neg) == -1.0
     df = pd.DataFrame({"a": [0.01, 0.02]})
-    res = metrics.annualize_return(df)
+    res = metrics.annual_return(df)
     assert isinstance(res, pd.Series)
 
 
@@ -33,11 +33,11 @@ def test_annual_return_dataframe_mixed_signs():
     assert result["winner"] == pytest.approx(expected)
 
 
-def test_annualize_volatility_branches():
+def test_volatility_branches():
     s = pd.Series([0.1])
-    assert np.isnan(metrics.annualize_volatility(s))
+    assert np.isnan(metrics.volatility(s))
     df = pd.DataFrame({"a": [0.1, 0.2, 0.3]})
-    res = metrics.annualize_volatility(df)
+    res = metrics.volatility(df)
     assert isinstance(res, pd.Series)
 
 

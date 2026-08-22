@@ -14,7 +14,7 @@ def _dummy_returns():
 
 def test_annual_return_vectorised_matches_geometric_golden_contract():
     returns = _dummy_returns()
-    new = M.annualize_return(returns)
+    new = M.annual_return(returns)
     old = (1.0 + returns).prod() ** (12.0 / len(returns)) - 1.0
     pd.testing.assert_series_equal(
         new, old, rtol=NUMERICAL_TOLERANCE_HIGH, atol=NUMERICAL_TOLERANCE_HIGH
