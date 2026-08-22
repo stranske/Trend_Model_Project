@@ -128,20 +128,6 @@ for _name in _EAGER_SUBMODULES:
         # Missing optional dependency chain; submodule simply not exposed.
         continue
 
-# Some eager modules import metrics children after ``metrics`` has finished
-# establishing its public surface. Do not re-expose those retired compatibility
-# modules merely as an import side effect of package bootstrap.
-if "metrics" in globals():
-    _metrics_module = cast(ModuleType, globals()["metrics"])
-    for _retired_metrics_module in (
-        "attribution",
-        "factor_attribution",
-        "rolling",
-        "summary",
-        "turnover",
-    ):
-        _metrics_module.__dict__.pop(_retired_metrics_module, None)
-
 
 def __getattr__(attr: str) -> ModuleType:  # pragma: no cover - thin lazy loader
     target = _LAZY_SUBMODULES.get(attr)
