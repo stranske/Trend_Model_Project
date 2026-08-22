@@ -134,7 +134,9 @@ def test_current_volatility_window_survives_runtime_loading(tmp_path: Path) -> N
     [
         {"length": 0},
         {"length": 63, "decay": "unsupported"},
+        {"length": 63, "decay": "ewma", "lambda": 0.0},
         {"length": 63, "decay": "ewma", "lambda": 1.0},
+        {"length": 63, "decay": "ewma", "lambda": 2.0},
         {"length": 63, "unknown": True},
     ],
 )

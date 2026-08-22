@@ -86,6 +86,15 @@ def test_checked_in_schemas_match_generator() -> None:
     )
 
 
+def test_schema_matches_volatility_window_runtime_bounds() -> None:
+    schema = generate_schema()
+    window = schema["properties"]["vol_adjust"]["properties"]["window"]["properties"]
+
+    assert window["length"]["minimum"] == 1
+    assert window["lambda"]["exclusiveMinimum"] == 0
+    assert window["lambda"]["exclusiveMaximum"] == 1
+
+
 def test_identity_schema_matches_non_null_runtime_model() -> None:
     schema = generate_schema()
 

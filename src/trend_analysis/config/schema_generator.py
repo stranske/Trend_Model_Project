@@ -73,7 +73,8 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "signals.vol_target": {"exclusiveMinimum": 0},
     "metrics.rf_rate_annual": {"minimum": 0},
     "vol_adjust.target_vol": {"minimum": 0},
-    "vol_adjust.window.lambda": {"minimum": 0, "maximum": 1},
+    "vol_adjust.window.length": {"minimum": 1},
+    "vol_adjust.window.lambda": {"exclusiveMinimum": 0, "exclusiveMaximum": 1},
     "sample_split.ratio": {"minimum": 0, "maximum": 1},
 }
 
@@ -614,6 +615,8 @@ def _apply_constraints(
         schema["maximum"] = constraints["maximum"]
     if "exclusiveMinimum" in constraints:
         schema["exclusiveMinimum"] = constraints["exclusiveMinimum"]
+    if "exclusiveMaximum" in constraints:
+        schema["exclusiveMaximum"] = constraints["exclusiveMaximum"]
     if "minItems" in constraints:
         schema["minItems"] = constraints["minItems"]
     if "maxItems" in constraints:

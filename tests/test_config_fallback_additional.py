@@ -125,6 +125,25 @@ def test_fallback_config_validation_errors(
         Config(**kwargs)
 
 
+@pytest.mark.parametrize(
+    "key, expected_message",
+    [
+        ("missing_fill_limit", "data.missing_fill_limit was removed; use data.missing_limit"),
+        ("indices_glob", "data.indices_glob was removed because no runtime consumer exists"),
+    ],
+)
+def test_fallback_config_rejects_removed_data_keys(
+    fallback_models: ModuleType, key: str, expected_message: str
+) -> None:
+    Config = fallback_models.Config  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match=expected_message):
+        Config(
+            version="1.0",
+            data={key: "legacy"},
+            portfolio={"cost_model": {"per_trade_bps": 0, "half_spread_bps": 0}},
+        )
+
+
 def test_preset_config_requires_name(fallback_models: ModuleType) -> None:
     """The simplified ``PresetConfig`` should reject a missing name."""
 
