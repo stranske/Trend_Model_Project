@@ -410,6 +410,7 @@ from .deflated_sharpe import (  # noqa: E402
 )
 from .factor_attribution import factor_exposures  # noqa: E402
 
+
 @register_metric("alpha")
 def alpha(
     returns: Series | DataFrame,
