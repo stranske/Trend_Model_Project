@@ -23,7 +23,9 @@ def test_decimal_annualized_volatility_confirmation_boundary(
     value: object,
     expects_leverage_flag: bool,
 ) -> None:
-    operation = PatchOperation(op="merge" if path == "vol_adjust" else "set", path=path, value=value)
+    operation = PatchOperation(
+        op="merge" if path == "vol_adjust" else "set", path=path, value=value
+    )
 
     patch = ConfigPatch(operations=[operation], summary="Set decimal annualized volatility target.")
 
