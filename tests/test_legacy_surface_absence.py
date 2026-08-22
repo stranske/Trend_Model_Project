@@ -105,6 +105,24 @@ REMOVED_GUI_SYMBOLS = {
     "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
     "streamlit_app/components/analysis_runner.py": {"Model" + "Settings"},
 }
+REMOVED_SCHEMA_READ_KEYS = {
+    "src/trend_analysis/monte_carlo/costs.py": {
+        "regimes",
+        "default",
+        "distribution",
+        "dist",
+        "bps",
+        "mu",
+    },
+    "src/trend_analysis/monte_carlo/aggregator.py": {"fold"},
+    "src/trend_analysis/monte_carlo/export.py": {"fold"},
+    "src/trend_analysis/walk_forward.py": {"fold"},
+}
+REMOVED_COLUMN_WRITE_KEYS = {
+    "src/trend_analysis/monte_carlo/aggregator.py": {"fold"},
+    "src/trend_analysis/monte_carlo/export.py": {"fold"},
+    "src/trend_analysis/walk_forward.py": {"fold"},
+}
 REMOVED_PATHS = (
     "src/trend/compat_entrypoints.py",
     "src/trend_analysis/" + "cli.py",
@@ -216,17 +234,6 @@ def _defined_symbols(path: Path) -> set[str]:
     return names
 
 
-def _static_string(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        left = _static_string(node.left)
-        right = _static_string(node.right)
-        if left is not None and right is not None:
-            return left + right
-    return None
-
-
 def _removed_symbol_offenders(path: Path, removed_names: set[str]) -> set[str]:
     """Find direct definitions and names served through module ``__getattr__``."""
 
@@ -242,6 +249,57 @@ def _removed_symbol_offenders(path: Path, removed_names: set[str]) -> set[str]:
         }
         offenders.update(dynamic_names & removed_names)
     return offenders
+
+
+def _mapping_key_reads(path: Path) -> set[str]:
+    """Return statically named mapping keys read with subscripts or ``get``."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        key: str | None = None
+        if isinstance(node, ast.Subscript):
+            key = _static_string(node.slice)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and node.args
+        ):
+            key = _static_string(node.args[0])
+        if key is not None:
+            keys.add(key)
+    return keys
+
+
+def _dataframe_column_writes(path: Path) -> set[str]:
+    """Return statically named columns created by assignment or DataFrame helpers."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Subscript):
+                    if (key := _static_string(target.slice)) is not None:
+                        keys.add(key)
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr == "assign":
+            keys.update(keyword.arg for keyword in node.keywords if keyword.arg is not None)
+        elif node.func.attr == "insert" and len(node.args) > 1:
+            if (key := _static_string(node.args[1])) is not None:
+                keys.add(key)
+        elif node.func.attr == "rename":
+            columns_kw = next((kw for kw in node.keywords if kw.arg == "columns"), None)
+            if columns_kw is not None and isinstance(columns_kw.value, ast.Dict):
+                keys.update(
+                    value
+                    for item in columns_kw.value.values
+                    if (value := _static_string(item)) is not None
+                )
+    return keys
 
 
 def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
@@ -413,6 +471,40 @@ def test_gui_compatibility_gate_detects_deliberate_restoration(tmp_path: Path) -
 
     candidate.write_text("store.cfg['mo' + 'de'] = 'rank'\n", encoding="utf-8")
     assert _mapping_key_write_offenders(candidate, {"mode"}) == {"mode"}
+
+
+def test_removed_cost_and_fold_schema_reads_remain_absent() -> None:
+    """Legacy input keys may be rejected, but never read or translated."""
+
+    offenders: list[str] = []
+    for relative_path, removed_keys in REMOVED_SCHEMA_READ_KEYS.items():
+        returned = sorted(_mapping_key_reads(REPO_ROOT / relative_path) & removed_keys)
+        offenders.extend(f"{relative_path}: {key}" for key in returned)
+    for relative_path, removed_keys in REMOVED_COLUMN_WRITE_KEYS.items():
+        returned = sorted(_dataframe_column_writes(REPO_ROOT / relative_path) & removed_keys)
+        offenders.extend(f"{relative_path}: writes {key}" for key in returned)
+
+    assert not offenders, "Legacy cost/fold schema reads returned:\n" + "\n".join(offenders)
+
+
+def test_removed_schema_read_gate_detects_deliberate_translation(tmp_path: Path) -> None:
+    """Deliberate-break proof exercises the production mapping-read detector."""
+
+    candidate = tmp_path / "compat.py"
+    candidate.write_text(
+        "def translate(cfg, record):\n" "    return cfg.get('di' + 'st'), record['fo' + 'ld']\n",
+        encoding="utf-8",
+    )
+
+    assert _mapping_key_reads(candidate) & {"dist", "fold"} == {"dist", "fold"}
+
+    candidate.write_text(
+        "def translate(frame):\n"
+        "    frame['fo' + 'ld'] = frame['fold_id']\n"
+        "    return frame.rename(columns={'fold_id': 'fo' + 'ld'})\n",
+        encoding="utf-8",
+    )
+    assert _dataframe_column_writes(candidate) == {"fold"}
 
 
 def test_import_from_detection_keeps_retired_modules_absent(tmp_path: Path) -> None:

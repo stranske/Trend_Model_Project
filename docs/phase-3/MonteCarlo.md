@@ -376,7 +376,7 @@ Canonical schema (required):
 - `kind`: Must be `regime_stochastic`.
 - `trade_cost_bps`: Required under each regime; defines the basis-point cost distribution.
 - Top-level regime blocks: regime names (for example `calm`, `stress`) are direct keys under `costs`, and each regime block must include `trade_cost_bps`.
-- For `kind: lognormal`, `mean` is the target arithmetic mean in basis points. The runner converts it to NumPy's log-space `mu` internally before sampling. Use `mu` or `log_mean` only for explicit log-space configuration.
+- For `kind: lognormal`, `mean` is the target arithmetic mean in basis points. The runner converts it to NumPy's log-space mean internally before sampling. Use `log_mean` only for explicit log-space configuration.
 
 Concrete canonical example:
 
@@ -402,30 +402,11 @@ costs:
 - Optional slippage multiplier
 - Applied to portfolio turnover
 
-## Backward Compatibility
+## Rejected legacy cost shapes
 
-The parser in `src/trend_analysis/monte_carlo/costs.py` still accepts these legacy
-keys and aliases. New scenario files and documentation examples should use the
-canonical direct-regime shape above.
-
-| Legacy key or alias | Status | Canonical equivalent |
-|---------------------|--------|----------------------|
-| `costs.regimes.<name>` | `supported` | `costs.<name>` |
-| `costs.regimes.<name>.distribution` | `supported` | `costs.<name>.trade_cost_bps` |
-| `costs.<name>.distribution` | `supported` | `costs.<name>.trade_cost_bps` |
-| `costs.<name>.trade_cost_bps.dist` | `supported` | `costs.<name>.trade_cost_bps.kind` |
-| `costs.<name>.trade_cost_bps.std` | `supported` | `costs.<name>.trade_cost_bps.sigma` for lognormal costs, or `std` for normal costs |
-| `costs.regimes.<name>: <number>` | `supported` | `costs.<name>.trade_cost_bps.kind: fixed` plus `value: <number>` |
-| `costs.default` | `deprecated` | Use `costs.default_regime` for the selected regime label and an explicit direct-regime block for its cost distribution |
-
-Mapping examples:
-
-| Legacy shape | Canonical shape |
-|--------------|-----------------|
-| `costs.regimes.calm.distribution.kind: fixed` | `costs.calm.trade_cost_bps.kind: fixed` |
-| `costs.regimes.calm.distribution.value: 6` | `costs.calm.trade_cost_bps.value: 6` |
-| `costs.regimes.stress.slippage_multiplier: 1.5` | `costs.stress.slippage_multiplier: 1.5` |
-| `costs.regimes.calm: 6` | `costs.calm.trade_cost_bps.kind: fixed` and `costs.calm.trade_cost_bps.value: 6` |
+The parser rejects nested `costs.regimes`, `distribution` and `dist` aliases,
+numeric shorthand, `mu`, fixed-cost `bps`, and normal-distribution `sigma`.
+Use the direct-regime schema above; validation errors name the canonical field.
 
 ### Turnover Constraints Under MC
 
@@ -700,7 +681,7 @@ Rank_12_Equal,max_dd,-0.52,-0.41,-0.35,-0.28,-0.21,-0.15,-0.11,-0.09,-0.06
 
 **per_strategy_stats.parquet:**
 - Columns: `strategy`, `path_id`, `fold_id`, `sharpe`, `cagr`, `vol`, `max_dd`, `time_underwater`, `terminal_wealth`, `total_turnover`, `total_costs`
-- One row per (strategy, path, fold)
+- One row per (`strategy`, `path_id`, `fold_id`)
 
 ### Metrics Computed
 

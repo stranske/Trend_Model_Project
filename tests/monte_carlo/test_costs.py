@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
@@ -56,12 +57,11 @@ def _cost_fixture_frame() -> pd.DataFrame:
 
 def test_cost_process_fixed_distribution_applies_slippage() -> None:
     config = {
+        "kind": "regime_stochastic",
         "default_regime": "calm",
-        "regimes": {
-            "calm": {
-                "distribution": {"kind": "fixed", "value": 5.0},
-                "slippage_multiplier": 1.5,
-            }
+        "calm": {
+            "trade_cost_bps": {"kind": "fixed", "value": 5.0},
+            "slippage_multiplier": 1.5,
         },
     }
     process = CostProcess.from_config(config)
@@ -81,8 +81,9 @@ def test_cost_process_fixed_distribution_applies_slippage() -> None:
 
 def test_cost_process_normal_distribution_reasonable_mean() -> None:
     config = {
+        "kind": "regime_stochastic",
         "default_regime": "base",
-        "regimes": {"base": {"distribution": {"kind": "normal", "mean": 8.0, "std": 0.5}}},
+        "base": {"trade_cost_bps": {"kind": "normal", "mean": 8.0, "std": 0.5}},
     }
     process = CostProcess.from_config(config)
     assert process is not None
@@ -97,11 +98,10 @@ def test_cost_process_normal_distribution_reasonable_mean() -> None:
 
 def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
     config = {
+        "kind": "regime_stochastic",
         "default_regime": "calm",
-        "regimes": {
-            "calm": {"distribution": {"kind": "lognormal", "mean": 1.0, "sigma": 0.1}},
-            "stress": {"distribution": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}},
-        },
+        "calm": {"trade_cost_bps": {"kind": "lognormal", "mean": 1.0, "sigma": 0.1}},
+        "stress": {"trade_cost_bps": {"kind": "lognormal", "mean": 1.3, "sigma": 0.4}},
     }
     process = CostProcess.from_config(config)
     assert process is not None
@@ -120,8 +120,9 @@ def test_cost_process_lognormal_stress_higher_mean_and_variance() -> None:
 
 def test_cost_process_lognormal_mean_is_arithmetic_bps_target() -> None:
     config = {
+        "kind": "regime_stochastic",
         "default_regime": "base",
-        "regimes": {"base": {"distribution": {"kind": "lognormal", "mean": 20.0, "sigma": 0.35}}},
+        "base": {"trade_cost_bps": {"kind": "lognormal", "mean": 20.0, "sigma": 0.35}},
     }
     process = CostProcess.from_config(config)
     assert process is not None
@@ -139,26 +140,25 @@ def test_cost_process_lognormal_rejects_non_positive_arithmetic_mean() -> None:
     with np.testing.assert_raises_regex(ValueError, "lognormal mean must be > 0"):
         CostProcess.from_config(
             {
-                "regimes": {
-                    "base": {
-                        "distribution": {
-                            "kind": "lognormal",
-                            "mean": 0.0,
-                            "sigma": 0.35,
-                        }
+                "kind": "regime_stochastic",
+                "base": {
+                    "trade_cost_bps": {
+                        "kind": "lognormal",
+                        "mean": 0.0,
+                        "sigma": 0.35,
                     }
-                }
+                },
             }
         )
 
 
-def test_cost_process_canonical_regime_stochastic_trade_cost_bps_dist() -> None:
+def test_cost_process_canonical_regime_stochastic_trade_cost_bps_kind() -> None:
     config = {
         "kind": "regime_stochastic",
         "default_regime": "calm",
-        "calm": {"trade_cost_bps": {"dist": "fixed", "value": 6.0}},
+        "calm": {"trade_cost_bps": {"kind": "fixed", "value": 6.0}},
         "stress": {
-            "trade_cost_bps": {"dist": "fixed", "value": 12.0},
+            "trade_cost_bps": {"kind": "fixed", "value": 12.0},
             "slippage_multiplier": 1.25,
         },
     }
@@ -176,18 +176,66 @@ def test_cost_process_canonical_regime_stochastic_trade_cost_bps_dist() -> None:
     assert out.slippage_multiplier.tolist() == [1.0, 1.25, 1.0]
 
 
-def test_cost_process_accepts_legacy_numeric_shorthand() -> None:
-    process = CostProcess.from_config({"regimes": {"calm": 5, "stress": 11.5}})
-    assert process is not None
-
-    idx = pd.date_range("2024-01-31", periods=2, freq="ME")
-    out = process.sample(
-        regimes=pd.Series(["calm", "stress"], index=idx, dtype="string"),
-        turnover=pd.Series([0.1, 0.2], index=idx),
-        index=None,
-        rng=np.random.default_rng(2),
-    )
-    assert out.cost_bps.tolist() == [5.0, 11.5]
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        ({"calm": {"trade_cost_bps": {"kind": "fixed", "value": 5}}}, "costs.kind"),
+        ({"kind": "regime_stochastic", "regimes": {"calm": 5}}, "directly under costs"),
+        ({"kind": "regime_stochastic", "calm": 5}, "regime mapping"),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {"distribution": {"kind": "fixed", "value": 5}},
+            },
+            "unsupported key",
+        ),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {"trade_cost_bps": {"dist": "fixed", "value": 5}},
+            },
+            "use kind",
+        ),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {"trade_cost_bps": 5},
+            },
+            "mapping with a kind",
+        ),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {"trade_cost_bps": {"kind": "fixed", "bps": 5}},
+            },
+            "unsupported key",
+        ),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {"trade_cost_bps": {"kind": "normal", "sigma": 0.5}},
+            },
+            "unsupported key",
+        ),
+        (
+            {
+                "kind": "regime_stochastic",
+                "calm": {
+                    "trade_cost_bps": {
+                        "kind": "lognormal",
+                        "mean": 5,
+                        "sigma": 0.2,
+                        "mu": 1.0,
+                    }
+                },
+            },
+            "unsupported key",
+        ),
+    ],
+)
+def test_cost_process_rejects_legacy_cost_shapes(config: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        CostProcess.from_config(config)
 
 
 def test_runner_integration_records_costs(monkeypatch: Any) -> None:

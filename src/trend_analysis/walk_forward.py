@@ -305,11 +305,8 @@ def evaluate_parameter_grid(
             drawdown = max_drawdown(fold_returns)
             hit_rate = float(fold_returns.gt(0).mean()) if len(fold_returns) else np.nan
 
-            # Use `fold_id` as the canonical fold identifier going forward; the `fold` field is
-            # retained only for backward compatibility and should be considered deprecated.
             record = {
                 "fold_id": fold_idx,
-                "fold": fold_idx,
                 "train_start": train_idx[0],
                 "train_end": train_idx[-1],
                 "test_start": test_idx[0],
@@ -337,8 +334,8 @@ def evaluate_parameter_grid(
     }
     summary = (
         folds_df.groupby(param_cols, dropna=False)
-        .agg({**agg_map, "fold": "count"})
-        .rename(columns={"fold": "folds"})
+        .agg({**agg_map, "fold_id": "count"})
+        .rename(columns={"fold_id": "folds"})
         .reset_index()
     )
     summary = summary.rename(

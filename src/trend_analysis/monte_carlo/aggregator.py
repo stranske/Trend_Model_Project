@@ -49,7 +49,7 @@ ExpectedShortfallFrameSchema = tuple[str, ...]
 PATH_COLUMNS = (
     "strategy",
     "path",
-    "fold",
+    "fold_id",
 )
 AGGREGATION_PATH_COLUMNS = PATH_COLUMNS
 
@@ -70,7 +70,7 @@ class PathAggregationRow(TypedDict, total=False):
 
     strategy: Any
     path: Any
-    fold: Any
+    fold_id: Any
 
 
 class BreachAggregationRow(TypedDict):
@@ -184,7 +184,10 @@ def aggregation_frame_schemas(results_frame: pd.DataFrame) -> AggregationFrameSc
 
 
 def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
-    """Return per-path metrics with strategy/path/fold identifiers."""
+    """Return per-path metrics with canonical strategy/path/fold identifiers."""
+
+    if "fold" in results_frame.columns:
+        raise ValueError("legacy fold column is not supported; use fold_id")
 
     metric_cols = _metric_columns(results_frame)
     if results_frame.empty:
@@ -193,7 +196,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     data: dict[str, Any] = {
         "strategy": _select_strategy_column(results_frame),
         "path": _coerce_column(results_frame, ("path", "path_id", "path_hash")),
-        "fold": _coerce_column(results_frame, ("fold", "fold_id", "fold_label"), default=None),
+        "fold_id": _coerce_column(results_frame, ("fold_id",), default=None),
     }
     frame = pd.DataFrame(data).reset_index(drop=True)
     if metric_cols:
@@ -202,7 +205,7 @@ def build_path_frame(results_frame: pd.DataFrame) -> pd.DataFrame:
     schema = path_frame_schema(results_frame)
     if schema:
         frame = frame[list(schema)]
-    return _sort_frame(frame, ("strategy", "fold", "path"))
+    return _sort_frame(frame, ("strategy", "fold_id", "path"))
 
 
 def path_frame_schema(results_frame: pd.DataFrame) -> PathFrameSchema:
@@ -414,7 +417,7 @@ def build_expected_shortfall_frame(
 
 def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
     excluded = set(RESULT_BASE_COLUMNS)
-    excluded.update({"fold", "path", "paths", "folds", "strategy_name"})
+    excluded.update({"path", "paths", "folds", "strategy_name"})
     metric_cols: list[str] = []
     for col in results_frame.columns:
         name = str(col)
@@ -428,7 +431,7 @@ def _metric_columns(results_frame: pd.DataFrame) -> list[str]:
 
 def _path_metric_columns(path_frame: pd.DataFrame) -> list[str]:
     excluded = set(RESULT_BASE_COLUMNS)
-    excluded.update({"path", "fold", "paths", "folds", "strategy_name"})
+    excluded.update({"path", "paths", "folds", "strategy_name"})
     metric_cols: list[str] = []
     for col in path_frame.columns:
         name = str(col)
@@ -488,6 +491,8 @@ def _numeric_values(series: pd.Series) -> NDArray[np.float64]:
 
 
 def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
+    if "fold" in path_frame.columns:
+        raise ValueError("legacy fold column is not supported; use fold_id")
     expected_cols = set(AGGREGATION_PATH_COLUMNS)
     required_cols = expected_cols | {"path_id", "fold_id"}
     missing_cols = [col for col in required_cols if col not in path_frame.columns]
@@ -508,20 +513,6 @@ def _ensure_path_columns(path_frame: pd.DataFrame) -> pd.DataFrame:
         elif "path_hash" in frame.columns:
             frame["path_id"] = frame["path_hash"]
             missing_cols.remove("path_id")
-    if "fold" in missing_cols:
-        if "fold_id" in frame.columns:
-            frame["fold"] = frame["fold_id"]
-            missing_cols.remove("fold")
-        elif "fold_label" in frame.columns:
-            frame["fold"] = frame["fold_label"]
-            missing_cols.remove("fold")
-    if "fold_id" in missing_cols:
-        if "fold" in frame.columns:
-            frame["fold_id"] = frame["fold"]
-            missing_cols.remove("fold_id")
-        elif "fold_label" in frame.columns:
-            frame["fold_id"] = frame["fold_label"]
-            missing_cols.remove("fold_id")
     for col in missing_cols:
         frame[col] = pd.NA
     return frame

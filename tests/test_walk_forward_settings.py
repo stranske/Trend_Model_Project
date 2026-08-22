@@ -209,7 +209,7 @@ def test_persist_artifacts_emits_files(tmp_path: Path) -> None:
 
     folds = pd.DataFrame(
         {
-            "fold": [1],
+            "fold_id": [1],
             "train_start": [pd.Timestamp("2020-01-01")],
             "param_lookback": [1],
         }
