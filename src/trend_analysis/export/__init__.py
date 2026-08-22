@@ -1528,13 +1528,17 @@ def combined_summary_result(
     for f, series_list in fund_in.items():
         joined = pd.concat(series_list)
         rf = _align_rf(rf_in, joined.index)
-        in_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year)[f]
+        in_stats[f] = _compute_stats(
+            pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year
+        )[f]
 
     out_stats: dict[str, Any] = {}
     for f, series_list in fund_out.items():
         joined = pd.concat(series_list)
         rf = _align_rf(rf_out, joined.index)
-        out_stats[f] = _compute_stats(pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year)[f]
+        out_stats[f] = _compute_stats(
+            pd.DataFrame({f: joined}), rf, periods_per_year=periods_per_year
+        )[f]
 
     fund_weights = {f: weight_sum[f] / periods for f in weight_sum}
 
