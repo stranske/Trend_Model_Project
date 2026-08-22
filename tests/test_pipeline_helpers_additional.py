@@ -47,9 +47,7 @@ def _inject_analysis(
     monkeypatch: pytest.MonkeyPatch, invoke_analysis_with_diag: Callable[..., object]
 ) -> None:
     """Use the explicit ConfigBindings seam instead of a private runner patch."""
-    bindings = replace(
-        pipeline._bindings(), invoke_analysis_with_diag=invoke_analysis_with_diag
-    )
+    bindings = replace(pipeline._bindings(), invoke_analysis_with_diag=invoke_analysis_with_diag)
     monkeypatch.setattr(pipeline, "_bindings", lambda: bindings)
 
 

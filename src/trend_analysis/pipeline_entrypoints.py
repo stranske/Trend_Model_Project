@@ -14,7 +14,7 @@ from .config_contract import (
     resolve_portfolio_weighting_name,
     resolve_portfolio_weighting_params,
 )
-from .diagnostics import AnalysisResult, PipelineResult, coerce_pipeline_result
+from .diagnostics import PipelineResult, coerce_pipeline_result
 from .util.risk_free import resolve_risk_free_settings
 
 logger = logging.getLogger("trend_analysis.pipeline")
