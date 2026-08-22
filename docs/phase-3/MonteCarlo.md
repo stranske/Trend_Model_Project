@@ -681,7 +681,7 @@ Rank_12_Equal,max_dd,-0.52,-0.41,-0.35,-0.28,-0.21,-0.15,-0.11,-0.09,-0.06
 
 **per_strategy_stats.parquet:**
 - Columns: `strategy`, `path_id`, `fold_id`, `sharpe`, `cagr`, `vol`, `max_dd`, `time_underwater`, `terminal_wealth`, `total_turnover`, `total_costs`
-- One row per (strategy, path, fold)
+- One row per (`strategy`, `path_id`, `fold_id`)
 
 ### Metrics Computed
 

@@ -841,7 +841,7 @@ def test_summary_frames_fill_missing_path_columns() -> None:
     assert shortfall["fold_id"].isna().all()
 
 
-def test_build_quantiles_frame_derives_fold_id_from_fold() -> None:
+def test_build_quantiles_frame_groups_by_fold_id() -> None:
     path_frame = pd.DataFrame(
         [
             {"strategy": "A", "path": 1, "fold_id": 0, "metric": 1.0},
@@ -2159,7 +2159,7 @@ def test_export_summary_quantiles_columns_for_single_digit_fractional_quantiles(
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q7_5", "q50"]
 
 
-def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> None:
+def test_export_summary_quantiles_uses_canonical_fold_id(tmp_path) -> None:
     quantiles_frame = pd.DataFrame(
         [
             {
@@ -2184,6 +2184,40 @@ def test_export_summary_quantiles_uses_fold_when_fold_id_missing(tmp_path) -> No
 
     assert list(summary_quantiles.columns) == ["strategy", "fold_id", "metric", "q50"]
     assert summary_quantiles.loc[0, "fold_id"] == 2
+
+
+@pytest.mark.parametrize("legacy_frame", ["path_frame", "quantiles_frame"])
+def test_export_aggregation_results_rejects_legacy_fold_columns(
+    tmp_path, legacy_frame: str
+) -> None:
+    """Every export ingress rejects a restored fold column instead of translating it."""
+
+    path_frame = pd.DataFrame([{"strategy": "A", "path": 1, "fold_id": 2, "metric": 1.5}])
+    quantiles_frame = pd.DataFrame(
+        [
+            {
+                "strategy": "A",
+                "fold_id": 2,
+                "metric": "metric",
+                "quantile": 0.5,
+                "value": 1.5,
+                "paths": 1,
+            }
+        ]
+    )
+    if legacy_frame == "path_frame":
+        path_frame = path_frame.rename(columns={"fold_id": "fold"})
+    else:
+        quantiles_frame = quantiles_frame.rename(columns={"fold_id": "fold"})
+    aggregation = MonteCarloAggregationResults(
+        path_frame=path_frame,
+        quantiles_frame=quantiles_frame,
+        breach_frame=pd.DataFrame(columns=list(BREACH_COLUMNS)),
+        expected_shortfall_frame=pd.DataFrame(columns=list(EXPECTED_SHORTFALL_COLUMNS)),
+    )
+
+    with pytest.raises(ValueError, match="use fold_id"):
+        export_aggregation_results(aggregation, tmp_path, formats=["csv"])
 
 
 def test_export_summary_quantiles_uses_fold_id_when_populated(tmp_path) -> None:
