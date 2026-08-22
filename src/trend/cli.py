@@ -218,7 +218,9 @@ def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
         help="Approve Streamlit-style date corrections without prompting",
     )
 
-    report_p = sub.add_parser("report", help="Generate summary artefacts for a configuration")
+    report_p = sub.add_parser(
+        "report", help="Generate summary artefacts for a configuration"
+    )
     report_p.add_argument("-c", "--config", help="Path to YAML config")
     report_p.add_argument(
         "-i",
@@ -252,7 +254,9 @@ def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
         help="Report which config keys were validated vs read",
     )
 
-    stress_p = sub.add_parser("stress", help="Run the pipeline against a canned stress scenario")
+    stress_p = sub.add_parser(
+        "stress", help="Run the pipeline against a canned stress scenario"
+    )
     stress_p.add_argument("-c", "--config", help="Path to YAML config")
     stress_p.add_argument(
         "--scenario",
@@ -275,8 +279,12 @@ def build_parser(*, prog: str = "trend") -> argparse.ArgumentParser:
 
     sub.add_parser("app", help="Launch the Streamlit application")
 
-    quick_p = sub.add_parser("quick-report", help="Build a compact HTML report from run artefacts")
-    quick_p.add_argument("--run-id", help="Run identifier (defaults to artefact inference)")
+    quick_p = sub.add_parser(
+        "quick-report", help="Build a compact HTML report from run artefacts"
+    )
+    quick_p.add_argument(
+        "--run-id", help="Run identifier (defaults to artefact inference)"
+    )
     quick_p.add_argument(
         "--artifacts",
         type=Path,
@@ -507,7 +515,9 @@ def _ensure_dataframe(
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
         if summary.dropped_columns:
-            changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
+            changes.append(
+                "dropped date-named column(s): " + ", ".join(summary.dropped_columns)
+            )
         if changes:
             print(f"Applied UI-style date fixes: {', '.join(changes)}")
         return frame.rename_axis("Date").reset_index()
@@ -627,7 +637,9 @@ def _confirm_ui_date_fixes(
     if not has_fixable or yes:
         return
     if not sys.stdin.isatty():
-        raise TrendCLIError("Date corrections require confirmation. Re-run with --yes to approve.")
+        raise TrendCLIError(
+            "Date corrections require confirmation. Re-run with --yes to approve."
+        )
     prompt = (
         f"Apply {len(issues.corrections)} date correction(s) and "
         f"drop {issues.total_droppable_rows} row(s)? [y/N]: "
@@ -683,7 +695,9 @@ def _prepare_ui_command_inputs(
         if summary.dropped_rows:
             changes.append(f"{summary.dropped_rows} row(s) dropped")
         if summary.dropped_columns:
-            changes.append("dropped date-named column(s): " + ", ".join(summary.dropped_columns))
+            changes.append(
+                "dropped date-named column(s): " + ", ".join(summary.dropped_columns)
+            )
         print(f"Applied UI-style date fixes: {', '.join(changes)}")
 
     cfg = build_config_from_ui_state(
@@ -756,7 +770,9 @@ def _load_configuration(path: str) -> Any:
         load_core_config(cfg_path)
     except CoreConfigError as exc:
         raise TrendCLIError(str(exc)) from exc
-    validation = validate_config(payload, base_path=cfg_path.parent, skip_required_fields=True)
+    validation = validate_config(
+        payload, base_path=cfg_path.parent, skip_required_fields=True
+    )
     if not validation.valid:
         details = "\n".join(format_validation_messages(validation))
         raise TrendCLIError(f"Config validation failed:\n{details}")
@@ -878,7 +894,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                 fallback = _fallback_explanation(metric_catalog)
                 fallback = append_discrepancy_log(fallback, claim_issues)
                 explanation_text = fallback
-            explanation_text = _finalize_explanation_text(explanation_text, claim_issues)
+            explanation_text = _finalize_explanation_text(
+                explanation_text, claim_issues
+            )
             if args.output:
                 payload = _build_explain_artifact_payload(
                     run_id=run_id,
@@ -927,7 +945,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     print("No changes.")
                 return 0
             if args.dry_run:
-                sys.stdout.write(yaml.safe_dump(updated, sort_keys=False, default_flow_style=False))
+                sys.stdout.write(
+                    yaml.safe_dump(updated, sort_keys=False, default_flow_style=False)
+                )
                 return 0
             if args.run:
                 validate_started = time.perf_counter()
@@ -957,7 +977,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     )
                     raise TrendCLIError(str(exc)) from exc
                 if not validation.valid:
-                    validation_details = "\n".join(format_validation_messages(validation))
+                    validation_details = "\n".join(
+                        format_validation_messages(validation)
+                    )
                     validation_error = f"validation failed: {validation_details}"
                 _log_nl_operation(
                     request_id=request_id,
@@ -972,7 +994,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
                     timestamp=validate_timestamp,
                 )
                 if validation_error is not None:
-                    raise TrendCLIError(f"Config validation failed:\n{validation_details}")
+                    raise TrendCLIError(
+                        f"Config validation failed:\n{validation_details}"
+                    )
             _confirm_risky_patch(patch, no_confirm=args.no_confirm)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
@@ -1034,7 +1058,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
             raise TrendCLIError(f"Unknown command: {command}")
 
         if command != "mc" and not args.config:
-            raise TrendCLIError(f"The --config option is required for the '{command}' command")
+            raise TrendCLIError(
+                f"The --config option is required for the '{command}' command"
+            )
 
         def _prepare_config_for_command(cfg: Any) -> None:
             if coverage_tracker is not None:
@@ -1113,7 +1139,9 @@ def main(argv: list[str] | None = None, *, prog: str = "trend") -> int:
 
         if command == "stress":
             if not args.scenario:
-                raise TrendCLIError("The --scenario option is required for the 'stress' command")
+                raise TrendCLIError(
+                    "The --scenario option is required for the 'stress' command"
+                )
             _adjust_for_scenario(cfg, args.scenario)
             export_dir = Path(args.out) if args.out else None
             _prepare_export_config(cfg, export_dir, None)

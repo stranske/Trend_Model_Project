@@ -133,7 +133,9 @@ def _summary_text(cfg: Any, details: Any) -> str:
     )
 
 
-def _prepare_export_config(cfg: Any, directory: Path | None, formats: Iterable[str] | None) -> None:
+def _prepare_export_config(
+    cfg: Any, directory: Path | None, formats: Iterable[str] | None
+) -> None:
     if directory is None and formats is None:
         return
     export_cfg = dict(getattr(cfg, "export", {}) or {})
@@ -256,7 +258,9 @@ def _finish_structured_log(
     )
 
 
-def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: str) -> None:
+def _handle_exports(
+    cfg: Any, result: RunResult, structured_log: bool, run_id: str
+) -> None:
     resolved = _resolved_export_settings(cfg)
     if resolved is None:
         return
@@ -357,7 +361,9 @@ def _write_trend_run_artifacts(
         data_keys = list(narrative_data.keys())
         if any(fmt.lower() in {"excel", "xlsx"} for fmt in fmt_list):
             data_keys.append("summary")
-    artifact_paths = _resolve_export_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
+    artifact_paths = _resolve_export_artifact_paths(
+        out_dir_path, filename, data_keys, fmt_list
+    )
     summary_text = _summary_text(cfg, result.details)
     try:
         raw_config_payload = load_config_yaml(config_path)
@@ -477,7 +483,9 @@ def _print_summary(cfg: Any, result: RunResult) -> None:
             print(f"  {key.capitalize()}: {value}")
 
 
-def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: str) -> None:
+def _write_report_files(
+    out_dir: Path, cfg: Any, result: RunResult, *, run_id: str
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / f"metrics_{run_id}.csv"
     result.metrics.to_csv(metrics_path)
@@ -487,13 +495,17 @@ def _write_report_files(out_dir: Path, cfg: Any, result: RunResult, *, run_id: s
     details_path = out_dir / f"details_{run_id}.json"
     with details_path.open("w", encoding="utf-8") as fh:
         json.dump(result.details, fh, default=_json_default, indent=2)
-    turnover_csv_result = _maybe_write_turnover_csv(out_dir, getattr(result, "details", {}))
+    turnover_csv_result = _maybe_write_turnover_csv(
+        out_dir, getattr(result, "details", {})
+    )
     if turnover_csv_result.diagnostic:
         logger.info(turnover_csv_result.diagnostic.message)
     print(f"Report artefacts written to {out_dir}")
 
 
-def _resolve_report_output_path(output: str | None, export_dir: Path | None, run_id: str) -> Path:
+def _resolve_report_output_path(
+    output: str | None, export_dir: Path | None, run_id: str
+) -> Path:
     if output:
         base = Path(output).expanduser()
         if base.exists() and base.is_dir():
@@ -597,11 +609,15 @@ def _require_transaction_cost_controls(cfg: Any) -> None:
     portfolio = _portfolio_settings(cfg)
     cost_model = portfolio.get("cost_model")
     if not isinstance(cost_model, Mapping):
-        raise TrendCLIError("Configuration must define portfolio.cost_model for honest costs.")
+        raise TrendCLIError(
+            "Configuration must define portfolio.cost_model for honest costs."
+        )
     for key in ("per_trade_bps", "half_spread_bps"):
         value = cost_model.get(key)
         if value is None:
-            raise TrendCLIError(f"Configuration must define portfolio.cost_model.{key}.")
+            raise TrendCLIError(
+                f"Configuration must define portfolio.cost_model.{key}."
+            )
         try:
             parsed = float(value)
         except (TypeError, ValueError) as exc:

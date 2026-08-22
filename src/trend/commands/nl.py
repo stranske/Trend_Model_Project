@@ -37,6 +37,8 @@ from trend_analysis.llm.schema import load_compact_schema
 from trend.commands.llm_support import _resolve_llm_provider_config
 
 logger = logging.getLogger(__name__)
+
+
 def _build_nl_chain(
     provider: str | None = None,
     *,
@@ -73,7 +75,9 @@ def _replay_nl_entry(
 ) -> ReplayResult:
     from trend_analysis.llm.replay import replay_nl_entry
 
-    return replay_nl_entry(entry, provider=provider, model=model, temperature=temperature)
+    return replay_nl_entry(
+        entry, provider=provider, model=model, temperature=temperature
+    )
 
 
 def _build_nl_replay_parser() -> argparse.ArgumentParser:
@@ -81,12 +85,18 @@ def _build_nl_replay_parser() -> argparse.ArgumentParser:
         prog="trend nl replay",
         description="Replay a logged NL operation entry.",
     )
-    parser.add_argument("log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file")
+    parser.add_argument(
+        "log_file", type=Path, help="Path to nl_ops_<date>.jsonl log file"
+    )
     parser.add_argument("--entry", type=int, required=True, help="1-based entry index")
     parser.add_argument("--provider", help="Override the logged LLM provider")
     parser.add_argument("--model", help="Override the logged LLM model")
-    parser.add_argument("--temperature", type=float, help="Override the logged temperature")
-    parser.add_argument("--show-prompt", action="store_true", help="Print the prompt text")
+    parser.add_argument(
+        "--temperature", type=float, help="Override the logged temperature"
+    )
+    parser.add_argument(
+        "--show-prompt", action="store_true", help="Print the prompt text"
+    )
     return parser
 
 
@@ -209,7 +219,9 @@ def _apply_nl_instruction(
 ) -> tuple[ConfigPatch, dict[str, Any], str, str, float]:
     chain = _build_nl_chain(provider, model=model, temperature=temperature)
     try:
-        patch = chain.run(current_config=config, instruction=instruction, request_id=request_id)
+        patch = chain.run(
+            current_config=config, instruction=instruction, request_id=request_id
+        )
     except Exception as exc:
         raise TrendCLIError(str(exc)) from exc
     apply_started = time.perf_counter()

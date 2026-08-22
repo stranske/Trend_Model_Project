@@ -28,6 +28,8 @@ from trend_analysis.llm.result_validation import (
 from trend.commands.llm_support import _resolve_llm_provider_config
 
 logger = logging.getLogger(__name__)
+
+
 def _resolve_explain_details_path(args: argparse.Namespace) -> Path:
     if args.details:
         return Path(args.details)
@@ -196,4 +198,3 @@ def _build_result_chain(provider: str | None = None) -> ResultSummaryChain:
         llm=llm,
         prompt_builder=build_result_summary_prompt,
     )
-
