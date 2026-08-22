@@ -66,9 +66,21 @@ def test_removed_data_keys_are_rejected(tmp_path: Path, removed_key: str, value:
     assert "Extra inputs are not permitted" in message
 
 
-def test_load_config_rejects_removed_missing_fill_limit(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="missing_fill_limit"):
-        load_config(_config_payload(tmp_path, {"missing_fill_limit": 2}))
+@pytest.mark.parametrize(
+    "removed_key,value",
+    [
+        ("missing_fill_limit", 2),
+        ("indices_glob", "unused"),
+        ("price_column", "unused"),
+        ("currency", "unused"),
+        ("lookback_required", 10),
+    ],
+)
+def test_load_config_rejects_removed_data_keys(
+    tmp_path: Path, removed_key: str, value: object
+) -> None:
+    with pytest.raises(ValueError, match=removed_key):
+        load_config(_config_payload(tmp_path, {removed_key: value}))
 
 
 def test_load_config_preserves_canonical_missing_limit(tmp_path: Path) -> None:
@@ -85,6 +97,12 @@ def test_current_timezone_survives_strict_validation(tmp_path: Path) -> None:
     )
 
     assert settings.timezone == "America/Chicago"
+
+
+def test_current_timezone_survives_runtime_loading(tmp_path: Path) -> None:
+    cfg = load_config(_config_payload(tmp_path, {"timezone": "America/Chicago"}))
+
+    assert cfg.data["timezone"] == "America/Chicago"
 
 
 def test_invalid_timezone_fails_at_startup(tmp_path: Path) -> None:
@@ -107,7 +125,7 @@ def test_current_volatility_window_survives_runtime_loading(tmp_path: Path) -> N
     assert cfg.vol_adjust["window"] == {
         "length": 63,
         "decay": "ewma",
-        "ewma_lambda": 0.94,
+        "lambda": 0.94,
     }
 
 

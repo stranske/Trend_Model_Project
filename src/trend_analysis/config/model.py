@@ -570,7 +570,13 @@ class VolatilityWindowSettings(BaseModel):
 
     length: int = Field(gt=0)
     decay: Literal["ewma", "simple"] = Field(default="simple")
-    ewma_lambda: float = Field(default=0.94, validation_alias="lambda", gt=0, lt=1)
+    ewma_lambda: float = Field(
+        default=0.94,
+        validation_alias="lambda",
+        serialization_alias="lambda",
+        gt=0,
+        lt=1,
+    )
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

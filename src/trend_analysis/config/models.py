@@ -973,7 +973,7 @@ def _config_from_validated(data: dict[str, Any], validated: Any | None) -> Confi
         return validated
     if hasattr(validated, "model_dump"):
         try:
-            dumped = cast(Any, validated).model_dump(mode="json")
+            dumped = cast(Any, validated).model_dump(mode="json", by_alias=True)
         except TypeError:
             dumped = cast(Any, validated).model_dump()
         if isinstance(dumped, Mapping):
