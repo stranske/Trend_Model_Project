@@ -58,7 +58,13 @@ def _coerce_float(value: Any, default: float) -> float:
 
 
 def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
-    """Return :class:`RegimeSettings` populated from a mapping."""
+    """Return :class:`RegimeSettings` populated from a mapping.
+
+    The ``model`` field is normalised as a string only. Regime plugins may be
+    registered after configuration parsing, so model names are validated against
+    the live :data:`regime_registry` in :func:`resolve_regime_model` at
+    classification time rather than here.
+    """
 
     if cfg is None:
         return RegimeSettings()
@@ -308,6 +314,21 @@ class BinaryThresholdRegimeModel(RegimeModel):
         )
 
 
+def resolve_regime_model(model: str) -> RegimeModel:
+    """Resolve ``model`` against the live regime plugin registry.
+
+    This is the documented failure boundary for unknown regime model names.
+    Callers that only parse configuration should use :func:`normalise_settings`
+    and defer to this helper when classification actually runs.
+    """
+
+    available = sorted(regime_registry.available())
+    if model not in available:
+        names = ", ".join(available) if available else "(none)"
+        raise ValueError(f"Unknown regime model {model!r}. Available models: {names}")
+    return regime_registry.create(model)
+
+
 def compute_regimes(
     proxy: pd.Series,
     settings: RegimeSettings,
@@ -320,7 +341,7 @@ def compute_regimes(
 
     if not settings.enabled:
         return pd.Series(dtype="string")
-    model = regime_registry.create(settings.model)
+    model = resolve_regime_model(settings.model)
     return model.classify(proxy, settings, freq=freq, periods_per_year=periods_per_year)
 
 

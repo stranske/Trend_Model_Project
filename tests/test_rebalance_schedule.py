@@ -7,10 +7,12 @@ import pytest
 from trend_analysis.schedules import (
     _coerce_datetime_index,
     _match_timezone,
+    _offset_from_frequency,
     apply_rebalance_schedule,
     get_rebalance_dates,
     normalize_positions,
 )
+from trend_analysis.util.frequency import infer_periods_per_year
 
 
 def test_get_rebalance_dates_month_end_handles_missing_trading_days() -> None:
@@ -287,3 +289,16 @@ def test_match_timezone_drops_timezone_when_template_naive() -> None:
     converted = _match_timezone(idx, template)
 
     assert converted.tz is None
+
+
+def test_rebalance_offset_aliases_are_schedule_owned_not_annualization() -> None:
+    from pandas.tseries.offsets import MonthBegin, MonthEnd, Week
+
+    assert isinstance(_offset_from_frequency("monthly"), MonthEnd)
+    assert isinstance(_offset_from_frequency("weekly"), Week)
+    assert isinstance(_offset_from_frequency("MS"), MonthBegin)
+
+    irregular_index = pd.DatetimeIndex(["2024-01-31", "2024-02-29", "2024-03-31"])
+    assert infer_periods_per_year(irregular_index) == 12
+    calendar = get_rebalance_dates(irregular_index, "monthly")
+    assert len(calendar) == 3
