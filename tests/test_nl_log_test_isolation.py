@@ -2,15 +2,42 @@
 
 from __future__ import annotations
 
+import builtins
+import importlib.util
 import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from trend_analysis.llm.nl_logging import NLOperationLog, write_nl_log
+from tests import conftest as suite_conftest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_fixture_skips_llm_import_without_pydantic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_find_spec = importlib.util.find_spec
+    real_import = builtins.__import__
+
+    def _find_spec(name: str, *args, **kwargs):
+        if name == "pydantic":
+            return None
+        return real_find_spec(name, *args, **kwargs)
+
+    def _blocked_import(name: str, *args, **kwargs):
+        if name == "trend_analysis.llm":
+            raise AssertionError("the unavailable LLM package was imported")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(suite_conftest.importlib.util, "find_spec", _find_spec)
+    monkeypatch.setattr(builtins, "__import__", _blocked_import)
+
+    assert suite_conftest._load_nl_logging_for_tests() is None
 
 
 def test_cli_logging_does_not_write_repository_root(tmp_path: Path) -> None:
