@@ -247,8 +247,7 @@ def run_analysis(
 ) -> PipelineResult:
     """Diagnostics-aware wrapper mirroring ``_run_analysis``."""
     if any(
-        value is not None
-        for value in (calendar_frequency, calendar_timezone, holiday_calendar)
+        value is not None for value in (calendar_frequency, calendar_timezone, holiday_calendar)
     ):
         df = df.copy()
         calendar_settings = dict(getattr(df, "attrs", {}).get("calendar_settings", {}))

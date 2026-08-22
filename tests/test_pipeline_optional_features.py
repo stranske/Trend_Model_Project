@@ -74,9 +74,7 @@ def test_single_period_run_injects_avg_corr_metric() -> None:
 
     stats_cfg = RiskStatsConfigWithExtraMetrics()
 
-    score_frame = pipeline.single_period_run(
-        df, "2020-01", "2020-03", stats_cfg=stats_cfg
-    )
+    score_frame = pipeline.single_period_run(df, "2020-01", "2020-03", stats_cfg=stats_cfg)
 
     assert "AvgCorr" in score_frame.columns
     # AvgCorr column should contain finite values for the analysed funds.
@@ -443,9 +441,7 @@ def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
     assert enabled is not None
     assert base["selected_funds"] == enabled["selected_funds"]
     base_scale = base["risk_diagnostics"]["scale_factors"]
-    enabled_scale = enabled["risk_diagnostics"]["scale_factors"].reindex(
-        base_scale.index
-    )
+    enabled_scale = enabled["risk_diagnostics"]["scale_factors"].reindex(base_scale.index)
     mask = base_scale > 0
     ratio = enabled_scale[mask] / base_scale[mask]
     assert np.allclose(ratio, RISK_OFF_TARGET_VOL_MULTIPLIER, rtol=1e-3, atol=1e-3)
@@ -729,9 +725,7 @@ def test_run_analysis_benchmark_ir_best_effort(monkeypatch: pytest.MonkeyPatch) 
 
     original_calc = pipeline.calc_portfolio_returns
 
-    def tagging_calc(
-        weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object
-    ) -> pd.Series:
+    def tagging_calc(weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object) -> pd.Series:
         series = original_calc(weights, returns_df, **kwargs)
         if np.allclose(weights, np.repeat(1.0 / len(weights), len(weights))):
             series.attrs["portfolio_role"] = "equal_weight"
@@ -910,9 +904,7 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
     original_ir = pipeline.information_ratio
     original_calc = pipeline.calc_portfolio_returns
 
-    def tagging_calc(
-        weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object
-    ) -> pd.Series:
+    def tagging_calc(weights: np.ndarray, returns_df: pd.DataFrame, **kwargs: object) -> pd.Series:
         series = original_calc(weights, returns_df, **kwargs)
         role = "equal_weight"
         if not np.allclose(weights, np.repeat(1.0 / len(weights), len(weights))):

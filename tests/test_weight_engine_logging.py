@@ -45,9 +45,7 @@ def test_weight_engine_success_logging(caplog):
     assert result is not None
 
     # Check that success message was logged
-    debug_logs = [
-        record for record in caplog.records if record.levelno == logging.DEBUG
-    ]
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
     success_logs = [log for log in debug_logs if "Successfully created" in log.message]
     assert len(success_logs) > 0
     assert "risk_parity" in success_logs[0].message
@@ -79,21 +77,13 @@ def test_weight_engine_failure_logging(caplog):
     assert fb["logger_level"] == "DEBUG"
 
     # Check that fallback message was logged
-    debug_logs = [
-        record for record in caplog.records if record.levelno == logging.DEBUG
-    ]
-    fallback_logs = [
-        log for log in debug_logs if "falling back to equal weights" in log.message
-    ]
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
+    fallback_logs = [log for log in debug_logs if "falling back to equal weights" in log.message]
     assert len(fallback_logs) > 0
     assert "Weight engine creation failed" in fallback_logs[0].message
     # A single WARNING should have been emitted for visibility
-    warn_logs = [
-        record for record in caplog.records if record.levelno == logging.WARNING
-    ]
-    warning_fallback = [
-        w for w in warn_logs if "falling back to equal weights" in w.message
-    ]
+    warn_logs = [record for record in caplog.records if record.levelno == logging.WARNING]
+    warning_fallback = [w for w in warn_logs if "falling back to equal weights" in w.message]
     assert len(warning_fallback) == 1
 
 
@@ -123,12 +113,8 @@ def test_weight_engine_import_failure_logging(caplog):
     assert result is not None
 
     # Check that fallback message was logged with the specific error
-    debug_logs = [
-        record for record in caplog.records if record.levelno == logging.DEBUG
-    ]
-    fallback_logs = [
-        log for log in debug_logs if "falling back to equal weights" in log.message
-    ]
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
+    fallback_logs = [log for log in debug_logs if "falling back to equal weights" in log.message]
     assert len(fallback_logs) > 0
     assert "Mock import error" in fallback_logs[0].message
 
@@ -184,9 +170,7 @@ def test_weight_engine_no_scheme_no_logging(caplog):
     assert result is not None
 
     # Check that no weight engine related messages were logged
-    debug_logs = [
-        record for record in caplog.records if record.levelno == logging.DEBUG
-    ]
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
     weight_logs = [log for log in debug_logs if "weight engine" in log.message.lower()]
     assert len(weight_logs) == 0
 
@@ -212,8 +196,6 @@ def test_weight_engine_equal_scheme_no_logging(caplog):
     assert result is not None
 
     # Check that no weight engine related messages were logged
-    debug_logs = [
-        record for record in caplog.records if record.levelno == logging.DEBUG
-    ]
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
     weight_logs = [log for log in debug_logs if "weight engine" in log.message.lower()]
     assert len(weight_logs) == 0

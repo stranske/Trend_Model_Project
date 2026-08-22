@@ -38,15 +38,11 @@ def test_floor_vol_limits_scaling() -> None:
         },
         index=dates,
     )
-    latest_vol = realised_volatility(
-        returns, RiskWindow(length=6), periods_per_year=12
-    ).iloc[-1]
+    latest_vol = realised_volatility(returns, RiskWindow(length=6), periods_per_year=12).iloc[-1]
     without_floor = _scale_factors(latest_vol, 0.10, floor_vol=None)
     with_floor = _scale_factors(latest_vol, 0.10, floor_vol=0.05)
     assert (with_floor <= without_floor + 1e-12).all()
-    assert (
-        with_floor[latest_vol < 0.05] <= without_floor[latest_vol < 0.05] + 1e-12
-    ).any()
+    assert (with_floor[latest_vol < 0.05] <= without_floor[latest_vol < 0.05] + 1e-12).any()
 
 
 def test_warmup_zeroes_initial_rows() -> None:

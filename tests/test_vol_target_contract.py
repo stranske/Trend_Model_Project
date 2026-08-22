@@ -27,9 +27,7 @@ def _analysis_with_heterogeneous_returns(
     monthly_cost: float = 0.0,
     risk_free_rate: float = 0.0,
 ) -> tuple[dict[object, object], pd.DataFrame]:
-    returns = (
-        _heterogeneous_returns().assign(RF=risk_free_rate).reset_index(names="Date")
-    )
+    returns = _heterogeneous_returns().assign(RF=risk_free_rate).reset_index(names="Date")
     result = run_analysis(
         returns,
         in_start="2022-01",
@@ -69,9 +67,7 @@ def test_scale_factor_has_one_effective_owner() -> None:
     expected_volatility = realised_volatility(
         raw_portfolio.to_frame("portfolio"), RiskWindow(length=6), periods_per_year=12
     )["portfolio"]
-    pd.testing.assert_series_equal(
-        diagnostics.portfolio_volatility, expected_volatility
-    )
+    pd.testing.assert_series_equal(diagnostics.portfolio_volatility, expected_volatility)
 
     result, pipeline_returns = _analysis_with_heterogeneous_returns()
     expected_user = (
@@ -90,12 +86,8 @@ def test_scale_factor_has_one_effective_owner() -> None:
 
 def test_portfolio_volatility_diagnostic_matches_user_returns() -> None:
     result, returns = _analysis_with_heterogeneous_returns()
-    raw_out_returns = returns.set_index("Date").loc[
-        "2023-01-01":, ["Steady", "Volatile"]
-    ]
-    expected_user = raw_out_returns.mul(pd.Series(result["fund_weights"]), axis=1).sum(
-        axis=1
-    )
+    raw_out_returns = returns.set_index("Date").loc["2023-01-01":, ["Steady", "Volatile"]]
+    expected_user = raw_out_returns.mul(pd.Series(result["fund_weights"]), axis=1).sum(axis=1)
     pd.testing.assert_series_equal(
         result["portfolio_user_weight"],
         expected_user,
