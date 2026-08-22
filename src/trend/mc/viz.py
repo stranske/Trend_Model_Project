@@ -405,7 +405,7 @@ def _validate_nav_paths(
     """
     from trend.mc.io import (
         MCNavPathsIOError,
-        load_nav_paths_frame,
+        load_nav_paths,
         validate_nav_paths_df,
         validate_nav_paths_requirement,
     )
@@ -417,7 +417,7 @@ def _validate_nav_paths(
         elif fold_id is not None:
             nav_paths_frame = validate_nav_paths_df(_load_fold_nav_paths_frame(bundle_dir, fold_id))
         else:
-            nav_paths_frame = load_nav_paths_frame(bundle_path)
+            nav_paths_frame = load_nav_paths(bundle_path)
             if nav_paths_frame is None and set(selected_charts).intersection(
                 NAV_PATH_REQUIRED_CHARTS
             ):

@@ -148,7 +148,7 @@ def build_ui() -> ipyw.VBox:  # pragma: no cover - UI wiring exercised manually
     w3_sl = widgets.FloatSlider(value=0.34, min=0, max=1.0, step=0.01)
 
     out_fmt = widgets.Dropdown(
-        options=["excel", "csv", "json"], value="excel", description="Output:"
+        options=["xlsx", "csv", "json"], value="xlsx", description="Output:"
     )
 
     blended_box = widgets.VBox([m1_dd, w1_sl, m2_dd, w2_sl, m3_dd, w3_sl])

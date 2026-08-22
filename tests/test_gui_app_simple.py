@@ -38,7 +38,7 @@ class TestParamStore:
             store = ParamStore()
             store.cfg = {
                 "portfolio": {"selection_mode": "all"},
-                "output": {"format": "excel"},
+                "export": {"formats": ["xlsx"]},
             }
             assert store.cfg["portfolio"]["selection_mode"] == "all"
         except ImportError:
@@ -57,12 +57,12 @@ class TestConfigManagement:
             store = ParamStore()
             store.cfg = {
                 "portfolio": {"selection_mode": "all"},
-                "output": {"format": "excel"},
+                "export": {"formats": ["xlsx"]},
             }
 
             result = app.build_config_dict(store)
             assert result["portfolio"]["selection_mode"] == "all"
-            assert result["output"]["format"] == "excel"
+            assert result["export"]["formats"] == ["xlsx"]
         except ImportError:
             pytest.skip("GUI dependencies not available")
 
@@ -133,12 +133,12 @@ class TestWidgetInteractionPatterns:
             store = ParamStore()
 
             # Simulate dropdown change
-            out = store.cfg.setdefault("output", {})
-            out["format"] = "csv"
+            export_cfg = store.cfg.setdefault("export", {})
+            export_cfg["formats"] = ["csv"]
             if hasattr(store, "dirty"):
                 store.dirty = True
 
-            assert store.cfg["output"]["format"] == "csv"
+            assert store.cfg["export"]["formats"] == ["csv"]
         except ImportError:
             pytest.skip("GUI dependencies not available")
 

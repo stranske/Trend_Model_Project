@@ -279,7 +279,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
     in_end = str(split.get("in_end")) if split else ""
     out_start = str(split.get("out_start")) if split else ""
     out_end = str(split.get("out_end")) if split else ""
-    if any(fmt.lower() in {"excel", "xlsx"} for fmt in format_list):
+    if any(fmt.lower() == "xlsx" for fmt in format_list):
         formatter = export.make_summary_formatter(
             result.details, in_start, in_end, out_start, out_end
         )
@@ -289,7 +289,7 @@ def _handle_exports(cfg: Any, result: RunResult, structured_log: bool, run_id: s
             str(out_dir_path / f"{filename}.xlsx"),
             default_sheet_formatter=formatter,
         )
-        remaining = [fmt for fmt in format_list if fmt.lower() not in {"excel", "xlsx"}]
+        remaining = [fmt for fmt in format_list if fmt.lower() != "xlsx"]
         if remaining:
             export.export_data(
                 data,
@@ -314,7 +314,6 @@ def _resolve_export_artifact_paths(
     paths: list[Path] = []
     for fmt in formats:
         fmt_norm = (fmt or "").lower()
-        fmt_norm = "xlsx" if fmt_norm == "excel" else fmt_norm
         if not fmt_norm:
             continue
         if fmt_norm == "xlsx":
@@ -356,7 +355,7 @@ def _write_trend_run_artifacts(
         narrative_data: dict[str, Any] = {"metrics": result.metrics}
         export.append_narrative_section(narrative_data, result.details, config=cfg)
         data_keys = list(narrative_data.keys())
-        if any(fmt.lower() in {"excel", "xlsx"} for fmt in fmt_list):
+        if any(fmt.lower() == "xlsx" for fmt in fmt_list):
             data_keys.append("summary")
     artifact_paths = _resolve_export_artifact_paths(out_dir_path, filename, data_keys, fmt_list)
     summary_text = _summary_text(cfg, result.details)

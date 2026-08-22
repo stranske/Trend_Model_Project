@@ -117,12 +117,13 @@ risk:
   min_position: 0.02          # Min 2% per position
 ```
 
-### Output Section
+### Export Section
 
 ```yaml
-output:
-  format: excel               # csv, json, excel
-  path: outputs/analysis      # Output directory/prefix
+export:
+  directory: outputs          # Output directory
+  filename: analysis          # Output filename/prefix
+  formats: [xlsx, csv, json]
   include_raw_metrics: true   # Include detailed metrics
 ```
 

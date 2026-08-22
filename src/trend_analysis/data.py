@@ -1,7 +1,7 @@
 import logging
 import stat
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional
+from typing import Any, Callable, Literal, Mapping, Optional
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -392,16 +392,17 @@ def _is_readable(mode: int) -> bool:
     return (mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)) != 0
 
 
-def load_csv(
+def _load_file(
     path: str,
     *,
+    reader: Callable[[str], pd.DataFrame],
     errors: ValidationErrorMode = "log",
     include_date_column: bool = True,
     date_column: str = "Date",
     missing_policy: str | Mapping[str, str] | None = None,
     missing_limit: MissingLimitArg = None,
 ) -> Optional[pd.DataFrame]:
-    """Load and validate a CSV using ``date_column`` as the date field."""
+    """Load one supported tabular format through the shared validation boundary."""
 
     p = Path(path)
     try:
@@ -411,12 +412,9 @@ def load_csv(
             raise IsADirectoryError(path)
         mode = p.stat().st_mode
         if not _is_readable(mode):
-            if errors == "raise":
-                raise PermissionError(f"Permission denied accessing file: {path}")
-            logger.error(f"Permission denied accessing file: {path}")
-            return None
+            raise PermissionError(f"Permission denied accessing file: {path}")
 
-        raw = _canonicalise_date_column(pd.read_csv(str(p)), date_column)
+        raw = _canonicalise_date_column(reader(str(p)), date_column)
         result = _validate_payload(
             raw,
             origin=str(p),
@@ -457,6 +455,28 @@ def load_csv(
     return None
 
 
+def load_csv(
+    path: str,
+    *,
+    errors: ValidationErrorMode = "log",
+    include_date_column: bool = True,
+    date_column: str = "Date",
+    missing_policy: str | Mapping[str, str] | None = None,
+    missing_limit: MissingLimitArg = None,
+) -> Optional[pd.DataFrame]:
+    """Load and validate a CSV using ``date_column`` as the date field."""
+
+    return _load_file(
+        path,
+        reader=pd.read_csv,
+        errors=errors,
+        include_date_column=include_date_column,
+        date_column=date_column,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+    )
+
+
 def load_parquet(
     path: str,
     *,
@@ -468,54 +488,15 @@ def load_parquet(
 ) -> Optional[pd.DataFrame]:
     """Load and validate a Parquet file using ``date_column`` as the date field."""
 
-    p = Path(path)
-    try:
-        if not p.exists():
-            raise FileNotFoundError(path)
-        if p.is_dir():
-            raise IsADirectoryError(path)
-        mode = p.stat().st_mode
-        if not _is_readable(mode):
-            raise PermissionError(f"Permission denied accessing file: {path}")
-
-        raw = _canonicalise_date_column(pd.read_parquet(str(p)), date_column)
-        result = _validate_payload(
-            raw,
-            origin=str(p),
-            errors=errors,
-            include_date_column=include_date_column,
-            missing_policy=missing_policy,
-            missing_limit=missing_limit,
-        )
-        if isinstance(result, pd.DataFrame) and include_date_column:
-            result = result.reset_index(drop=True)
-        return result
-    except (
-        FileNotFoundError,
-        PermissionError,
-        IsADirectoryError,
-        pd.errors.EmptyDataError,
-    ) as exc:
-        if errors == "raise":
-            raise
-        logger.error(str(exc))
-    except MarketDataValidationError as exc:
-        if errors == "raise":
-            raise
-        msg_lower = exc.user_message.lower()
-        message = exc.user_message
-        if "could not be parsed" in msg_lower or "unable to parse" in msg_lower:
-            message = f"{exc.user_message}\nUnable to parse Date values in {path}"
-        logger.error("Validation failed (%s): %s", path, message)
-    except InputValidationError as exc:
-        if errors == "raise":
-            raise
-        logger.error("Validation failed (%s): %s", path, exc.user_message)
-    except Exception as exc:  # pragma: no cover - defensive guard
-        if errors == "raise":
-            raise
-        logger.error("Unexpected error loading %s: %s", path, exc)
-    return None
+    return _load_file(
+        path,
+        reader=pd.read_parquet,
+        errors=errors,
+        include_date_column=include_date_column,
+        date_column=date_column,
+        missing_policy=missing_policy,
+        missing_limit=missing_limit,
+    )
 
 
 def validate_dataframe(

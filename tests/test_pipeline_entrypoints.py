@@ -321,22 +321,33 @@ def test_both_entrypoints_share_risk_free_resolution(
         "portfolio": {},
         "vol_adjust": {},
     }
-    captured: list[dict[str, object]] = []
+    captured: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
     monkeypatch.setattr(pipeline, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split)
     monkeypatch.setattr(pipeline, "_build_trend_spec", lambda *_args, **_kwargs: object())
 
-    def fake_run_analysis(*_args: object, **kwargs: object) -> dict[str, object]:
-        captured.append(kwargs)
+    def fake_run_analysis(*args: object, **kwargs: object) -> dict[str, object]:
+        captured.append((args, kwargs))
         return pipeline._empty_run_full_result()
 
     bindings = _bindings_with_analysis(fake_run_analysis)
     run_from_config(config, bindings=bindings)
     run_full_from_config(config, bindings=bindings)
 
+    first_args, first_kwargs = captured[0]
+    second_args, second_kwargs = captured[1]
+    assert first_args[0] is sample_frame
+    assert second_args[0] is sample_frame
+    assert first_args[1:] == second_args[1:]
+    first_without_signal = {k: v for k, v in first_kwargs.items() if k != "signal_spec"}
+    second_without_signal = {k: v for k, v in second_kwargs.items() if k != "signal_spec"}
+    assert first_without_signal == second_without_signal
+    assert first_kwargs["signal_spec"] is not None
+    assert second_kwargs["signal_spec"] is not None
     observed = [
-        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for kwargs in captured
+        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"])
+        for _, kwargs in captured
     ]
     assert observed == [expected, expected]
 

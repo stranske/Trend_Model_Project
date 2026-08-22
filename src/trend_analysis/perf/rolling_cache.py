@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import tempfile
@@ -16,6 +17,8 @@ from pandas.util import hash_pandas_object
 from trend_analysis.util.joblib_shim import dump, load
 
 from .timing import log_timing
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_resolve(path: Path) -> Path:
@@ -98,10 +101,16 @@ class RollingCache:
             try:
                 fallback.mkdir(parents=True, exist_ok=True)
                 self._storage_status = "temporary"
+                logger.warning(
+                    "Rolling cache primary storage is unavailable; using temporary storage."
+                )
                 return fallback
             except (OSError, PermissionError):
                 self._enabled = False
                 self._storage_status = "disabled"
+                logger.warning(
+                    "Rolling cache storage is unavailable; persistent caching is disabled."
+                )
                 return cache_dir
 
     def set_enabled(self, enabled: bool) -> None:

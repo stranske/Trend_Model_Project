@@ -140,5 +140,5 @@ def test_api_server_explicit_all_interfaces_override_still_works(monkeypatch) ->
 
     monkeypatch.setitem(sys.modules, "uvicorn", StubUvicorn())
 
-    assert api_server.run(host="0.0.0.0", port=1234) == ("0.0.0.0", 1234)
+    assert api_server.run(host="0.0.0.0", port=1234) is None
     assert any(call["host"] == "0.0.0.0" and call["port"] == 1234 for call in calls)

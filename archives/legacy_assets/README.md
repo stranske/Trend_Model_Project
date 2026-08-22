@@ -2,6 +2,23 @@
 
 This archive collects notebooks and scripts that no longer have live references in the codebase. Inventory and dates are derived from `git log -1 --format=%cs -- <path>`, and usage checks relied on `rg '<file base>' src scripts config docs`, all of which returned **0 hits** for the items below.
 
+## Supported boundary and preservation policy
+
+These files are historical records, not supported runtime, packaging, test,
+documentation, or operator surfaces. The removal campaign's endpoint is:
+
+- no production import, command, configuration, or documentation path executes
+  or recommends an archived asset;
+- no built wheel or installed console script contains an archived executable;
+- absence gates exclude archive contents from name-only failures while still
+  rejecting live references back into the archive.
+
+Archive retention does not preserve a compatibility promise. It preserves
+project history. Files under `Old/` and every directory whose name ends in
+`old/` must not be edited or deleted without a separately authorized archive
+purge. The current campaign therefore closes at runtime and wheel removal; it
+does not authorize a historical-notebook purge.
+
 ## Old/
 
 | Original path | Purpose | Last modified | Usage hits |

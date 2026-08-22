@@ -266,7 +266,6 @@ def test_cfg_section_and_section_get_defaults() -> None:
     ns = types.SimpleNamespace(answer=42)
     assert pipeline._section_get(ns, "answer", default=None) == 42
     assert pipeline._section_get(None, "missing", default="fallback") == "fallback"
-    assert pipeline._unwrap_cfg({"__cfg__": {"__cfg__": None}}) == {"__cfg__": None}
     empty = pipeline._empty_run_full_result()
     assert set(empty) == {
         "out_sample_stats",

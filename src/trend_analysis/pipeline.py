@@ -36,7 +36,6 @@ from .pipeline_helpers import (
     _policy_from_config,
     _resolve_target_vol,
     _section_get,
-    _unwrap_cfg,
 )
 from .pipeline_helpers import (
     _resolve_sample_split as _resolve_sample_split_impl,
@@ -300,7 +299,6 @@ def _bindings() -> ConfigBindings:
     return ConfigBindings(
         load_csv=load_csv,
         attach_calendar_settings=_attach_calendar_settings,
-        unwrap_cfg=_unwrap_cfg,
         cfg_section=_cfg_section,
         section_get=_section_get,
         cfg_value=_cfg_value,
@@ -418,7 +416,6 @@ __all__ = [
     "_run_analysis_with_diagnostics",
     "_section_get",
     "_select_universe",
-    "_unwrap_cfg",
     "calc_portfolio_returns",
     "compute_signal",
     "position_from_signal",

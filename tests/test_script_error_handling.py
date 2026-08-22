@@ -49,7 +49,7 @@ class TestScriptErrorHandling(unittest.TestCase):
         self.assertNotIn("| head -5 || true", content)
 
         # Verify proper error handling is in place
-        self.assertIn("if [[ $? -ne 0 ]]; then", content)
+        self.assertIn("if ! DIFF_FILES=$(git diff --name-only HEAD~1 2>/dev/null); then", content)
         self.assertIn("::warning::git diff command failed", content)
 
     def test_validate_fast_error_handling(self):

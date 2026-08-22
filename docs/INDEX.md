@@ -137,11 +137,12 @@ Use this index to find the current contributor guides and to understand which ov
 - `app.py` - Main entry point with demo button
 - `components/` - Reusable UI components (charts, validation, caching)
 - `pages/` - Multipage app structure:
-  - `1_Data.py` (canonical), `1_Upload.py` (legacy shim)
-  - `2_Model.py` (canonical), `2_Configure.py` (legacy shim)
-  - `3_Run.py` (canonical), `3_Results.py` (shim → 4_Results)
-  - `4_Results.py` (canonical results display)
-- Shim files kept for backward test compatibility
+  - `1_Data.py` - data upload and validation
+  - `2_Model.py` - model configuration
+  - `3_Results.py` - analysis results
+  - `4_Help.py` - configuration help
+  - `5_Monte_Carlo.py` - Monte Carlo analysis
+- Removed page aliases are not retained for test compatibility
 - Updated tests to remove references to old `app/streamlit/` path
 
 **`tests/` folder (reorganized 2025-11-30):**

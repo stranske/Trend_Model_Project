@@ -56,6 +56,10 @@ def _build_wheel(destination: Path) -> Path:
         if not raw_path:
             continue
         relative_path = Path(raw_path.decode("utf-8"))
+        # ``git ls-files`` includes staged or worktree deletions until commit;
+        # build the wheel from the actual candidate tree.
+        if not (REPO_ROOT / relative_path).exists():
+            continue
         target_path = build_root / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO_ROOT / relative_path, target_path)

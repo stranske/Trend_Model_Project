@@ -59,8 +59,10 @@ def test_column_mapping_defaults_and_validation(
     assert mapping.column_tickers == {}
 
 
-def test_load_merges_output_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``load`` should fold ``output`` metadata into the export settings."""
+def test_load_rejects_removed_output_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``load`` must not translate the removed ``output`` section."""
 
     monkeypatch.setattr(models, "_HAS_PYDANTIC", False)
     monkeypatch.setattr(models, "validate_trend_config", lambda data, *, base_path: data)
@@ -72,11 +74,8 @@ def test_load_merges_output_section(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         "path": str(export_target),
     }
 
-    config = models.load(config_dict)
-
-    assert config.export["formats"] == ["json", "CSV"]
-    assert config.export["directory"] == str(export_target.parent)
-    assert config.export["filename"] == export_target.name
+    with pytest.raises(Exception, match="output"):
+        models.load(config_dict)
 
 
 def test_load_uses_environment_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

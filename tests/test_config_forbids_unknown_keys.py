@@ -114,7 +114,6 @@ def test_active_config_guidance_uses_canonical_cost_keys() -> None:
     active_guidance = (
         "docs/UserGuide.md",
         "docs/config.md",
-        "docs/phase-2/multi_period_types.md",
         "tools/prompt_dataset.yml",
     )
     retired = (

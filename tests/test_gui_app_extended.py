@@ -305,7 +305,11 @@ def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
                 "selection_mode": "all",
                 "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
             },
-            "output": {"format": "csv", "path": str(tmp_path / "out")},
+            "export": {
+                "formats": ["csv"],
+                "directory": str(tmp_path),
+                "filename": "out",
+            },
         }
     )
     store.theme = "system"

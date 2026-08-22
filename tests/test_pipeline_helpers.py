@@ -18,7 +18,6 @@ from trend_analysis.pipeline import (
     _prepare_preprocess_stage,
     _resolve_sample_split,
     _section_get,
-    _unwrap_cfg,
 )
 from trend_analysis.util.frequency import FrequencySummary
 
@@ -37,11 +36,6 @@ def test_cfg_helpers_handle_mappings_and_objects() -> None:
 
     assert _section_get(Fallback(), "present") == "yes"
     assert _section_get({}, "missing", default="fallback") == "fallback"
-
-
-def test_unwrap_cfg_flattens_nested_mappings() -> None:
-    nested = {"__cfg__": {"__cfg__": {"value": 42}}}
-    assert _unwrap_cfg(nested) == {"value": 42}
 
 
 def test_policy_from_config_merges_defaults() -> None:

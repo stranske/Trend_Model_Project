@@ -94,8 +94,10 @@ rank:
     Sharpe: 0.5
     AnnualReturn: 0.3
     MaxDrawdown: 0.2
-output:
-  format: excel                 # csv | excel | json
+export:
+  directory: outputs
+  filename: analysis
+  formats: [xlsx, csv, json]
 <!-- … existing Steps 1‑10 remain unchanged … -->
 
 <!-- locate STEP 11 and replace its body with the following … -->
@@ -213,8 +215,8 @@ Follow these guard-rails whenever you touch export logic.
 Tests must fail if this order mutates.
 
 5. **Config switches**  
-`output.format` = `excel | csv | json`  
-`output.path`   = prefix used by exporter (Excel auto-appends `.xlsx`).
+`export.formats` accepts `xlsx`, `csv`, and `json`.
+`export.directory` and optional `export.filename` select the output prefix.
 
 6. **Tests**  
 * In-memory smoke test: write to `BytesIO`, assert two sheets and cell
@@ -583,5 +585,3 @@ feature lands, run the sequence below and update `config/demo.yml` or
 5. **Keep demo config current**
    - Update `config/demo.yml` and demo scripts whenever export or pipeline
      behaviour changes so the demo covers all features.
-
-

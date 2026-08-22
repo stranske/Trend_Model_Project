@@ -852,9 +852,13 @@ def launch() -> widgets.Widget:
         value=store.theme,
         description="Theme",
     )
+    export_state = _as_dict(store.cfg.get("export"))
+    export_formats = export_state.get("formats", ["xlsx"])
+    if isinstance(export_formats, str):
+        export_formats = [export_formats]
     fmt_dd = widgets.Dropdown(
-        options=["excel", "csv", "json"],
-        value=store.cfg.get("output", {}).get("format", "excel"),
+        options=["xlsx", "csv", "json"],
+        value=str(export_formats[0]) if export_formats else "xlsx",
         description="Format",
     )
     run_btn = widgets.Button(description="Run")
@@ -882,8 +886,8 @@ def launch() -> widgets.Widget:
         store.dirty = True
 
     def on_fmt(change: dict[str, Any], *, store: ParamStore) -> None:
-        out = store.cfg.setdefault("output", {})
-        out["format"] = change["new"]
+        export_cfg = store.cfg.setdefault("export", {})
+        export_cfg["formats"] = [change["new"]]
         store.dirty = True
 
     def on_run(_: Any, *, store: ParamStore) -> None:
@@ -891,11 +895,16 @@ def launch() -> widgets.Widget:
         metrics = pipeline.run(cfg)
         if metrics.empty:
             return
-        out = cfg.output or {}
-        fmt = out.get("format", "excel").lower()
-        path = out.get("path", "gui_output")
+        export_cfg = cfg.export or {}
+        formats = export_cfg.get("formats", ["xlsx"])
+        if isinstance(formats, str):
+            formats = [formats]
+        fmt = str(formats[0] if formats else "xlsx").lower()
+        path = Path(export_cfg.get("directory", ".")) / export_cfg.get(
+            "filename", "gui_output"
+        )
         data = {"metrics": metrics}
-        if fmt in {"excel", "xlsx"}:
+        if fmt == "xlsx":
             full_result = pipeline.run_full(cfg)
             res, diag = coerce_pipeline_result(full_result)
             if not res:
@@ -917,7 +926,7 @@ def launch() -> widgets.Widget:
                 default_sheet_formatter=sheet_fmt,
             )
         elif fmt in export.EXPORTERS:
-            export.EXPORTERS[fmt](data, path, None)
+            export.EXPORTERS[fmt](data, str(path), None)
         save_state(store)
         store.dirty = False
 
@@ -944,7 +953,11 @@ def launch() -> widgets.Widget:
         portfolio_cfg = _as_dict(store.cfg.get("portfolio"))
         mode.value = portfolio_cfg.get("selection_mode", "all")
         vol_adj.value = _as_dict(store.cfg.get("vol_adjust")).get("enabled", True)
-        fmt_dd.value = _as_dict(store.cfg.get("output")).get("format", "excel")
+        refreshed_export = _as_dict(store.cfg.get("export"))
+        refreshed_formats = refreshed_export.get("formats", ["xlsx"])
+        if isinstance(refreshed_formats, str):
+            refreshed_formats = [refreshed_formats]
+        fmt_dd.value = str(refreshed_formats[0]) if refreshed_formats else "xlsx"
 
         rank_box.children = _build_rank_options(store).children
         manual_box.children = _build_manual_override(store).children

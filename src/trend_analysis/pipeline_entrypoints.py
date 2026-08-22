@@ -24,7 +24,6 @@ logger = logging.getLogger("trend_analysis.pipeline")
 class ConfigBindings:
     load_csv: Any
     attach_calendar_settings: Any
-    unwrap_cfg: Any
     cfg_section: Any
     section_get: Any
     cfg_value: Any
@@ -67,6 +66,127 @@ def _prepare_risk_free_settings(data_settings: Any, section_get: Any) -> tuple[s
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _PreparedConfigRun:
+    """Fully resolved inputs shared by both config entry points."""
+
+    frame: pd.DataFrame
+    in_start: Any
+    in_end: Any
+    out_start: Any
+    out_end: Any
+    target_vol: Any
+    monthly_cost: float
+    analysis_kwargs: dict[str, Any]
+
+
+def _prepare_config_run(cfg: Any, bindings: ConfigBindings) -> _PreparedConfigRun:
+    """Resolve and load every input before result-specific shaping diverges."""
+
+    preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
+    data_settings = bindings.cfg_section(cfg, "data")
+    csv_path = bindings.section_get(data_settings, "csv_path")
+    if csv_path is None:
+        raise KeyError("cfg.data['csv_path'] must be provided")
+
+    date_column = bindings.section_get(data_settings, "date_column") or "Date"
+    load_kwargs: dict[str, Any] = {
+        "errors": "raise",
+        "missing_policy": bindings.section_get(data_settings, "missing_policy"),
+        "missing_limit": bindings.section_get(data_settings, "missing_limit"),
+    }
+    if _accepts_keyword(bindings.load_csv, "date_column"):
+        load_kwargs["date_column"] = date_column
+    frame = cast(pd.DataFrame, bindings.load_csv(csv_path, **load_kwargs))
+    bindings.attach_calendar_settings(frame, cfg)
+
+    resolved_split = bindings.resolve_sample_split(
+        frame, bindings.cfg_section(cfg, "sample_split")
+    )
+    metrics_list = bindings.section_get(bindings.cfg_section(cfg, "metrics"), "registry")
+    stats_cfg = None
+    if metrics_list:
+        from .core.rank_selection import canonical_metric_list
+
+        stats_cfg = bindings.RiskStatsConfig(
+            metrics_to_run=canonical_metric_list(metrics_list),
+            risk_free=0.0,
+        )
+
+    missing_section = bindings.section_get(preprocessing_section, "missing_data")
+    policy_spec, limit_spec = bindings.policy_from_config(
+        missing_section if isinstance(missing_section, Mapping) else None
+    )
+    vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
+    run_settings = bindings.cfg_section(cfg, "run")
+    portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
+    weighting_scheme = _resolve_single_period_weighting_scheme(
+        portfolio_cfg, bindings.section_get
+    )
+    robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
+    if not isinstance(robustness_cfg, Mapping):
+        robustness_cfg = bindings.cfg_section(cfg, "robustness")
+    weight_engine_params = bindings.weight_engine_params_from_robustness(
+        weighting_scheme, robustness_cfg
+    ) or {}
+    weight_engine_params.update(
+        resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
+    )
+    risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
+        data_settings, bindings.section_get
+    )
+    analysis_kwargs = {
+        "floor_vol": bindings.section_get(vol_adjust, "floor_vol"),
+        "warmup_periods": int(bindings.section_get(vol_adjust, "warmup_periods", 0) or 0),
+        "selection_mode": bindings.section_get(portfolio_cfg, "selection_mode", "all"),
+        "random_n": bindings.section_get(portfolio_cfg, "random_n", 8),
+        "custom_weights": bindings.section_get(portfolio_cfg, "custom_weights"),
+        "rank_kwargs": bindings.section_get(portfolio_cfg, "rank"),
+        "manual_funds": bindings.section_get(portfolio_cfg, "manual_list"),
+        "indices_list": bindings.section_get(portfolio_cfg, "indices_list"),
+        "benchmarks": bindings.cfg_value(cfg, "benchmarks"),
+        "seed": bindings.cfg_value(cfg, "seed", 42),
+        "weighting_scheme": weighting_scheme,
+        "constraints": bindings.section_get(portfolio_cfg, "constraints"),
+        "stats_cfg": stats_cfg,
+        "missing_policy": policy_spec,
+        "missing_limit": limit_spec,
+        "risk_window": bindings.section_get(vol_adjust, "window"),
+        "previous_weights": bindings.section_get(portfolio_cfg, "previous_weights"),
+        "lambda_tc": bindings.section_get(portfolio_cfg, "lambda_tc", 0.0),
+        "max_turnover": bindings.section_get(portfolio_cfg, "max_turnover"),
+        "signal_spec": bindings.build_trend_spec(cfg, vol_adjust),
+        "regime_cfg": bindings.cfg_section(cfg, "regime"),
+        "weight_policy": bindings.section_get(portfolio_cfg, "weight_policy"),
+        "risk_free_column": risk_free_column,
+        "allow_risk_free_fallback": allow_risk_free_fallback,
+        "weight_engine_params": weight_engine_params,
+    }
+    return _PreparedConfigRun(
+        frame=frame,
+        in_start=resolved_split["in_start"],
+        in_end=resolved_split["in_end"],
+        out_start=resolved_split["out_start"],
+        out_end=resolved_split["out_end"],
+        target_vol=bindings.resolve_target_vol(vol_adjust),
+        monthly_cost=_resolve_single_period_monthly_cost(portfolio_cfg, run_settings),
+        analysis_kwargs=analysis_kwargs,
+    )
+
+
+def _invoke_prepared_run(prepared: _PreparedConfigRun, bindings: ConfigBindings) -> Any:
+    return bindings.invoke_analysis_with_diag(
+        prepared.frame,
+        prepared.in_start,
+        prepared.in_end,
+        prepared.out_start,
+        prepared.out_end,
+        prepared.target_vol,
+        prepared.monthly_cost,
+        **prepared.analysis_kwargs,
+    )
+
+
 def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
     """Run the analysis pipeline using a config-like object.
 
@@ -79,106 +199,7 @@ def run_from_config(cfg: Any, *, bindings: ConfigBindings) -> pd.DataFrame:
         A DataFrame of out-of-sample metrics. When the run aborts, returns an
         empty DataFrame and attaches any diagnostics on `DataFrame.attrs`.
     """
-    cfg = bindings.unwrap_cfg(cfg)
-    preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
-    data_settings = bindings.cfg_section(cfg, "data")
-    csv_path = bindings.section_get(data_settings, "csv_path")
-    if csv_path is None:
-        raise KeyError("cfg.data['csv_path'] must be provided")
-
-    missing_policy_cfg = bindings.section_get(data_settings, "missing_policy")
-    missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
-    date_column_cfg = bindings.section_get(data_settings, "date_column")
-    if date_column_cfg is None:
-        date_column_cfg = "Date"
-
-    load_kwargs: dict[str, Any] = {
-        "errors": "raise",
-        "missing_policy": missing_policy_cfg,
-        "missing_limit": missing_limit_cfg,
-    }
-    if _accepts_keyword(bindings.load_csv, "date_column"):
-        load_kwargs["date_column"] = date_column_cfg
-    df = bindings.load_csv(csv_path, **load_kwargs)
-    df = cast(pd.DataFrame, df)
-
-    bindings.attach_calendar_settings(df, cfg)
-
-    split_cfg = bindings.cfg_section(cfg, "sample_split")
-    resolved_split = bindings.resolve_sample_split(df, split_cfg)
-    metrics_section = bindings.cfg_section(cfg, "metrics")
-    metrics_list = bindings.section_get(metrics_section, "registry")
-    stats_cfg = None
-    if metrics_list:
-        from .core.rank_selection import canonical_metric_list
-
-        stats_cfg = bindings.RiskStatsConfig(
-            metrics_to_run=canonical_metric_list(metrics_list),
-            risk_free=0.0,
-        )
-
-    missing_section = bindings.section_get(preprocessing_section, "missing_data")
-    if not isinstance(missing_section, Mapping):
-        missing_section = None
-    policy_spec, limit_spec = bindings.policy_from_config(
-        missing_section if isinstance(missing_section, Mapping) else None
-    )
-
-    vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
-    run_settings = bindings.cfg_section(cfg, "run")
-    portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
-    weighting_scheme = _resolve_single_period_weighting_scheme(portfolio_cfg, bindings.section_get)
-    robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
-    if not isinstance(robustness_cfg, Mapping):
-        robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = bindings.weight_engine_params_from_robustness(
-        weighting_scheme, robustness_cfg
-    )
-    if weight_engine_params is None:
-        weight_engine_params = {}
-    weight_engine_params.update(
-        resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
-    )
-    trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
-    lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
-    risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
-        data_settings, bindings.section_get
-    )
-
-    diag_res = bindings.invoke_analysis_with_diag(
-        df,
-        resolved_split["in_start"],
-        resolved_split["in_end"],
-        resolved_split["out_start"],
-        resolved_split["out_end"],
-        bindings.resolve_target_vol(vol_adjust),
-        _resolve_single_period_monthly_cost(portfolio_cfg, run_settings),
-        floor_vol=bindings.section_get(vol_adjust, "floor_vol"),
-        warmup_periods=int(bindings.section_get(vol_adjust, "warmup_periods", 0) or 0),
-        selection_mode=bindings.section_get(portfolio_cfg, "selection_mode", "all"),
-        random_n=bindings.section_get(portfolio_cfg, "random_n", 8),
-        custom_weights=bindings.section_get(portfolio_cfg, "custom_weights"),
-        rank_kwargs=bindings.section_get(portfolio_cfg, "rank"),
-        manual_funds=bindings.section_get(portfolio_cfg, "manual_list"),
-        indices_list=bindings.section_get(portfolio_cfg, "indices_list"),
-        benchmarks=bindings.cfg_value(cfg, "benchmarks"),
-        seed=bindings.cfg_value(cfg, "seed", 42),
-        weighting_scheme=weighting_scheme,
-        constraints=bindings.section_get(portfolio_cfg, "constraints"),
-        stats_cfg=stats_cfg,
-        missing_policy=policy_spec,
-        missing_limit=limit_spec,
-        risk_window=bindings.section_get(vol_adjust, "window"),
-        previous_weights=bindings.section_get(portfolio_cfg, "previous_weights"),
-        lambda_tc=lambda_tc_val,
-        max_turnover=bindings.section_get(portfolio_cfg, "max_turnover"),
-        signal_spec=trend_spec,
-        regime_cfg=bindings.cfg_section(cfg, "regime"),
-        weight_policy=bindings.section_get(portfolio_cfg, "weight_policy"),
-        risk_free_column=risk_free_column,
-        allow_risk_free_fallback=allow_risk_free_fallback,
-        weight_engine_params=weight_engine_params,
-    )
+    diag_res = _invoke_prepared_run(_prepare_config_run(cfg, bindings), bindings)
     if isinstance(diag_res, PipelineResult):
         normalized = diag_res
     elif isinstance(diag_res, DiagnosticResult):
@@ -225,106 +246,7 @@ def run_full_from_config(cfg: Any, *, bindings: ConfigBindings) -> PipelineResul
         PipelineResult containing the payload, diagnostic info, and optional
         metadata (if the underlying analysis provides it).
     """
-    cfg = bindings.unwrap_cfg(cfg)
-    preprocessing_section = bindings.cfg_section(cfg, "preprocessing")
-    data_settings = bindings.cfg_section(cfg, "data")
-    csv_path = bindings.section_get(data_settings, "csv_path")
-    if csv_path is None:
-        raise KeyError("cfg.data['csv_path'] must be provided")
-
-    missing_policy_cfg = bindings.section_get(data_settings, "missing_policy")
-    missing_limit_cfg = bindings.section_get(data_settings, "missing_limit")
-    date_column_cfg = bindings.section_get(data_settings, "date_column")
-    if date_column_cfg is None:
-        date_column_cfg = "Date"
-
-    load_kwargs: dict[str, Any] = {
-        "errors": "raise",
-        "missing_policy": missing_policy_cfg,
-        "missing_limit": missing_limit_cfg,
-    }
-    if _accepts_keyword(bindings.load_csv, "date_column"):
-        load_kwargs["date_column"] = date_column_cfg
-    df = bindings.load_csv(csv_path, **load_kwargs)
-    df = cast(pd.DataFrame, df)
-
-    bindings.attach_calendar_settings(df, cfg)
-
-    split_cfg = bindings.cfg_section(cfg, "sample_split")
-    resolved_split = bindings.resolve_sample_split(df, split_cfg)
-    metrics_section = bindings.cfg_section(cfg, "metrics")
-    metrics_list = bindings.section_get(metrics_section, "registry")
-    stats_cfg = None
-    if metrics_list:
-        from .core.rank_selection import canonical_metric_list
-
-        stats_cfg = bindings.RiskStatsConfig(
-            metrics_to_run=canonical_metric_list(metrics_list),
-            risk_free=0.0,
-        )
-
-    missing_section = bindings.section_get(preprocessing_section, "missing_data")
-    if not isinstance(missing_section, Mapping):
-        missing_section = None
-    policy_spec, limit_spec = bindings.policy_from_config(
-        missing_section if isinstance(missing_section, Mapping) else None
-    )
-
-    vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
-    run_settings = bindings.cfg_section(cfg, "run")
-    portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
-    weighting_scheme = _resolve_single_period_weighting_scheme(portfolio_cfg, bindings.section_get)
-    robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
-    if not isinstance(robustness_cfg, Mapping):
-        robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = bindings.weight_engine_params_from_robustness(
-        weighting_scheme, robustness_cfg
-    )
-    if weight_engine_params is None:
-        weight_engine_params = {}
-    weight_engine_params.update(
-        resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
-    )
-    trend_spec = bindings.build_trend_spec(cfg, vol_adjust)
-    lambda_tc_val = bindings.section_get(portfolio_cfg, "lambda_tc", 0.0)
-    risk_free_column, allow_risk_free_fallback = _prepare_risk_free_settings(
-        data_settings, bindings.section_get
-    )
-
-    diag_res = bindings.invoke_analysis_with_diag(
-        df,
-        resolved_split["in_start"],
-        resolved_split["in_end"],
-        resolved_split["out_start"],
-        resolved_split["out_end"],
-        bindings.resolve_target_vol(vol_adjust),
-        _resolve_single_period_monthly_cost(portfolio_cfg, run_settings),
-        floor_vol=bindings.section_get(vol_adjust, "floor_vol"),
-        warmup_periods=int(bindings.section_get(vol_adjust, "warmup_periods", 0) or 0),
-        selection_mode=bindings.section_get(portfolio_cfg, "selection_mode", "all"),
-        random_n=bindings.section_get(portfolio_cfg, "random_n", 8),
-        custom_weights=bindings.section_get(portfolio_cfg, "custom_weights"),
-        rank_kwargs=bindings.section_get(portfolio_cfg, "rank"),
-        manual_funds=bindings.section_get(portfolio_cfg, "manual_list"),
-        indices_list=bindings.section_get(portfolio_cfg, "indices_list"),
-        benchmarks=bindings.cfg_value(cfg, "benchmarks"),
-        seed=bindings.cfg_value(cfg, "seed", 42),
-        weighting_scheme=weighting_scheme,
-        constraints=bindings.section_get(portfolio_cfg, "constraints"),
-        stats_cfg=stats_cfg,
-        missing_policy=policy_spec,
-        missing_limit=limit_spec,
-        risk_window=bindings.section_get(vol_adjust, "window"),
-        previous_weights=bindings.section_get(portfolio_cfg, "previous_weights"),
-        lambda_tc=lambda_tc_val,
-        max_turnover=bindings.section_get(portfolio_cfg, "max_turnover"),
-        signal_spec=trend_spec,
-        regime_cfg=bindings.cfg_section(cfg, "regime"),
-        weight_policy=bindings.section_get(portfolio_cfg, "weight_policy"),
-        risk_free_column=risk_free_column,
-        allow_risk_free_fallback=allow_risk_free_fallback,
-        weight_engine_params=weight_engine_params,
-    )
+    diag_res = _invoke_prepared_run(_prepare_config_run(cfg, bindings), bindings)
     if isinstance(diag_res, PipelineResult):
         normalized = diag_res
     elif isinstance(diag_res, DiagnosticResult):

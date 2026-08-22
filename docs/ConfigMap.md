@@ -5,7 +5,7 @@ This document catalogues configuration and environment templates in the reposito
 ## Pipeline and analysis configs
 | Path | Purpose | Primary consumers |
 | --- | --- | --- |
-| `config/defaults.yml` | Baseline schema that loaders fall back to when no config path is provided. | `src/trend_analysis/config/legacy.py` default pointer; discovery logic in `src/trend_analysis/config/models.py`. |
+| `config/defaults.yml` | Baseline schema that loaders fall back to when no config path is provided. | Canonical discovery and loading in `src/trend_analysis/config/models.py`. |
 | `config/demo.yml` | End-to-end demo scenario used by CI and helper scripts. | Loaded in `scripts/run_multi_demo.py`, `scripts/generate_demo.py`, `scripts/run_threshold_churn_demo.py`, and `scripts/demo_os_summary.py`. |
 | `config/portfolio_test.yml` | Portfolio-selection baseline for debugging and regression tests. | Referenced by `examples/debug_fund_selection.py` and `tests/test_multi_period_selection.py`. |
 | `config/trend.toml` | TOML example for the `trend run` CLI command. | Exercised in `tests/test_spec_loader.py` and documented in `docs/CLI.md`. |

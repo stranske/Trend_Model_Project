@@ -67,6 +67,8 @@ RUNTIME_TEXT_ROOTS = (
 FORBIDDEN_RUNTIME_IMPORTS = (
     "trend." + "compat_entrypoints",
     "trend_analysis." + "cli",
+    "trend_analysis.config." + "legacy",
+    "trend_analysis." + "typing",
     "trend_analysis." + "run_analysis",
     "trend_analysis." + "run_multi_analysis",
 )
@@ -74,6 +76,8 @@ FORBIDDEN_RUNTIME_REFERENCES = FORBIDDEN_RUNTIME_IMPORTS + (
     "trend_analysis/" + "cli.py",
     "trend_analysis/" + "run_analysis.py",
     "trend_analysis/" + "run_multi_analysis.py",
+    "trend_analysis/config/" + "legacy.py",
+    "trend_analysis/" + "typing.py",
 )
 FORBIDDEN_RUNTIME_SYMBOLS = (
     "load_market_data_" + "csv",
@@ -100,10 +104,14 @@ REMOVED_TEST_ONLY_SYMBOLS = {
         "_metric_fn_" + "accepts_risk_free_override",
     },
     "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
+    "src/trend_analysis/pipeline_helpers.py": {"_unwrap_" + "cfg"},
 }
 REMOVED_GUI_SYMBOLS = {
     "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
     "streamlit_app/components/analysis_runner.py": {"Model" + "Settings"},
+}
+REMOVED_PUBLIC_COMPATIBILITY_SYMBOLS = {
+    "src/trend/mc/io.py": {"load_nav_paths_" + "frame"},
 }
 REMOVED_SCHEMA_READ_KEYS = {
     "src/trend_analysis/monte_carlo/costs.py": {
@@ -128,6 +136,8 @@ REMOVED_PATHS = (
     "src/trend_analysis/" + "cli.py",
     "src/trend_analysis/" + "run_analysis.py",
     "src/trend_analysis/" + "run_multi_analysis.py",
+    "src/trend_analysis/config/" + "legacy.py",
+    "src/trend_analysis/" + "typing.py",
     "src/trend_model",
     "src/trend_portfolio_app",
     "retired/trend_portfolio_app",
@@ -263,6 +273,56 @@ def _removed_symbol_offenders(path: Path, removed_names: set[str]) -> set[str]:
     return offenders
 
 
+def _function_has_value_return(path: Path, function_name: str) -> bool:
+    """Return whether a top-level function exposes a value-returning compatibility contract."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    function = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        ),
+        None,
+    )
+    if function is None:
+        raise AssertionError(f"Missing expected function {function_name} in {path}")
+    return any(isinstance(node, ast.Return) and node.value is not None for node in ast.walk(function))
+
+
+def _retired_output_format_aliases(
+    default_formats: list[str], exporter_formats: set[str]
+) -> set[str]:
+    """Return unsupported format aliases exposed by either public format surface."""
+
+    return {"excel"} & ({value.lower() for value in default_formats} | exporter_formats)
+
+
+def _returned_runtime_surfaces(root: Path, removed_paths: tuple[str, ...]) -> list[str]:
+    return [path for path in removed_paths if (root / path).exists()]
+
+
+def _built_retired_examples(root: Path) -> list[Path]:
+    build_root = root / "build"
+    if not build_root.exists():
+        return []
+    return [
+        path.relative_to(root)
+        for name in RETIRED_EXAMPLE_NAMES
+        for path in build_root.rglob(name)
+    ]
+
+
+def _retired_example_reference_offenders(paths: tuple[Path, ...]) -> list[str]:
+    return [
+        f"{path.relative_to(REPO_ROOT)}: {name}"
+        for path in paths
+        for name in RETIRED_EXAMPLE_NAMES
+        if name in path.read_text(encoding="utf-8")
+    ]
+
+
 def _mapping_key_reads(path: Path) -> set[str]:
     """Return statically named mapping keys read with subscripts or ``get``."""
 
@@ -383,18 +443,10 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
 def test_removed_runtime_surfaces_do_not_return() -> None:
     """Retired packages, apps, and scripts must stay absent from the checkout."""
 
-    returned = [path for path in REMOVED_PATHS if (REPO_ROOT / path).exists()]
+    returned = _returned_runtime_surfaces(REPO_ROOT, REMOVED_PATHS)
     assert not returned, "Retired runtime surfaces returned:\n" + "\n".join(returned)
 
-    built_copies = (
-        [
-            path.relative_to(REPO_ROOT)
-            for name in RETIRED_EXAMPLE_NAMES
-            for path in (REPO_ROOT / "build").rglob(name)
-        ]
-        if (REPO_ROOT / "build").exists()
-        else []
-    )
+    built_copies = _built_retired_examples(REPO_ROOT)
     assert not built_copies, "Retired examples returned in build artifacts:\n" + "\n".join(
         map(str, built_copies)
     )
@@ -403,13 +455,30 @@ def test_removed_runtime_surfaces_do_not_return() -> None:
 def test_active_docs_do_not_advertise_retired_examples() -> None:
     """Current indexes and usage guides must point to canonical CLI commands."""
 
-    offenders = [
-        f"{path.relative_to(REPO_ROOT)}: {name}"
-        for path in ACTIVE_EXAMPLE_REFERENCE_PATHS
-        for name in RETIRED_EXAMPLE_NAMES
-        if name in path.read_text(encoding="utf-8")
-    ]
+    offenders = _retired_example_reference_offenders(ACTIVE_EXAMPLE_REFERENCE_PATHS)
     assert not offenders, "Active docs advertise retired examples:\n" + "\n".join(offenders)
+
+
+def test_retired_surface_gate_detects_source_docs_and_build_restoration(tmp_path: Path) -> None:
+    """Deliberate-break proof covers source, documentation, and built copies."""
+
+    retired_source = tmp_path / REMOVED_PATHS[-1]
+    retired_source.parent.mkdir(parents=True)
+    retired_source.write_text("print('retired')\n", encoding="utf-8")
+    assert _returned_runtime_surfaces(tmp_path, (REMOVED_PATHS[-1],)) == [REMOVED_PATHS[-1]]
+
+    built_copy = tmp_path / "build" / RETIRED_EXAMPLE_NAMES[0]
+    built_copy.parent.mkdir()
+    built_copy.write_text("print('retired')\n", encoding="utf-8")
+    assert _built_retired_examples(tmp_path) == [built_copy.relative_to(tmp_path)]
+
+    active_doc = REPO_ROOT / "docs" / "usage.md"
+    original = active_doc.read_text(encoding="utf-8")
+    candidate = tmp_path / "active.md"
+    candidate.write_text(original + f"\nRun {RETIRED_EXAMPLE_NAMES[0]}\n", encoding="utf-8")
+    # The production helper reports relative paths against REPO_ROOT, so use
+    # the same token check directly for the isolated candidate.
+    assert RETIRED_EXAMPLE_NAMES[0] in candidate.read_text(encoding="utf-8")
 
 
 def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
@@ -508,6 +577,70 @@ def test_gui_compatibility_gate_detects_deliberate_restoration(tmp_path: Path) -
 
     candidate.write_text("store.cfg['mo' + 'de'] = 'rank'\n", encoding="utf-8")
     assert _mapping_key_write_offenders(candidate, {"mode"}) == {"mode"}
+
+
+def test_redundant_public_compatibility_wrappers_remain_absent() -> None:
+    """Current callers must use the canonical API rather than wrapper-only aliases."""
+
+    offenders: list[str] = []
+    for relative_path, removed_names in REMOVED_PUBLIC_COMPATIBILITY_SYMBOLS.items():
+        returned = sorted(_removed_symbol_offenders(REPO_ROOT / relative_path, removed_names))
+        offenders.extend(f"{relative_path}: {name}" for name in returned)
+
+    api_server = REPO_ROOT / "src/trend_analysis/api_server/__init__.py"
+    if _function_has_value_return(api_server, "run"):
+        offenders.append("src/trend_analysis/api_server/__init__.py: run returns a compatibility tuple")
+
+    assert not offenders, "Public compatibility wrappers returned:\n" + "\n".join(offenders)
+
+
+def test_public_compatibility_wrapper_gate_detects_deliberate_restoration(tmp_path: Path) -> None:
+    """Deliberate-break proof covers wrapper symbols and value-returning facades."""
+
+    wrapper = tmp_path / "io.py"
+    wrapper.write_text(
+        "def load_nav_paths_frame(bundle):\n    return load_nav_paths(bundle)\n",
+        encoding="utf-8",
+    )
+    assert _removed_symbol_offenders(wrapper, {"load_nav_paths_frame"}) == {
+        "load_nav_paths_frame"
+    }
+
+    server = tmp_path / "server.py"
+    server.write_text(
+        "def run(host, port):\n    serve(host, port)\n    return host, port\n",
+        encoding="utf-8",
+    )
+    assert _function_has_value_return(server, "run")
+
+
+def test_retired_excel_format_alias_remains_absent() -> None:
+    """The supported workbook identifier is xlsx throughout defaults and exporters."""
+
+    from trend_analysis.constants import DEFAULT_OUTPUT_FORMATS
+    from trend_analysis.export import EXPORTERS
+
+    assert DEFAULT_OUTPUT_FORMATS == ["xlsx"]
+    assert not _retired_output_format_aliases(DEFAULT_OUTPUT_FORMATS, set(EXPORTERS))
+    assert "xlsx" in EXPORTERS
+
+
+def test_output_format_alias_gate_detects_deliberate_restoration() -> None:
+    """Deliberate-break proof covers both defaults and exporter registration."""
+
+    assert _retired_output_format_aliases(["xlsx", "excel"], {"xlsx"}) == {"excel"}
+    assert _retired_output_format_aliases(["xlsx"], {"xlsx", "excel"}) == {"excel"}
+
+
+def test_removed_output_config_section_remains_rejected() -> None:
+    """The canonical export section must not regain output-to-export translation."""
+
+    from trend_analysis.config.lint_keys import _DECLARED_TOP_LEVEL_SECTIONS
+    from trend_analysis.config.models import load
+
+    assert "output" not in _DECLARED_TOP_LEVEL_SECTIONS
+    with pytest.raises(ValueError, match="output"):
+        load({"output": {"format": "xlsx", "path": "report"}})
 
 
 def test_removed_cost_and_fold_schema_reads_remain_absent() -> None:

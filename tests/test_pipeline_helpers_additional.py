@@ -25,7 +25,6 @@ from trend_analysis.pipeline import (
     _resolve_sample_split,
     _section_get,
     _Stats,
-    _unwrap_cfg,
     compute_signal,
     single_period_run,
 )
@@ -95,15 +94,8 @@ def test_cfg_helpers_handle_mixed_inputs() -> None:
     assert isinstance(section, dict)
     assert section["nested"] == 2
 
-    wrapped = {"__cfg__": {"delta": 4}}
-    unwrapped = _unwrap_cfg(wrapped)
-    assert unwrapped == {"delta": 4}
-
     assert _cfg_section({}, "missing") == {}
     assert _section_get(None, "anything", default=9) == 9
-
-    wrapped_none = {"__cfg__": None}
-    assert _unwrap_cfg(wrapped_none) is wrapped_none
 
     empty = _empty_run_full_result()
     assert set(empty) == {

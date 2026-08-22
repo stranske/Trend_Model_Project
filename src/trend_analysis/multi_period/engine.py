@@ -88,9 +88,7 @@ from .loaders import load_benchmarks, load_membership, load_prices
 from .replacer import Rebalancer
 from .scheduler import generate_periods
 
-# ``trend_analysis.typing`` does not exist in this project; keep the structural
-# intent of ``MultiPeriodPeriodResult`` using a simple mapping alias so the
-# engine remains importable without introducing a new module dependency.
+# Multi-period results are heterogeneous mappings assembled by this engine.
 MultiPeriodPeriodResult = Dict[str, Any]
 
 
