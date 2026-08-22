@@ -109,7 +109,7 @@ def test_date_correction_matches_canonical_engine(
     assert corrections[0]["corrected"] == expected
     assert len(corrected) == (2 if action == "fixed" else 1)
     assert corrected.index.tolist() == ([10, 20] if action == "fixed" else [10])
-    assert (canonical.has_corrections if action == "fixed" else canonical.has_unfixable)
+    assert canonical.has_corrections if action == "fixed" else canonical.has_unfixable
 
 
 def test_date_correction_drops_empty_row_using_canonical_engine() -> None:

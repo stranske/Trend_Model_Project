@@ -26,7 +26,11 @@ from typing import Any, Iterable, Literal, Sequence
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-from trend_analysis.io.date_correction import analyze_date_column, apply_date_corrections
+
+from trend_analysis.io.date_correction import (
+    analyze_date_column,
+    apply_date_corrections,
+)
 
 __all__ = [
     "InputSchema",

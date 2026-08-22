@@ -190,9 +190,7 @@ def analyze_date_column(
     parsed = pd.to_datetime(raw_dates, errors="coerce")
 
     failed_mask = parsed.isna()
-    unsupported_year_mask = df[date_column].map(
-        lambda value: not _has_supported_year(str(value))
-    )
+    unsupported_year_mask = df[date_column].map(lambda value: not _has_supported_year(str(value)))
     failed_indices = df.index[failed_mask | unsupported_year_mask].tolist()
 
     trailing_empty = _find_trailing_empty_rows(df, date_column, failed_indices)
