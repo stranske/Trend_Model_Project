@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from trend_analysis.metrics import summary
+import trend_analysis.metrics.summary as summary
 
 
 def test_summary_table_snapshot() -> None:

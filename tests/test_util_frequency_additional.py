@@ -3,7 +3,11 @@ import pandas as pd
 import pytest
 
 from trend_analysis.util import frequency as freq_mod
-from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency, infer_periods_per_year
+from trend_analysis.util.frequency import (
+    FREQUENCY_LABELS,
+    detect_frequency,
+    infer_periods_per_year,
+)
 
 
 @pytest.mark.parametrize(

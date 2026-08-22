@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trend_analysis.metrics import attribution
+import trend_analysis.metrics.attribution as attribution
 
 
 def _sample_data():
