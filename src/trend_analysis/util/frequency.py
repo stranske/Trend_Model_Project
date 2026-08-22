@@ -157,7 +157,13 @@ def detect_frequency(index: Iterable[object]) -> FrequencySummary:
 
 
 def infer_periods_per_year(index: pd.DatetimeIndex) -> int:
-    """Infer annualization periods from a datetime cadence."""
+    """Infer annualization periods from observed index spacing.
+
+    This helper owns *annualization* for metrics derived from an index's
+    empirical cadence. Rebalance calendar aliases and stepping offsets are
+    normalised separately by
+    :func:`trend_analysis.schedules._offset_from_frequency`.
+    """
 
     if len(index) < 2:
         return 1

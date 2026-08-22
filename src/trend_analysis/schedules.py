@@ -184,6 +184,15 @@ def apply_rebalance_schedule(
 
 
 def _offset_from_frequency(freq: str) -> DateOffset:
+    """Map a rebalance-schedule alias to a pandas :class:`~pandas.DateOffset`.
+
+    This helper owns *calendar stepping* for rebalance date generation (for
+    example ``monthly`` → month-end, ``weekly`` → Friday week). Observation
+    cadence annualization for metrics lives in
+    :func:`trend_analysis.util.frequency.infer_periods_per_year`, which answers
+    a different question from rebalance alias normalisation.
+    """
+
     freq_clean = normalize_frequency(freq)
     if not freq_clean:
         raise ValueError("freq must be a non-empty string")

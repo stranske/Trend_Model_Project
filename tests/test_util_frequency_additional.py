@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis.util import frequency as freq_mod
-from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency
+from trend_analysis.util.frequency import FREQUENCY_LABELS, detect_frequency, infer_periods_per_year
 
 
 @pytest.mark.parametrize(
@@ -129,3 +129,27 @@ def test_classify_from_diffs_detects_irregularity():
     diffs = np.array([1.0, 50.0, 200.0], dtype=float)
     with pytest.raises(ValueError, match="too irregular"):
         freq_mod._classify_from_diffs(diffs)
+
+
+def test_infer_periods_per_year_annualizes_observed_cadence() -> None:
+    monthly = pd.DatetimeIndex(["2024-01-31", "2024-02-29", "2024-03-31"])
+    weekly = pd.date_range("2024-01-05", periods=6, freq="W-FRI")
+
+    assert infer_periods_per_year(monthly) == 12
+    assert infer_periods_per_year(weekly) == 52
+
+
+def test_infer_periods_per_year_handles_irregular_but_monthly_spacing() -> None:
+    irregular = pd.DatetimeIndex(
+        [
+            "2024-01-01",
+            "2024-01-02",
+            "2024-01-20",
+            "2024-09-01",
+        ]
+    )
+
+    with pytest.raises(ValueError, match="too irregular"):
+        detect_frequency(irregular)
+
+    assert infer_periods_per_year(irregular) >= 1
