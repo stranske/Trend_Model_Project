@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import trend.cli as cli
+import trend.cli_owned_commands as owned
 from trend_analysis.config import ConfigPatch
 
 
 def test_apply_nl_instruction_logs_apply_patch(monkeypatch) -> None:
     captured: dict[str, object] = {}
-    entries: list[cli.NLOperationLog] = []
+    entries: list[owned.NLOperationLog] = []
 
     class DummyChain:
         model = "test-model"
@@ -26,14 +26,14 @@ def test_apply_nl_instruction_logs_apply_patch(monkeypatch) -> None:
     ) -> DummyChain:
         return DummyChain()
 
-    def fake_write(entry: cli.NLOperationLog, **_: object) -> Path:
+    def fake_write(entry: owned.NLOperationLog, **_: object) -> Path:
         entries.append(entry)
         return Path("nl_ops_2099-01-01.jsonl")
 
-    monkeypatch.setattr(cli, "_build_nl_chain", fake_build_chain)
-    monkeypatch.setattr(cli, "write_nl_log", fake_write)
+    monkeypatch.setattr(owned, "_build_nl_chain", fake_build_chain)
+    monkeypatch.setattr(owned, "write_nl_log", fake_write)
 
-    patch, updated, diff, model_name, temperature = cli._apply_nl_instruction(
+    patch, updated, diff, model_name, temperature = owned._apply_nl_instruction(
         {"portfolio": {"foo": "bar"}},
         "update foo",
         request_id="req-123",

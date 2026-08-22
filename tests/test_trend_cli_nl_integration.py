@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from trend import cli as trend_cli
+from trend import cli_owned_commands as owned
 from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation, diff_configs
 
 
@@ -42,7 +43,7 @@ def test_nl_diff_outputs_expected_patch(
         ],
         summary="Adjust max weight",
     )
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
+    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
 
     exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
 
@@ -73,7 +74,7 @@ def test_nl_run_blocks_invalid_config_via_schema_validation(
         ],
         summary="Invalidate version",
     )
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
+    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
@@ -114,7 +115,7 @@ def test_nl_requires_confirmation_for_risky_changes(
         called["prompt"] = prompt
         return "n"
 
-    monkeypatch.setattr(trend_cli, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
+    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_a, **_k: _DummyChain(patch))
     monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", _fake_input)
 
