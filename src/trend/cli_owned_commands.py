@@ -377,7 +377,7 @@ def _write_trend_run_artifacts(
     out_dir, out_formats, filename = resolved
 
     out_dir_path = Path(out_dir)
-    fmt_list = list(out_formats)
+    fmt_list = [out_formats] if isinstance(out_formats, str) else list(out_formats)
     data_keys = ["metrics"]
     if isinstance(result.details, Mapping):
         narrative_data: dict[str, Any] = {"metrics": result.metrics}

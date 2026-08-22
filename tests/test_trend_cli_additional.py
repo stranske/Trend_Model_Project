@@ -174,6 +174,37 @@ def test_write_run_artifacts_emits_replayable_envelope(monkeypatch, tmp_path):
     assert log_events == ["run_artifacts", "run_envelope"]
 
 
+def test_write_run_artifacts_normalizes_scalar_export_format(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("version: '1'\n", encoding="utf-8")
+    input_path = tmp_path / "returns.csv"
+    input_path.write_text("Date,A\n2020-01-31,0.1\n", encoding="utf-8")
+    result = SimpleNamespace(details=None, metrics=pd.DataFrame({"Sharpe": [0.7]}))
+    cfg = SimpleNamespace(
+        export={"directory": str(tmp_path), "formats": "csv", "filename": "analysis"},
+        sample_split={},
+        model_dump=lambda: {"version": "1"},
+    )
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(owned, "write_run_artifacts", lambda **kwargs: recorded.update(kwargs) or tmp_path)
+    monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
+    monkeypatch.setattr(owned, "write_run_envelope", lambda *_args, **_kwargs: tmp_path / "run_envelope.json")
+
+    owned._write_trend_run_artifacts(
+        cfg=cfg,
+        result=result,
+        config_path=config_path,
+        input_path=input_path,
+        data_frame=pd.DataFrame({"A": [0.1]}),
+        run_id="run42",
+        structured_log=False,
+    )
+
+    assert recorded["exported_files"] == [tmp_path / "analysis_metrics.csv"]
+
+
 def test_write_run_artifacts_survives_envelope_failure(monkeypatch, tmp_path):
     manifest_dir = tmp_path / "runs" / "run42"
     manifest_dir.mkdir(parents=True)
