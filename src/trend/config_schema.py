@@ -37,7 +37,7 @@ __all__ = [
     "CoreConfig",
     "CoreConfigError",
     "CostSettings",
-    "DataSettings",
+    "ResolvedDataSettings",
     "load_core_config",
     "validate_core_config",
 ]
@@ -54,7 +54,7 @@ class CoreConfigError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
-class DataSettings:
+class ResolvedDataSettings:
     """Resolved data paths and time-series settings."""
 
     csv_path: Path | None
@@ -76,7 +76,7 @@ class CostSettings:
 class CoreConfig:
     """Bundle of the minimal configuration knobs used by the CLI/UI."""
 
-    data: DataSettings
+    data: ResolvedDataSettings
     costs: CostSettings
 
     def to_payload(self) -> dict[str, Any]:
@@ -306,7 +306,7 @@ def validate_core_config(
     if tracker is not None:
         tracker.track_validated("portfolio.cost_model.half_spread_bps")
 
-    data_settings = DataSettings(
+    data_settings = ResolvedDataSettings(
         csv_path=csv_path,
         managers_glob=managers_glob,
         date_column=date_column,
