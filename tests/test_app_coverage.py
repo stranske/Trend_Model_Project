@@ -1572,9 +1572,7 @@ def test_launch_run_with_empty_metrics(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.widgets, "SelectMultiple", DummyDropdown)
 
     store = ParamStore()
-    store.cfg = {
-        "export": {"formats": ["xlsx"], "directory": str(tmp_path), "filename": "out"}
-    }
+    store.cfg = {"export": {"formats": ["xlsx"], "directory": str(tmp_path), "filename": "out"}}
     monkeypatch.setattr(app_module, "load_state", lambda: store)
 
     sample_split = {
@@ -1634,9 +1632,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.widgets, "FileUpload", DummyFileUpload)
 
     store = ParamStore()
-    store.cfg = {
-        "export": {"formats": ["json"], "directory": str(tmp_path), "filename": "payload"}
-    }
+    store.cfg = {"export": {"formats": ["json"], "directory": str(tmp_path), "filename": "payload"}}
     monkeypatch.setattr(app_module, "load_state", lambda: store)
 
     sample_split = {

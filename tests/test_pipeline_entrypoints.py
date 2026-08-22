@@ -346,8 +346,7 @@ def test_both_entrypoints_share_risk_free_resolution(
     assert first_kwargs["signal_spec"] is not None
     assert second_kwargs["signal_spec"] is not None
     observed = [
-        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"])
-        for _, kwargs in captured
+        (kwargs["risk_free_column"], kwargs["allow_risk_free_fallback"]) for _, kwargs in captured
     ]
     assert observed == [expected, expected]
 

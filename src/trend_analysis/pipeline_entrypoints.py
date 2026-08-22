@@ -100,9 +100,7 @@ def _prepare_config_run(cfg: Any, bindings: ConfigBindings) -> _PreparedConfigRu
     frame = cast(pd.DataFrame, bindings.load_csv(csv_path, **load_kwargs))
     bindings.attach_calendar_settings(frame, cfg)
 
-    resolved_split = bindings.resolve_sample_split(
-        frame, bindings.cfg_section(cfg, "sample_split")
-    )
+    resolved_split = bindings.resolve_sample_split(frame, bindings.cfg_section(cfg, "sample_split"))
     metrics_list = bindings.section_get(bindings.cfg_section(cfg, "metrics"), "registry")
     stats_cfg = None
     if metrics_list:
@@ -120,15 +118,13 @@ def _prepare_config_run(cfg: Any, bindings: ConfigBindings) -> _PreparedConfigRu
     vol_adjust = bindings.cfg_section(cfg, "vol_adjust")
     run_settings = bindings.cfg_section(cfg, "run")
     portfolio_cfg = bindings.cfg_section(cfg, "portfolio")
-    weighting_scheme = _resolve_single_period_weighting_scheme(
-        portfolio_cfg, bindings.section_get
-    )
+    weighting_scheme = _resolve_single_period_weighting_scheme(portfolio_cfg, bindings.section_get)
     robustness_cfg = bindings.section_get(portfolio_cfg, "robustness")
     if not isinstance(robustness_cfg, Mapping):
         robustness_cfg = bindings.cfg_section(cfg, "robustness")
-    weight_engine_params = bindings.weight_engine_params_from_robustness(
-        weighting_scheme, robustness_cfg
-    ) or {}
+    weight_engine_params = (
+        bindings.weight_engine_params_from_robustness(weighting_scheme, robustness_cfg) or {}
+    )
     weight_engine_params.update(
         resolve_portfolio_weighting_params(portfolio_cfg, section_get=bindings.section_get)
     )

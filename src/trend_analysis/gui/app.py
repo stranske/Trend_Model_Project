@@ -900,9 +900,7 @@ def launch() -> widgets.Widget:
         if isinstance(formats, str):
             formats = [formats]
         fmt = str(formats[0] if formats else "xlsx").lower()
-        path = Path(export_cfg.get("directory", ".")) / export_cfg.get(
-            "filename", "gui_output"
-        )
+        path = Path(export_cfg.get("directory", ".")) / export_cfg.get("filename", "gui_output")
         data = {"metrics": metrics}
         if fmt == "xlsx":
             full_result = pipeline.run_full(cfg)

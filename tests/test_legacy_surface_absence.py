@@ -288,7 +288,9 @@ def _function_has_value_return(path: Path, function_name: str) -> bool:
     )
     if function is None:
         raise AssertionError(f"Missing expected function {function_name} in {path}")
-    return any(isinstance(node, ast.Return) and node.value is not None for node in ast.walk(function))
+    return any(
+        isinstance(node, ast.Return) and node.value is not None for node in ast.walk(function)
+    )
 
 
 def _retired_output_format_aliases(
@@ -308,9 +310,7 @@ def _built_retired_examples(root: Path) -> list[Path]:
     if not build_root.exists():
         return []
     return [
-        path.relative_to(root)
-        for name in RETIRED_EXAMPLE_NAMES
-        for path in build_root.rglob(name)
+        path.relative_to(root) for name in RETIRED_EXAMPLE_NAMES for path in build_root.rglob(name)
     ]
 
 
@@ -589,7 +589,9 @@ def test_redundant_public_compatibility_wrappers_remain_absent() -> None:
 
     api_server = REPO_ROOT / "src/trend_analysis/api_server/__init__.py"
     if _function_has_value_return(api_server, "run"):
-        offenders.append("src/trend_analysis/api_server/__init__.py: run returns a compatibility tuple")
+        offenders.append(
+            "src/trend_analysis/api_server/__init__.py: run returns a compatibility tuple"
+        )
 
     assert not offenders, "Public compatibility wrappers returned:\n" + "\n".join(offenders)
 
@@ -602,9 +604,7 @@ def test_public_compatibility_wrapper_gate_detects_deliberate_restoration(tmp_pa
         "def load_nav_paths_frame(bundle):\n    return load_nav_paths(bundle)\n",
         encoding="utf-8",
     )
-    assert _removed_symbol_offenders(wrapper, {"load_nav_paths_frame"}) == {
-        "load_nav_paths_frame"
-    }
+    assert _removed_symbol_offenders(wrapper, {"load_nav_paths_frame"}) == {"load_nav_paths_frame"}
 
     server = tmp_path / "server.py"
     server.write_text(

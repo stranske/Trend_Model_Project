@@ -277,9 +277,7 @@ def _write_config_file(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
 
-def test_load_rejects_removed_output_settings(
-    fallback_models: ModuleType, tmp_path: Path
-) -> None:
+def test_load_rejects_removed_output_settings(fallback_models: ModuleType, tmp_path: Path) -> None:
     cfg_file = tmp_path / "config.yml"
     payload = _base_config_payload(
         export={"formats": "csv"},
