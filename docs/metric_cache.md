@@ -12,6 +12,12 @@ and `trend_analysis.perf.timing.timed_stage` is the matching scoped timer.
 Cache and rolling-cache paths should import these helpers rather than creating a
 second timer or logger format; `tests/test_perf_timing.py` guards that ownership.
 
+The package-level metrics API is the explicit function list in
+`trend_analysis.metrics.__all__`. Metric implementation modules such as
+`trend_analysis.metrics.summary` and `trend_analysis.metrics.rolling` remain
+available through canonical dotted imports; incidental child-module attributes
+created by Python imports are not package-level compatibility promises.
+
 ## Behaviour
 - Cache key: SHA1 hash of `(start, end, ordered_universe, metric_name, stats_cfg_hash)`.
 - Stored object: The exact `pd.Series` returned on first computation (no copy); callers must not mutate in‑place.
