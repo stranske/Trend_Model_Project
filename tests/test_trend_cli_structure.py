@@ -8,7 +8,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLI_PATH = ROOT / "src/trend/cli.py"
 MC_VIZ_PATH = ROOT / "src/trend/mc/viz.py"
-OWNED_COMMANDS_PATH = ROOT / "src/trend/cli_owned_commands.py"
+REPORT_PATH = ROOT / "src/trend/commands/report_export.py"
+EXPLAIN_PATH = ROOT / "src/trend/commands/explain.py"
+NL_PATH = ROOT / "src/trend/commands/nl.py"
+RETIRED_OWNER_PATH = ROOT / "src/trend/cli_owned_commands.py"
 
 MIGRATED_MC_VIZ_HANDLERS = {
     "_validate_mc_viz_output_flags",
@@ -21,14 +24,22 @@ MIGRATED_MC_VIZ_HANDLERS = {
     "_run_mc_viz_command",
 }
 
-MIGRATED_REPORT_AND_NL_HANDLERS = {
+REPORT_HANDLERS = {
     "_prepare_export_config",
     "_run_pipeline",
     "_handle_exports",
     "_write_trend_run_artifacts",
     "_write_report_files",
+}
+
+EXPLAIN_HANDLERS = {
     "_resolve_explain_details_path",
     "_build_explain_artifact_payload",
+    "_build_result_chain",
+    "_write_explain_artifacts",
+}
+
+NL_HANDLERS = {
     "_build_nl_chain",
     "_apply_nl_instruction",
     "_validate_nl_run_config",
@@ -62,11 +73,25 @@ def test_cli_does_not_redefine_migrated_command_handlers() -> None:
     } <= viz_functions
 
 
-def test_cli_delegates_report_and_nl_implementations_to_owned_module() -> None:
-    """Report/export and explain/NL implementations have one supported owner."""
+def test_command_families_have_distinct_owners() -> None:
+    """Report/export, explain, and NL implementations have focused owners."""
 
     cli_functions = _defined_functions(CLI_PATH)
-    owned_functions = _defined_functions(OWNED_COMMANDS_PATH)
+    report_functions = _defined_functions(REPORT_PATH)
+    explain_functions = _defined_functions(EXPLAIN_PATH)
+    nl_functions = _defined_functions(NL_PATH)
 
-    assert not (MIGRATED_REPORT_AND_NL_HANDLERS & cli_functions)
-    assert MIGRATED_REPORT_AND_NL_HANDLERS <= owned_functions
+    migrated = REPORT_HANDLERS | EXPLAIN_HANDLERS | NL_HANDLERS
+    assert not (migrated & cli_functions)
+    assert REPORT_HANDLERS <= report_functions
+    assert EXPLAIN_HANDLERS <= explain_functions
+    assert NL_HANDLERS <= nl_functions
+    assert not (NL_HANDLERS & report_functions)
+    assert not (REPORT_HANDLERS & explain_functions)
+    assert not (REPORT_HANDLERS & nl_functions)
+
+
+def test_catch_all_command_owner_is_retired() -> None:
+    assert not RETIRED_OWNER_PATH.exists()
+    cli_source = CLI_PATH.read_text(encoding="utf-8")
+    assert "cli_owned_commands" not in cli_source

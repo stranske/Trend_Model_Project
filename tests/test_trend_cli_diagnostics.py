@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from trend import cli_owned_commands as owned
+from trend.commands import report_export as owned
 
 
 def test_init_perf_logger_reports_disabled(monkeypatch: pytest.MonkeyPatch):

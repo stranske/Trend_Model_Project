@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from trend import cli
-from trend import cli_owned_commands as owned
+from trend.commands import report_export as owned
 from trend_analysis.constants import (
     DEFAULT_OUTPUT_DIRECTORY,
     DEFAULT_OUTPUT_FORMATS,

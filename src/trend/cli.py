@@ -28,29 +28,33 @@ from trend.cli_helpers import (
     _apply_universe_mask,
     _attach_universe_paths,
 )
-from trend.cli_owned_commands import (
-    _apply_nl_instruction,
+from trend.commands.explain import (
     _build_explain_artifact_payload,
     _build_result_chain,
-    _confirm_risky_patch,
     _fallback_explanation,
     _finalize_explanation_text,
-    _finish_structured_log,
-    _format_nl_explanation,
     _infer_explain_run_id,
     _load_explain_details,
-    _load_nl_config,
-    _log_nl_operation,
-    _maybe_handle_nl_replay,
-    _prepare_export_config,
-    _print_summary,
     _render_analysis_output,
     _resolve_explain_details_path,
     _resolve_explain_questions,
+    _write_explain_artifacts,
+)
+from trend.commands.nl import (
+    _apply_nl_instruction,
+    _confirm_risky_patch,
+    _format_nl_explanation,
+    _load_nl_config,
+    _log_nl_operation,
+    _maybe_handle_nl_replay,
+    _validate_nl_run_config,
+)
+from trend.commands.report_export import (
+    _finish_structured_log,
+    _prepare_export_config,
+    _print_summary,
     _resolve_report_output_path,
     _run_pipeline,
-    _validate_nl_run_config,
-    _write_explain_artifacts,
     _write_report_files,
     _write_trend_run_artifacts,
 )

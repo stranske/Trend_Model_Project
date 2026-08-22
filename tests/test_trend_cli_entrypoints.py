@@ -13,7 +13,8 @@ import pandas as pd
 import pytest
 
 from trend import cli as trend_cli
-from trend import cli_owned_commands as owned
+from trend.commands import nl as nl_owned
+from trend.commands import report_export as owned
 from trend_analysis.config import DEFAULTS, ConfigPatch, PatchOperation
 from trend_analysis.config.validation import ValidationResult
 from trend_analysis.logging_setup import RUNS_ROOT
@@ -1070,7 +1071,7 @@ def test_main_nl_diff_command(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
 
     exit_code = trend_cli.main(["nl", "Lower max weight", "--in", str(cfg_path), "--diff"])
 
@@ -1123,7 +1124,7 @@ def test_main_nl_passes_model_and_temperature(
         captured["temperature"] = temperature
         return DummyChain()
 
-    monkeypatch.setattr(owned, "_build_nl_chain", _capture_build_chain)
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", _capture_build_chain)
 
     exit_code = trend_cli.main(
         [
@@ -1177,7 +1178,7 @@ def test_main_nl_explain_command(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
 
     exit_code = trend_cli.main(
         ["nl", "Lower max weight", "--in", str(cfg_path), "--explain", "--diff"]
@@ -1342,13 +1343,13 @@ def test_main_nl_run_command_executes_pipeline(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(trend_cli, "_ensure_dataframe", lambda *_args, **_kwargs: pd.DataFrame())
 
     def _valid_config(*_args: object, **_kwargs: object) -> ValidationResult:
         return ValidationResult(valid=True)
 
-    monkeypatch.setattr(owned, "validate_config", _valid_config)
+    monkeypatch.setattr(nl_owned, "validate_config", _valid_config)
     monkeypatch.setattr(trend_cli, "validate_config", _valid_config)
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
@@ -1391,7 +1392,7 @@ def test_main_nl_run_requires_valid_config(monkeypatch: pytest.MonkeyPatch, tmp_
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
@@ -1430,7 +1431,7 @@ def test_main_nl_run_requires_existing_csv_path(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
@@ -1491,8 +1492,8 @@ def test_main_nl_replay_command(
         calls["temperature"] = temperature
         return result
 
-    monkeypatch.setattr(owned, "_load_nl_log_entry", _fake_load)
-    monkeypatch.setattr(owned, "_replay_nl_entry", _fake_replay)
+    monkeypatch.setattr(nl_owned, "_load_nl_log_entry", _fake_load)
+    monkeypatch.setattr(nl_owned, "_replay_nl_entry", _fake_replay)
 
     exit_code = trend_cli.main(["nl", "replay", str(log_path), "--entry", "2"])
 
@@ -1533,7 +1534,7 @@ def test_main_nl_run_schema_validation_blocks_invalid_config(
         def run(self, **kwargs: object) -> ConfigPatch:
             return patch
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(
         trend_cli,
         "_run_pipeline",
@@ -1580,7 +1581,7 @@ def test_main_nl_requires_confirmation_for_risky_patch(
         called["prompt"] = prompt
         return "n"
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", _fake_input)
 
@@ -1619,7 +1620,7 @@ def test_main_nl_requires_confirmation_for_unknown_keys(
         called["prompt"] = prompt
         return "n"
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(trend_cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", _fake_input)
 
@@ -1653,7 +1654,7 @@ def test_main_nl_no_confirm_skips_prompt_for_risky_patch(
     def _fail_input(prompt: str = "") -> str:
         raise AssertionError("Prompt should be skipped when --no-confirm is set.")
 
-    monkeypatch.setattr(owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
+    monkeypatch.setattr(nl_owned, "_build_nl_chain", lambda *_args, **_kwargs: DummyChain())
     monkeypatch.setattr(builtins, "input", _fail_input)
 
     exit_code = trend_cli.main(

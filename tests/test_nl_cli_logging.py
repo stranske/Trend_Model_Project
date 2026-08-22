@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import trend.cli_owned_commands as owned
+import trend.commands.nl as owned
 from trend_analysis.config import ConfigPatch
 
 

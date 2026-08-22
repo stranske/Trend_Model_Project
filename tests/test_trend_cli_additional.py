@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import trend.cli as cli
-import trend.cli_owned_commands as owned
+import trend.commands.report_export as owned
 
 # Pre-import the bundle module at collection time to avoid lazy-loading race
 # conditions when pytest-xdist runs tests in parallel. This ensures the module
@@ -188,12 +188,16 @@ def test_write_run_artifacts_normalizes_scalar_export_format(monkeypatch, tmp_pa
     recorded: dict[str, object] = {}
 
     monkeypatch.setattr(
-        owned, "write_run_artifacts", lambda **kwargs: recorded.update(kwargs) or tmp_path
+        owned,
+        "write_run_artifacts",
+        lambda **kwargs: recorded.update(kwargs) or tmp_path,
     )
     monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
     monkeypatch.setattr(
-        owned, "write_run_envelope", lambda *_args, **_kwargs: tmp_path / "run_envelope.json"
+        owned,
+        "write_run_envelope",
+        lambda *_args, **_kwargs: tmp_path / "run_envelope.json",
     )
 
     owned._write_trend_run_artifacts(
