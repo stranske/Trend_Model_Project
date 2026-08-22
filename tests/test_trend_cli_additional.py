@@ -187,10 +187,14 @@ def test_write_run_artifacts_normalizes_scalar_export_format(monkeypatch, tmp_pa
     )
     recorded: dict[str, object] = {}
 
-    monkeypatch.setattr(owned, "write_run_artifacts", lambda **kwargs: recorded.update(kwargs) or tmp_path)
+    monkeypatch.setattr(
+        owned, "write_run_artifacts", lambda **kwargs: recorded.update(kwargs) or tmp_path
+    )
     monkeypatch.setattr(owned.IdentityMap, "from_config", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(owned.export, "format_summary_text", lambda *_args, **_kwargs: "summary")
-    monkeypatch.setattr(owned, "write_run_envelope", lambda *_args, **_kwargs: tmp_path / "run_envelope.json")
+    monkeypatch.setattr(
+        owned, "write_run_envelope", lambda *_args, **_kwargs: tmp_path / "run_envelope.json"
+    )
 
     owned._write_trend_run_artifacts(
         cfg=cfg,
