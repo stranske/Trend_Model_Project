@@ -351,6 +351,20 @@ def _extend_params(params: list[tuple[str, str]], entries: Sequence[tuple[str, s
         params.append((key, value))
 
 
+def _resolve_effective_trend_spec(
+    config: Any,
+    spec: TrendRunSpec | None,
+    effective_trend_spec: Any | None,
+) -> Any | None:
+    """Return the trend spec that governed this run's effective behavior."""
+
+    if effective_trend_spec is not None:
+        return effective_trend_spec
+    resolved_spec = spec or getattr(config, "_trend_run_spec", None)
+    trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
+    return trend_spec_obj if trend_spec_obj is not None else getattr(config, "trend_spec", None)
+
+
 def _trend_spec_summary(spec: Any | None) -> list[tuple[str, str]]:
     if spec is None:
         return []
@@ -463,6 +477,7 @@ def _build_param_summary(
     portfolio = _get(config, "portfolio", {})
     run_cfg = _get(config, "run", {})
     benchmarks = _get(config, "benchmarks", {})
+    trend_spec_obj = _resolve_effective_trend_spec(config, spec, effective_trend_spec)
     params: list[tuple[str, str]] = []
     in_start = _get(sample, "in_start")
     in_end = _get(sample, "in_end")
@@ -473,13 +488,13 @@ def _build_param_summary(
     if out_start or out_end:
         params.append(("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}"))
     target_vol = _get(vol_adj, "target_vol")
-    if isinstance(target_vol, (int, float)):
+    if getattr(trend_spec_obj, "vol_adjust", False) and isinstance(target_vol, (int, float)):
         params.append(("Target volatility", _format_percent(float(target_vol))))
     floor_vol = _get(vol_adj, "floor_vol")
-    if isinstance(floor_vol, (int, float)):
+    if getattr(trend_spec_obj, "vol_adjust", False) and isinstance(floor_vol, (int, float)):
         params.append(("Floor volatility", _format_percent(float(floor_vol))))
     warmup = _get(vol_adj, "warmup_periods")
-    if isinstance(warmup, (int, float)):
+    if getattr(trend_spec_obj, "vol_adjust", False) and isinstance(warmup, (int, float)):
         params.append(("Warm-up periods", f"{int(warmup)}"))
     selection_mode = _get(portfolio, "selection_mode")
     if selection_mode:
@@ -509,11 +524,6 @@ def _build_param_summary(
     if bench_count:
         params.append(("Benchmarks", str(bench_count)))
     resolved_spec = spec or getattr(config, "_trend_run_spec", None)
-    trend_spec_obj = effective_trend_spec
-    if trend_spec_obj is None:
-        trend_spec_obj = getattr(resolved_spec, "trend", None) if resolved_spec else None
-    if trend_spec_obj is None:
-        trend_spec_obj = getattr(config, "trend_spec", None)
     backtest_spec_obj = getattr(resolved_spec, "backtest", None) if resolved_spec else None
     if backtest_spec_obj is None:
         backtest_spec_obj = getattr(config, "backtest_spec", None)
