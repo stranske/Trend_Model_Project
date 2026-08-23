@@ -933,9 +933,7 @@ def launch() -> widgets.Widget:
             export_cfg = cfg.export or {}
             configured_formats = export_cfg.get("formats")
             requested_formats = (
-                list(configured_formats)
-                if isinstance(configured_formats, (list, tuple))
-                else []
+                list(configured_formats) if isinstance(configured_formats, (list, tuple)) else []
             )
             unsupported_formats = [
                 fmt

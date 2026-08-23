@@ -40,8 +40,8 @@ from .pipeline_helpers import (
     _resolve_target_vol,
 )
 from .pipeline_runner import _run_analysis_with_diagnostics
-from .stages.portfolio import calc_portfolio_returns
 from .risk import periods_per_year_from_code
+from .stages.portfolio import calc_portfolio_returns
 from .util.hash import normalise_for_json as _normalise_for_json
 from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights

@@ -31,6 +31,7 @@ from trend.config_schema import CoreConfigError
 from trend.diagnostics import DiagnosticResult
 
 from .._typing import FloatArray
+from ..cash_policy import CashPolicy
 from ..config_contract import (
     SUPPORTED_PORTFOLIO_WEIGHTING_NAMES,
     resolve_portfolio_weighting_name,
@@ -53,14 +54,11 @@ from ..metrics.turnover import linear_turnover_cost
 from ..pipeline_helpers import (
     _build_trend_spec,
     _resolve_target_vol,
-)
-from ..pipeline_helpers import (
     _resolve_turnover_cap_from_parsed,
     parse_regime_turnover_caps,
 )
 from ..pipeline_runner import _run_analysis_with_diagnostics
 from ..portfolio import apply_weight_policy
-from ..cash_policy import CashPolicy
 from ..rebalancing import apply_rebalancing_strategies
 from ..regimes import compute_regimes, normalise_settings
 from ..risk import periods_per_year_from_code
