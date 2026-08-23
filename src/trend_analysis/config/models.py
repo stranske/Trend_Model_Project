@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Protocol, cast
 import yaml
 
 from trend_analysis.util.paths import proj_path
+from trend_analysis.config.turnover import MAX_TURNOVER_CEILING
 
 # ``models.py`` is executed under different module names in the test suite so we
 # import ``validate_trend_config`` via its fully-qualified path to avoid
@@ -461,8 +462,8 @@ if _HAS_PYDANTIC:
                         if mt < 0:
                             raise ValueError("max_turnover values must be >= 0")
                         # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
-                        if mt > 2.0:
-                            raise ValueError("max_turnover values must be <= 2.0")
+                        if mt > MAX_TURNOVER_CEILING:
+                            raise ValueError(f"max_turnover values must be <= {MAX_TURNOVER_CEILING}")
                         cleaned[regime.strip()] = mt
                     v["max_turnover"] = cleaned
                 else:
@@ -473,8 +474,8 @@ if _HAS_PYDANTIC:
                     if mt < 0:
                         raise ValueError("max_turnover must be >= 0")
                     # Allow values >1.0 (full liquidation + rebuild = 2.0 theoretical upper)
-                    if mt > 2.0:
-                        raise ValueError("max_turnover must be <= 2.0")
+                    if mt > MAX_TURNOVER_CEILING:
+                        raise ValueError(f"max_turnover must be <= {MAX_TURNOVER_CEILING}")
                     v["max_turnover"] = mt
             if "lambda_tc" in v:
                 raw = v["lambda_tc"]
@@ -737,8 +738,8 @@ else:  # Fallback mode for tests without pydantic
                         raise ValueError("max_turnover must be numeric") from exc
                     if mt < 0:
                         raise ValueError("max_turnover must be >= 0")
-                    if mt > 2.0:
-                        raise ValueError("max_turnover must be <= 2.0")
+                    if mt > MAX_TURNOVER_CEILING:
+                        raise ValueError(f"max_turnover must be <= {MAX_TURNOVER_CEILING}")
                     port["max_turnover"] = mt
                 if "lambda_tc" in port:
                     try:

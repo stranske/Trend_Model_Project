@@ -434,12 +434,12 @@ class TestPortfolioSettings:
                 }
             )
 
-    def test_rejects_turnover_above_one(self) -> None:
-        with pytest.raises(ValueError, match="between 0 and 1.0"):
+    def test_rejects_turnover_above_ceiling(self) -> None:
+        with pytest.raises(ValueError, match="between 0 and 2.0"):
             config_model.PortfolioSettings.model_validate(
                 {
                     "rebalance_calendar": "NYSE",
-                    "max_turnover": 1.1,
+                    "max_turnover": 2.1,
                     "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
                 }
             )

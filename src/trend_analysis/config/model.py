@@ -28,6 +28,7 @@ from pydantic import (
 )
 
 from trend_analysis.config.lint_keys import lint_config_sections, lint_portfolio_keys
+from trend_analysis.config.turnover import MAX_TURNOVER_CEILING
 from trend_analysis.util.paths import proj_path
 
 # ---------------------------------------------------------------------------
@@ -479,10 +480,9 @@ class PortfolioSettings(BaseModel):
                     raise ValueError("portfolio.max_turnover values must be numeric.") from exc
                 if turnover < 0:
                     raise ValueError("portfolio.max_turnover values cannot be negative.")
-                if turnover > 1:
+                if turnover > MAX_TURNOVER_CEILING:
                     raise ValueError(
-                        "portfolio.max_turnover values must be between 0 and 1.0 inclusive "
-                        "to cap per-period turnover."
+                        f"portfolio.max_turnover values must be between 0 and {MAX_TURNOVER_CEILING} inclusive."
                     )
                 cleaned[regime.strip()] = turnover
             return cleaned
@@ -494,9 +494,9 @@ class PortfolioSettings(BaseModel):
             raise ValueError("portfolio.max_turnover must be numeric.") from exc
         if turnover < 0:
             raise ValueError("portfolio.max_turnover cannot be negative.")
-        if turnover > 1:
+        if turnover > MAX_TURNOVER_CEILING:
             raise ValueError(
-                "portfolio.max_turnover must be between 0 and 1.0 inclusive to cap per-period turnover."
+                f"portfolio.max_turnover must be between 0 and {MAX_TURNOVER_CEILING} inclusive."
             )
         return turnover
 

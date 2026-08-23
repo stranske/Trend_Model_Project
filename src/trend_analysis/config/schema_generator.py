@@ -10,6 +10,7 @@ from typing import Any, Iterable
 import yaml
 
 from trend_analysis.util.paths import proj_path
+from trend_analysis.config.turnover import MAX_TURNOVER_CEILING
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
 _CONFIG_DIR = proj_path() / "config"
@@ -62,7 +63,7 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
     "portfolio.leverage_cap": {"minimum": 0},
     "portfolio.cost_model.per_trade_bps": {"minimum": 0},
     "portfolio.cost_model.half_spread_bps": {"minimum": 0},
-    "portfolio.max_turnover": {"minimum": 0, "maximum": 2},
+    "portfolio.max_turnover": {"minimum": 0, "maximum": MAX_TURNOVER_CEILING},
     "portfolio.min_tenure_n": {"minimum": 0},
     "signals.kind": {"enum": ["tsmom", None]},
     "signals.window": {"minimum": 1},
@@ -85,7 +86,7 @@ _FREEFORM_MAPS: dict[str, dict[str, Any]] = {
     "portfolio.constraints.group_caps": {"type": "number"},
     "portfolio.rank.blended_weights": {"type": "number"},
     "portfolio.custom_weights": {"type": "number"},
-    "portfolio.max_turnover": {"type": "number", "minimum": 0, "maximum": 2},
+    "portfolio.max_turnover": {"type": "number", "minimum": 0, "maximum": MAX_TURNOVER_CEILING},
     "portfolio.selector.params": {
         "type": ["number", "string", "boolean", "array", "object", "null"]
     },
