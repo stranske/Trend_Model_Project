@@ -61,6 +61,7 @@ def test_run_button_signals_an_empty_result(monkeypatch, tmp_path):
 
 def test_run_button_exports_every_requested_format(monkeypatch, tmp_path):
     store, run_button = _launch_run_button(monkeypatch, tmp_path, ["csv", "json"])
+    store.dirty = True
     monkeypatch.setattr(app.pipeline, "run", lambda _: pd.DataFrame({"value": [1.0]}))
     monkeypatch.setattr(app, "save_state", lambda _: None)
 
@@ -69,3 +70,39 @@ def test_run_button_exports_every_requested_format(monkeypatch, tmp_path):
     assert (tmp_path / "report_metrics.csv").is_file()
     assert (tmp_path / "report_metrics.json").is_file()
     assert store.dirty is False
+
+
+def test_run_button_reports_pipeline_failure(monkeypatch, tmp_path):
+    store, run_button = _launch_run_button(monkeypatch, tmp_path, ["csv"])
+    store.dirty = True
+    monkeypatch.setattr(
+        app.pipeline,
+        "run",
+        lambda _: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    saved: list[app.ParamStore] = []
+    monkeypatch.setattr(app, "save_state", saved.append)
+
+    with pytest.warns(UserWarning, match="Run failed: boom"):
+        run_button.click()
+
+    assert not list(tmp_path.iterdir())
+    assert saved == []
+    assert store.dirty is True
+
+
+def test_run_button_skips_empty_summary_for_non_excel_exports(monkeypatch, tmp_path):
+    store, run_button = _launch_run_button(monkeypatch, tmp_path, ["csv", "xlsx"])
+    monkeypatch.setattr(app.pipeline, "run", lambda _: pd.DataFrame({"value": [1.0]}))
+    monkeypatch.setattr(
+        app.pipeline,
+        "run_full",
+        lambda _: {"metrics": pd.DataFrame({"value": [1.0]})},
+    )
+    monkeypatch.setattr(app, "save_state", lambda _: None)
+
+    run_button.click()
+
+    assert (tmp_path / "report_metrics.csv").is_file()
+    assert (tmp_path / "report.xlsx").is_file()
+    assert not (tmp_path / "report_summary.csv").exists()

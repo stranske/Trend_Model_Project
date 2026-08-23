@@ -962,6 +962,10 @@ def launch() -> widgets.Widget:
                 if not res:
                     if diag:
                         warnings.warn(f"Pipeline aborted ({diag.reason_code}): {diag.message}")
+                    else:
+                        warnings.warn(
+                            "Pipeline produced no full result; no files were exported."
+                        )
                     return
                 split = cfg.sample_split
                 sheet_fmt = export.make_summary_formatter(
@@ -979,7 +983,11 @@ def launch() -> widgets.Widget:
                 )
                 formats = [fmt for fmt in formats if fmt != "xlsx"]
             if formats:
-                export.export_data(data, str(path), formats=formats)
+                export.export_data(
+                    {"metrics": data["metrics"]},
+                    str(path),
+                    formats=formats,
+                )
             save_state(store)
             store.dirty = False
         except Exception as exc:
