@@ -244,7 +244,9 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     assert set(records[1]["funds"]) == {"Alpha One", "Beta One", "Gamma One"}
 
 
-def test_threshold_hold_max_active_positions_respects_turnover_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_threshold_hold_max_active_positions_respects_turnover_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cfg = MinimalConfig()
     cfg.portfolio["constraints"]["max_active_positions"] = 2
 
