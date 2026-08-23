@@ -125,11 +125,11 @@ def test_portfolio_and_risk_settings_validation() -> None:
             }
         )
 
-    with pytest.raises(ValueError, match="between 0 and 1"):
+    with pytest.raises(ValueError, match="between 0 and 2.0"):
         config_model.PortfolioSettings.model_validate(
             {
                 "rebalance_calendar": "NYSE",
-                "max_turnover": 1.5,
+                "max_turnover": 2.5,
                 "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
             }
         )
@@ -385,6 +385,6 @@ def test_resolve_config_path_prefers_repo_relative(tmp_path: Path) -> None:
 
 def test_validate_trend_config_error_message_contains_location(tmp_path: Path) -> None:
     data = _minimal_config(tmp_path)
-    data["portfolio"]["max_turnover"] = 2  # type: ignore[index]
+    data["portfolio"]["max_turnover"] = 2.5  # type: ignore[index]
     with pytest.raises(ValueError, match="portfolio.max_turnover"):
         config_model.validate_trend_config(data, base_path=tmp_path)

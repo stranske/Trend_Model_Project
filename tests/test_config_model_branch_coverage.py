@@ -85,7 +85,7 @@ def test_portfolio_turnover_bounds() -> None:
     base["max_turnover"] = -0.1
     with pytest.raises(ValueError):
         model.PortfolioSettings.model_validate(base)
-    base["max_turnover"] = 1.5
+    base["max_turnover"] = 2.5
     with pytest.raises(ValueError):
         model.PortfolioSettings.model_validate(base)
 

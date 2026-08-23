@@ -212,11 +212,20 @@ def test_portfolio_settings_validator_errors() -> None:
             }
         )
 
-    with pytest.raises(ValueError, match="between 0 and 1.0"):
+    with pytest.raises(ValueError, match="between 0 and 2.0"):
         PortfolioSettings.model_validate(
             {
                 "rebalance_calendar": "NYSE",
-                "max_turnover": 1.5,
+                "max_turnover": 2.5,
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
+            }
+        )
+
+    with pytest.raises(ValueError, match="must be finite"):
+        PortfolioSettings.model_validate(
+            {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": float("nan"),
                 "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
             }
         )
