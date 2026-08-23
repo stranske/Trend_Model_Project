@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import enum
 import logging
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -131,24 +131,6 @@ class ValidatedMarketData:
 
     frame: pd.DataFrame
     metadata: MarketDataMetadata
-
-    def __getattr__(self, name: str) -> Any:
-        # Delegate attribute access to the underlying DataFrame for
-        # backwards compatibility with callers expecting the validated
-        # payload itself.
-        return getattr(self.frame, name)
-
-    def __getitem__(self, key: Any) -> Any:
-        return self.frame.__getitem__(key)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.frame)
-
-    def __len__(self) -> int:  # pragma: no cover - passthrough delegation
-        return len(self.frame)
-
-    def __array__(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
-        return self.frame.__array__(*args, **kwargs)
 
     def to_frame(self) -> pd.DataFrame:
         """Return the underlying DataFrame."""

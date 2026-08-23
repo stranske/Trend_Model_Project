@@ -45,7 +45,7 @@ def test_metadata_syncs_columns_and_symbols_and_date_range(
     assert metadata_with_symbols.columns == ["Alpha"]
 
 
-def test_validated_market_data_delegates_dataframe_behaviour(
+def test_validated_market_data_exposes_explicit_frame_contract(
     base_metadata_kwargs: dict[str, object],
 ) -> None:
     frame = pd.DataFrame(
@@ -55,9 +55,8 @@ def test_validated_market_data_delegates_dataframe_behaviour(
     metadata = market_data.MarketDataMetadata(columns=["FundA"], **base_metadata_kwargs)
     validated = market_data.ValidatedMarketData(frame=frame, metadata=metadata)
 
-    # ``__iter__`` exposes the DataFrame columns and ``to_frame`` returns
-    # the original payload.
-    assert list(iter(validated)) == ["FundA"]
+    assert validated.frame is frame
+    assert validated.metadata is metadata
     assert validated.to_frame().equals(frame)
 
 
@@ -82,8 +81,8 @@ def test_missing_policy_overrides_accept_stringified_column_keys() -> None:
 
     validated = market_data.validate_market_data(df, missing_policy=policy, missing_limit=limits)
 
-    assert list(validated.columns) == ["1"]
-    meta = validated.attrs["market_data"]
+    assert list(validated.frame.columns) == ["1"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["missing_policy_overrides"] == {"1": "ffill"}
     assert meta["missing_policy_limits"]["1"] == 1
 
@@ -102,7 +101,7 @@ def test_missing_policy_overrides_filter_defaults_and_stringify_limits() -> None
 
     validated = market_data.validate_market_data(df, missing_policy=policy, missing_limit=limits)
 
-    meta = validated.attrs["market_data"]
+    meta = validated.frame.attrs["market_data"]
     # Only overrides that differ from the default should be captured.
     assert meta["missing_policy_overrides"] == {"1": "ffill"}
     # Limit mappings should be fully expanded and string-keyed.
@@ -121,7 +120,7 @@ def test_missing_policy_overrides_empty_when_uniform_policy() -> None:
 
     validated = market_data.validate_market_data(df, missing_policy="ffill", missing_limit=1)
 
-    meta = validated.attrs["market_data"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["missing_policy_overrides"] == {}
     assert meta["missing_policy_limits"] == {"FundA": 1, "FundB": 1}
 

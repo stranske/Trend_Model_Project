@@ -128,6 +128,14 @@ REMOVED_GUI_SYMBOLS = {
 REMOVED_PUBLIC_COMPATIBILITY_SYMBOLS = {
     "src/trend/mc/io.py": {"load_nav_paths_" + "frame"},
 }
+VALIDATED_MARKET_DATA_PATH = "src/trend_analysis/io/market_data.py"
+REMOVED_VALIDATED_MARKET_DATA_PROXY_METHODS = {
+    "__array__",
+    "__getattr__",
+    "__getitem__",
+    "__iter__",
+    "__len__",
+}
 REMOVED_SCHEMA_READ_KEYS = {
     "src/trend_analysis/monte_carlo/costs.py": {
         "regimes",
@@ -288,6 +296,23 @@ def _removed_symbol_offenders(path: Path, removed_names: set[str]) -> set[str]:
             value for child in ast.walk(node) if (value := _static_string(child)) is not None
         }
         offenders.update(dynamic_names & removed_names)
+    return offenders
+
+
+def _class_method_offenders(path: Path, class_name: str, removed_names: set[str]) -> set[str]:
+    """Find exact method definitions restored directly on one named class."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    offenders: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        offenders.update(
+            child.name
+            for child in node.body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and child.name in removed_names
+        )
     return offenders
 
 
@@ -614,6 +639,55 @@ def test_redundant_public_compatibility_wrappers_remain_absent() -> None:
         )
 
     assert not offenders, "Public compatibility wrappers returned:\n" + "\n".join(offenders)
+
+
+def test_validated_market_data_proxy_methods_remain_absent() -> None:
+    """The validated result must expose only its explicit frame and metadata contract."""
+
+    offenders = _class_method_offenders(
+        REPO_ROOT / VALIDATED_MARKET_DATA_PATH,
+        "ValidatedMarketData",
+        REMOVED_VALIDATED_MARKET_DATA_PROXY_METHODS,
+    )
+
+    assert not offenders, "ValidatedMarketData proxy methods returned: " + ", ".join(
+        sorted(offenders)
+    )
+
+
+def test_validated_market_data_proxy_gate_detects_exact_restorations(tmp_path: Path) -> None:
+    """Deliberate-break proof detects only the five retired methods on this class."""
+
+    candidate = tmp_path / "market_data.py"
+    candidate.write_text(
+        "class IntentionalAdapter:\n"
+        "    def __iter__(self):\n"
+        "        return iter(())\n"
+        "\n"
+        "class ValidatedMarketData:\n"
+        "    def __getattr__(self, name):\n"
+        "        raise AttributeError(name)\n"
+        "    def __getitem__(self, key):\n"
+        "        return key\n"
+        "    def __iter__(self):\n"
+        "        return iter(())\n"
+        "    def __len__(self):\n"
+        "        return 0\n"
+        "    def __array__(self):\n"
+        "        return []\n"
+        "    def __repr__(self):\n"
+        "        return 'validated'\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        _class_method_offenders(
+            candidate,
+            "ValidatedMarketData",
+            REMOVED_VALIDATED_MARKET_DATA_PROXY_METHODS,
+        )
+        == REMOVED_VALIDATED_MARKET_DATA_PROXY_METHODS
+    )
 
 
 def test_public_compatibility_wrapper_gate_detects_deliberate_restoration(tmp_path: Path) -> None:

@@ -31,14 +31,14 @@ def test_validate_market_data_happy_path_returns() -> None:
     df = _build_returns_frame()
     validated = validate_market_data(df)
 
-    assert isinstance(validated.index, pd.DatetimeIndex)
-    assert validated.index.name == "Date"
-    assert list(validated.columns) == ["FundA", "FundB"]
-    meta = validated.attrs.get("market_data", {})
+    assert isinstance(validated.frame.index, pd.DatetimeIndex)
+    assert validated.frame.index.name == "Date"
+    assert list(validated.frame.columns) == ["FundA", "FundB"]
+    meta = validated.frame.attrs.get("market_data", {})
     assert meta["mode"] == "returns"
     assert meta["frequency"] == "monthly"
-    assert pd.Timestamp(meta["start"]) == validated.index.min()
-    assert pd.Timestamp(meta["end"]) == validated.index.max()
+    assert pd.Timestamp(meta["start"]) == validated.frame.index.min()
+    assert pd.Timestamp(meta["end"]) == validated.frame.index.max()
     assert meta["symbols"] == ["FundA", "FundB"]
 
 
@@ -53,7 +53,7 @@ def test_validate_market_data_quarterly_frequency() -> None:
     )
 
     validated = validate_market_data(df)
-    meta = validated.attrs["market_data"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["frequency_code"] == "Q"
     assert meta["frequency"] == "quarterly"
     assert meta["frequency_detected"] == "Q"
@@ -70,7 +70,7 @@ def test_validate_market_data_annual_frequency() -> None:
     )
 
     validated = validate_market_data(df)
-    meta = validated.attrs["market_data"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["frequency_code"] == "Y"
     assert meta["frequency"] == "annual"
     assert meta["frequency_detected"] == "Y"
@@ -91,8 +91,8 @@ def test_validate_market_data_autosorts_unsorted_dates() -> None:
 
     result = validate_market_data(df)
     # Should succeed with auto-sorted dates
-    assert isinstance(result.index, pd.DatetimeIndex)
-    assert result.index.is_monotonic_increasing
+    assert isinstance(result.frame.index, pd.DatetimeIndex)
+    assert result.frame.index.is_monotonic_increasing
 
 
 def test_validate_market_data_mixed_frequency() -> None:
@@ -113,7 +113,7 @@ def test_validate_market_data_price_mode_detection() -> None:
         }
     )
     validated = validate_market_data(df)
-    meta = validated.attrs.get("market_data", {})
+    meta = validated.frame.attrs.get("market_data", {})
     assert meta["mode"] == "prices"
     assert meta["frequency"] in {"daily", "business-daily"}
     assert meta["symbols"] == ["Asset"]
@@ -158,7 +158,7 @@ def test_validate_market_data_allows_weekend_gap() -> None:
         }
     )
     validated = validate_market_data(df)
-    meta = validated.attrs.get("market_data", {})
+    meta = validated.frame.attrs.get("market_data", {})
     assert meta["frequency_code"] == "D"
     assert meta["frequency_missing_periods"] >= 2
     assert meta["frequency_max_gap_periods"] == 2
@@ -175,8 +175,8 @@ def test_missing_policy_drops_sparse_columns() -> None:
         }
     )
     validated = validate_market_data(df, missing_policy="drop")
-    assert list(validated.columns) == ["FundA"]
-    meta = validated.attrs["market_data"]
+    assert list(validated.frame.columns) == ["FundA"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["missing_policy"] == "drop"
     assert meta["missing_policy_dropped"] == ["FundB"]
     assert "FundB" in meta["missing_policy_summary"]
@@ -192,9 +192,9 @@ def test_missing_policy_ffill_with_limit() -> None:
         }
     )
     validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
-    assert list(validated.columns) == ["FundA", "FundB"]
-    assert validated["FundB"].isna().sum() == 0
-    meta = validated.attrs["market_data"]
+    assert list(validated.frame.columns) == ["FundA", "FundB"]
+    assert validated.frame["FundB"].isna().sum() == 0
+    meta = validated.frame.attrs["market_data"]
     assert meta["missing_policy"] == "ffill"
     assert meta["missing_policy_filled"]["FundB"]["count"] == 2
     assert "FundB" in (meta["missing_policy_summary"] or "")
@@ -217,7 +217,7 @@ def test_single_series_missing_policy_preserves_partial_finite_fill() -> None:
     )
     validated = validate_market_data(df, missing_policy="ffill", missing_limit=2)
 
-    assert validated["FundA"].isna().sum() == 1
+    assert validated.frame["FundA"].isna().sum() == 1
     assert validated.metadata.missing_policy_dropped == []
     assert validated.metadata.missing_policy_filled["FundA"].count == 2
 
@@ -234,8 +234,8 @@ def test_missing_policy_per_column_overrides() -> None:
     policy = {"*": "drop", "FundB": "ffill"}
     limits = {"*": 0, "FundB": 1}
     validated = validate_market_data(df, missing_policy=policy, missing_limit=limits)
-    assert list(validated.columns) == ["FundB"]
-    meta = validated.attrs["market_data"]
+    assert list(validated.frame.columns) == ["FundB"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["missing_policy_overrides"] == {"FundB": "ffill"}
     assert meta["missing_policy_limits"]["FundB"] == 1
     assert meta["missing_policy_filled"]["FundB"]["count"] == 1
@@ -259,7 +259,7 @@ def test_missing_limit_extends_frequency_tolerance() -> None:
         validate_market_data(df)
 
     validated = validate_market_data(df, missing_limit=2)
-    meta = validated.attrs["market_data"]
+    meta = validated.frame.attrs["market_data"]
     assert meta["frequency_missing_periods"] == 2
     assert meta["frequency_tolerance_periods"] == 2
 
@@ -279,7 +279,7 @@ def test_validate_market_data_accepts_datetime_index() -> None:
     frame = pd.DataFrame({"FundA": [0.01, 0.02, 0.0, -0.01]})
     frame.index = dates
     validated = validate_market_data(frame)
-    assert validated.index.equals(dates)
+    assert validated.frame.index.equals(dates)
 
 
 def test_validate_market_data_corrects_and_drops_dates_with_non_range_index() -> None:
