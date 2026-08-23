@@ -47,7 +47,6 @@ from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
 
-
 logger = logging.getLogger(__name__)
 
 
