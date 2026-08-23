@@ -106,3 +106,19 @@ def test_run_button_skips_empty_summary_for_non_excel_exports(monkeypatch, tmp_p
     assert (tmp_path / "report_metrics.csv").is_file()
     assert (tmp_path / "report.xlsx").is_file()
     assert not (tmp_path / "report_summary.csv").exists()
+
+
+def test_run_button_warns_when_xlsx_full_result_is_empty(monkeypatch, tmp_path):
+    store, run_button = _launch_run_button(monkeypatch, tmp_path, ["xlsx"])
+    store.dirty = True
+    monkeypatch.setattr(app.pipeline, "run", lambda _: pd.DataFrame({"value": [1.0]}))
+    monkeypatch.setattr(app.pipeline, "run_full", lambda _: {})
+    saved: list[app.ParamStore] = []
+    monkeypatch.setattr(app, "save_state", saved.append)
+
+    with pytest.warns(UserWarning, match="Pipeline produced no full result"):
+        run_button.click()
+
+    assert not list(tmp_path.iterdir())
+    assert saved == []
+    assert store.dirty is True
