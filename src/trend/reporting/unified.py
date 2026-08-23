@@ -495,7 +495,11 @@ def _build_param_summary(
     if portfolio_vol_adjust_enabled and isinstance(floor_vol, (int, float)):
         params.append(("Floor volatility", _format_percent(float(floor_vol))))
     warmup = _get(vol_adj, "warmup_periods")
-    if portfolio_vol_adjust_enabled and isinstance(warmup, (int, float)):
+    if (
+        portfolio_vol_adjust_enabled
+        and isinstance(warmup, (int, float))
+        and math.isfinite(float(warmup))
+    ):
         params.append(("Warm-up periods", f"{int(warmup)}"))
     selection_mode = _get(portfolio, "selection_mode")
     if selection_mode:

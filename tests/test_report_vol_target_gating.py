@@ -1,5 +1,6 @@
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 
@@ -46,4 +47,12 @@ def test_param_summary_omits_portfolio_vol_targets_when_disabled() -> None:
     assert params["Signal scaling"] == "Raw"
     assert "Target volatility" not in params
     assert "Floor volatility" not in params
+    assert "Warm-up periods" not in params
+
+
+def test_param_summary_omits_non_finite_warmup_periods() -> None:
+    config = SimpleNamespace(vol_adjust={"enabled": True, "warmup_periods": float("nan")})
+
+    params = dict(unified._build_param_summary(config))
+
     assert "Warm-up periods" not in params
