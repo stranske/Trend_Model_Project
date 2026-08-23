@@ -28,6 +28,36 @@ def test_report_uses_runtime_numeric_zscore_spec() -> None:
     assert params["Signal z-score"] == "Scale 2"
 
 
+def test_param_summary_resolves_effective_then_run_then_config_trend_spec() -> None:
+    config = SimpleNamespace(
+        sample_split={},
+        vol_adjust={"enabled": True, "target_vol": 0.15, "floor_vol": 0.05, "warmup_periods": 3},
+        portfolio={},
+        run={},
+        benchmarks={},
+        trend_spec=TrendSpec(vol_adjust=False),
+    )
+    run_spec = SimpleNamespace(trend=TrendSpec(vol_adjust=True))
+
+    effective = dict(
+        unified._build_param_summary(
+            config,
+            spec=run_spec,
+            effective_trend_spec=TrendSpec(vol_adjust=False),
+        )
+    )
+    from_run = dict(unified._build_param_summary(config, spec=run_spec))
+    from_config = dict(unified._build_param_summary(config))
+
+    assert effective["Signal scaling"] == "Raw"
+    assert from_run["Signal scaling"] == "Vol-adjusted"
+    assert from_config["Signal scaling"] == "Raw"
+    for params in (effective, from_run, from_config):
+        assert params["Target volatility"] == "15.0%"
+        assert params["Floor volatility"] == "5.0%"
+        assert params["Warm-up periods"] == "3"
+
+
 def test_shared_parser_agrees_across_entrypoints() -> None:
     payload = {
         "signals": {"window": 42, "lag": 2, "zscore": 2.0},
