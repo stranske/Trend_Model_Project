@@ -868,8 +868,6 @@ def test_pipeline_private_run_facade_is_absent() -> None:
 def test_api_run_analysis_backcompat_hook_remains_absent() -> None:
     """The api module must not restore the retired _run_analysis back-compat hook."""
 
-    import inspect
-
     from trend_analysis import api
 
     api_path = REPO_ROOT / "src/trend_analysis/api.py"

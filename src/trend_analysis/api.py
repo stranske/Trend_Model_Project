@@ -551,7 +551,6 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
     resolved_split = _resolve_sample_split(returns, split)
 
     # Build signal_spec from signals_cfg and vol_adjust_cfg if present
-    # This replaces the removed _run_analysis back-compat hook
     signal_spec = None
     if signals_cfg is not None:
         signal_spec = _build_trend_spec({"signals": signals_cfg}, vol_adjust_cfg or {})
