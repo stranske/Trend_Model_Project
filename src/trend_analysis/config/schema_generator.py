@@ -9,8 +9,8 @@ from typing import Any, Iterable
 
 import yaml
 
-from trend_analysis.util.paths import proj_path
 from trend_analysis.config.turnover import MAX_TURNOVER_CEILING
+from trend_analysis.util.paths import proj_path
 
 _DEFAULTS_FILE = proj_path() / "config" / "defaults.yml"
 _CONFIG_DIR = proj_path() / "config"
