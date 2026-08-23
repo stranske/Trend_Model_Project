@@ -865,6 +865,53 @@ def test_pipeline_private_run_facade_is_absent() -> None:
     assert offenders == []
 
 
+def test_api_run_analysis_backcompat_hook_remains_absent() -> None:
+    """The api module must not restore the retired _run_analysis back-compat hook."""
+
+    from trend_analysis import api
+
+    api_path = REPO_ROOT / "src/trend_analysis/api.py"
+    tree = ast.parse(api_path.read_text(encoding="utf-8"))
+    definitions = {
+        node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "_run_analysis" not in definitions
+
+    # Verify the function is not accessible from the module
+    assert not hasattr(api, "_run_analysis")
+
+    # Scan for any imports or references to api._run_analysis in runtime code
+    retired_api_names = {"_run_analysis"}
+    offenders: list[str] = []
+    for root_name in ("src", "tests", "scripts", "streamlit_app"):
+        for source_path in (REPO_ROOT / root_name).rglob("*.py"):
+            source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
+            for node in ast.walk(source_tree):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "trend_analysis.api"
+                    and any(alias.name in retired_api_names for alias in node.names)
+                ):
+                    names = sorted(
+                        alias.name for alias in node.names if alias.name in retired_api_names
+                    )
+                    offenders.append(
+                        f"{source_path.relative_to(REPO_ROOT).as_posix()}: imports {names}"
+                    )
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr in retired_api_names
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == "api"
+                ):
+                    offenders.append(
+                        f"{source_path.relative_to(REPO_ROOT).as_posix()}: api.{node.attr}"
+                    )
+    # Allow references in test files that are testing the absence (this file)
+    offenders = [o for o in offenders if "test_legacy_surface_absence.py" not in o]
+    assert offenders == []
+
+
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
 def test_extensionless_launchers_remain_in_text_scan(tmp_path: Path, directory: str) -> None:
     launchers = tmp_path / directory

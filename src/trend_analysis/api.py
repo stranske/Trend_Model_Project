@@ -47,21 +47,6 @@ from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
 
-
-def _run_analysis(
-    *args: Any,
-    signals_cfg: Mapping[str, Any] | None = None,
-    vol_adjust_cfg: Mapping[str, Any] | None = None,
-    **kwargs: Any,
-) -> Any:
-    """Back-compat hook for tests while wiring signals into the pipeline."""
-
-    if signals_cfg is not None and "signal_spec" not in kwargs:
-        trend_spec = _build_trend_spec({"signals": signals_cfg}, vol_adjust_cfg or {})
-        kwargs["signal_spec"] = trend_spec
-    return _run_analysis_with_diagnostics(*args, **kwargs)
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -561,11 +546,16 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
             max_lag_days=lag_limit,
         )
 
-    _log_step(run_id, "analysis_start", "_run_analysis dispatch")
+    _log_step(run_id, "analysis_start", "_run_analysis_with_diagnostics dispatch")
     resolved_split = _resolve_sample_split(returns, split)
 
+    # Build signal_spec from signals_cfg and vol_adjust_cfg if present
+    signal_spec = None
+    if signals_cfg is not None:
+        signal_spec = _build_trend_spec({"signals": signals_cfg}, vol_adjust_cfg or {})
+
     _dispatch_start = time.perf_counter()
-    pipeline_output = _run_analysis(
+    pipeline_output = _run_analysis_with_diagnostics(
         returns,
         resolved_split["in_start"],
         resolved_split["in_end"],
@@ -592,8 +582,7 @@ def run_simulation(config: ConfigType, returns: pd.DataFrame) -> RunResult:
         previous_weights=config.portfolio.get("previous_weights"),
         lambda_tc=config.portfolio.get("lambda_tc"),
         max_turnover=config.portfolio.get("max_turnover"),
-        signals_cfg=signals_cfg,
-        vol_adjust_cfg=vol_adjust_cfg,
+        signal_spec=signal_spec,
         regime_cfg=regime_cfg,
         risk_free_column=risk_free_column,
         allow_risk_free_fallback=allow_risk_free_fallback,

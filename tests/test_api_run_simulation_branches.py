@@ -43,7 +43,7 @@ def test_run_simulation_handles_missing_result(monkeypatch):
     config = _make_config()
     returns = _make_returns()
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: None)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: None)
 
     result = api.run_simulation(config, returns)
 
@@ -111,7 +111,7 @@ def test_run_simulation_populates_metrics_and_fallback(monkeypatch):
             "weight_engine_fallback": {"engine": "TestEngine", "error": "boom"},
         }
 
-    monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_run_analysis)
 
     result = api.run_simulation(config, returns)
 
@@ -158,7 +158,7 @@ def test_run_simulation_accepts_mapping_payload_and_swallows_logging_errors(
         }
     )
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: payload)
 
     events: list[tuple[str, str]] = []
 
@@ -205,7 +205,7 @@ def test_run_simulation_populates_structured_results(monkeypatch) -> None:
         "metadata": metadata,
     }
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: payload)
 
     result = api.run_simulation(config, returns)
 
@@ -228,7 +228,7 @@ def test_run_simulation_attaches_ci_level_metadata(monkeypatch) -> None:
         "metadata": {},
     }
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: payload)
 
     result = api.run_simulation(config, returns)
 
@@ -248,7 +248,7 @@ def test_run_simulation_ci_level_string_is_cast(monkeypatch) -> None:
         "metadata": {},
     }
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: payload)
 
     result = api.run_simulation(config, returns)
 
@@ -271,7 +271,7 @@ def test_run_simulation_ci_level_is_reporting_only(monkeypatch) -> None:
             "metadata": {"fingerprint": "abc123"},
         }
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *_, **__: make_payload())
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_, **__: make_payload())
 
     baseline = api.run_simulation(_make_config(portfolio={"ci_level": 0.0}), returns)
     with_ci = api.run_simulation(_make_config(portfolio={"ci_level": 0.9}), returns)

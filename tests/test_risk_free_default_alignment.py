@@ -140,7 +140,7 @@ def test_entry_points_resolve_risk_free_settings_consistently(
         single_invocations.append(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
-    monkeypatch.setattr(api, "_run_analysis", fake_single_run)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_single_run)
     api.run_simulation(cfg, frame)
 
     assert single_invocations
@@ -196,7 +196,7 @@ def test_run_simulation_passes_risk_free_override(
         captured.update(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
-    monkeypatch.setattr(api, "_run_analysis", fake_single_run)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_single_run)
     api.run_simulation(cfg, frame)
 
     expected = (1.0 + 0.12) ** (1.0 / 12.0) - 1.0
@@ -219,7 +219,7 @@ def test_missing_risk_free_requires_explicit_flag(
         )
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
-    monkeypatch.setattr(api, "_run_analysis", _run_with_risk_free_check)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", _run_with_risk_free_check)
 
     with pytest.raises(ValueError) as single_err:
         api.run_simulation(cfg, frame)

@@ -57,7 +57,7 @@ def _capture_stats_cfg(monkeypatch: pytest.MonkeyPatch, cfg: Config) -> Any:
         captured.update(kwargs)
         return pipeline_failure(PipelineReasonCode.NO_FUNDS_SELECTED)
 
-    monkeypatch.setattr(api, "_run_analysis", fake_single_run)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_single_run)
     api.run_simulation(cfg, _make_frame())
     assert "stats_cfg" in captured
     return captured["stats_cfg"]

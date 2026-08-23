@@ -76,7 +76,7 @@ def test_single_period_api_passes_nested_weighting_name_to_pipeline(
             "score_frame": pd.DataFrame(),
         }
 
-    monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_run_analysis)
     api.run_simulation(cfg, _make_df())
 
     assert captured["weighting_scheme"] == "score_prop_bayes"
@@ -107,7 +107,7 @@ def test_single_period_api_forwards_registered_engine_params(
             "score_frame": pd.DataFrame(),
         }
 
-    monkeypatch.setattr(api, "_run_analysis", fake_run_analysis)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_run_analysis)
     api.run_simulation(cfg, _make_df())
 
     assert captured["weighting_scheme"] == "third_party_weight_engine"

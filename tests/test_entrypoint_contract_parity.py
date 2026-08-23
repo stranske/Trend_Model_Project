@@ -140,7 +140,7 @@ def test_same_config_same_numbers_across_entrypoints(monkeypatch: pytest.MonkeyP
             "score_frame": pd.DataFrame(),
         }
 
-    monkeypatch.setattr(api, "_run_analysis", fake_single_run)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", fake_single_run)
     api.run_simulation(_single_period_cfg(weight_portfolio), returns)
     assert captured["single_weighting_scheme"] == "hrp"
 

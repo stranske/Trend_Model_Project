@@ -143,7 +143,7 @@ def test_run_simulation_fleet_record_marks_unexpected_pipeline_result_error(
     fleet_path = tmp_path / "langsmith-fleet.ndjson"
     monkeypatch.setenv("TREND_LANGSMITH_FLEET_PATH", str(fleet_path))
     monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
-    monkeypatch.setattr(api, "_run_analysis", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *_args, **_kwargs: object())
 
     result = api.run_simulation(_config(), _returns_frame())
 
