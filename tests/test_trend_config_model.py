@@ -433,7 +433,7 @@ def test_validate_trend_config_reports_validation_location(tmp_path: Path) -> No
         },
         "portfolio": {
             "rebalance_calendar": "NYSE",
-            "max_turnover": 2,
+            "max_turnover": 2.5,
             "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
         },
         "vol_adjust": {"target_vol": 0.1},

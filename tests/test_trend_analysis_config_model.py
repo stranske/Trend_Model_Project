@@ -387,11 +387,11 @@ def test_portfolio_settings_rejects_out_of_range_values() -> None:
                 "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
-    with pytest.raises(ValueError, match="must be between 0 and 1.0"):
+    with pytest.raises(ValueError, match="must be between 0 and 2.0"):
         config_model.PortfolioSettings.model_validate(
             {
                 "rebalance_calendar": "NYSE",
-                "max_turnover": 1.5,
+                "max_turnover": 2.5,
                 "cost_model": {"per_trade_bps": 5, "half_spread_bps": 0},
             }
         )
