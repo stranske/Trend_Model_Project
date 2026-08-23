@@ -963,9 +963,7 @@ def launch() -> widgets.Widget:
                     if diag:
                         warnings.warn(f"Pipeline aborted ({diag.reason_code}): {diag.message}")
                     else:
-                        warnings.warn(
-                            "Pipeline produced no full result; no files were exported."
-                        )
+                        warnings.warn("Pipeline produced no full result; no files were exported.")
                     return
                 split = cfg.sample_split
                 sheet_fmt = export.make_summary_formatter(
