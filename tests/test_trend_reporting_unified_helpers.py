@@ -381,8 +381,8 @@ def test_build_param_summary_exposes_optional_fields():
     )
     params = dict(unified._build_param_summary(config))
     assert params["Out-of-sample window"].endswith("→ 2021-12")
-    assert "Floor volatility" not in params
-    assert "Warm-up periods" not in params
+    assert params["Floor volatility"] == "2.0%"
+    assert params["Warm-up periods"] == "5"
     assert params["Turnover cap"] == "10.0%"
     assert params["Benchmarks"] == "2"
 
