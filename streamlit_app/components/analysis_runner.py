@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol
@@ -69,6 +70,8 @@ def _coerce_positive_float(value: Any, *, default: float) -> float:
     try:
         as_float = float(value)
     except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
         return default
     return max(as_float, 0.0)
 

@@ -8,6 +8,7 @@ import hashlib
 import html
 import json
 import logging
+import math
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -601,6 +602,18 @@ def _format_percent(value: Any) -> str:
     except (TypeError, ValueError):
         return "—"
     return f"{numeric * 100:.1f}%"
+
+
+def _finite_nonnegative_float(value: Any, *, maximum: float) -> float:
+    """Return a Streamlit-safe cost input value within its configured bounds."""
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(number):
+        return 0.0
+    return min(max(number, 0.0), maximum)
 
 
 def _format_value(value: Any) -> str:
@@ -4054,9 +4067,13 @@ def render_model_page() -> None:
                 )
                 per_trade_bps = st.number_input(
                     "Transaction Cost (bps)",
-                    min_value=0,
-                    max_value=100,
-                    value=int(model_state.get("per_trade_bps", 0)),
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=_finite_nonnegative_float(
+                        model_state.get("per_trade_bps", 0.0), maximum=100.0
+                    ),
+                    step=0.1,
+                    format="%.1f",
                     help=HELP_TEXT["per_trade_bps"],
                     key="adv_per_trade_bps_input",
                 )
@@ -4493,9 +4510,13 @@ def render_model_page() -> None:
             with cost_c1:
                 half_spread_bps = st.number_input(
                     "Slippage (bps)",
-                    min_value=0,
-                    max_value=50,
-                    value=int(model_state.get("half_spread_bps", 0)),
+                    min_value=0.0,
+                    max_value=50.0,
+                    value=_finite_nonnegative_float(
+                        model_state.get("half_spread_bps", 0.0), maximum=50.0
+                    ),
+                    step=0.1,
+                    format="%.1f",
                     help=HELP_TEXT["half_spread_bps"],
                 )
                 if half_spread_bps > 0:

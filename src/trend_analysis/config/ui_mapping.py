@@ -17,6 +17,7 @@ validation owns any domain-specific range constraint.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping
 
 import pandas as pd
@@ -49,6 +50,8 @@ def coerce_positive_float(value: Any, *, default: float) -> float:
     try:
         as_float = float(value)
     except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
         return default
     return max(as_float, 0.0)
 
