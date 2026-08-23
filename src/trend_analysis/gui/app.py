@@ -359,18 +359,24 @@ def _as_dict(v: Any) -> Dict[str, Any]:
     return dict(v) if isinstance(v, dict) else {}
 
 
-def _normalized_export_formats(value: Any) -> list[str]:
+def _normalized_export_formats(value: Any, *, warn_invalid: bool = False) -> list[str]:
     """Return usable export formats, preserving a safe GUI default."""
 
-    if isinstance(value, str) and value:
-        return [value]
-    if (
-        isinstance(value, (list, tuple))
-        and value
-        and all(isinstance(format_name, str) and format_name for format_name in value)
-    ):
-        return list(value)
-    return ["xlsx"]
+    values = list(value) if isinstance(value, (list, tuple)) else []
+    formats = [
+        format_name
+        for format_name in values
+        if isinstance(format_name, str) and format_name and format_name in export.EXPORTERS
+    ]
+    rejected = [format_name for format_name in values if format_name not in formats]
+    if warn_invalid and rejected:
+        warnings.warn(
+            "Ignoring unselectable export format(s): "
+            + ", ".join(repr(format_name) for format_name in rejected)
+            + "; using the first registered format instead.",
+            stacklevel=2,
+        )
+    return formats or ["xlsx"]
 
 
 _REQUIRED_MAPPING_SECTIONS = (
@@ -468,7 +474,16 @@ def _validate_loaded_gui_config(raw: Any) -> dict[str, Any]:
             f"unsupported retired top-level configuration key(s): {names}; "
             "use portfolio.selection_mode, portfolio.rank, and vol_adjust.enabled"
         )
-    return raw
+    export_cfg = raw.get("export")
+    if not isinstance(export_cfg, dict) or "formats" not in export_cfg:
+        return raw
+    normalized = dict(raw)
+    sanitized_export = dict(export_cfg)
+    sanitized_export["formats"] = _normalized_export_formats(
+        export_cfg["formats"], warn_invalid=True
+    )
+    normalized["export"] = sanitized_export
+    return normalized
 
 
 def _build_step0(
@@ -880,9 +895,9 @@ def launch() -> widgets.Widget:
         description="Theme",
     )
     export_state = _as_dict(store.cfg.get("export"))
-    export_formats = _normalized_export_formats(export_state.get("formats"))
+    export_formats = _normalized_export_formats(export_state.get("formats"), warn_invalid=True)
     fmt_dd = widgets.Dropdown(
-        options=["xlsx", "csv", "json"],
+        options=sorted(export.EXPORTERS),
         value=str(export_formats[0]) if export_formats else "xlsx",
         description="Format",
     )
