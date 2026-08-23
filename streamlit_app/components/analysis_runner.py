@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol
@@ -14,7 +15,11 @@ import streamlit as st
 from trend_analysis.config.bridge import build_config_payload, validate_payload
 from trend_analysis.config.models import Config
 from trend_analysis.config.patch import ConfigPatch, apply_config_patch
-from trend_analysis.config.ui_mapping import METRIC_REGISTRY, build_config_from_ui_state
+from trend_analysis.config.ui_mapping import (
+    COST_MODEL_BPS_FIELDS,
+    METRIC_REGISTRY,
+    build_config_from_ui_state,
+)
 from trend_analysis.signals import TrendSpec as TrendSpecModel
 from trend_analysis.util.paths import proj_path
 
@@ -65,6 +70,8 @@ def _coerce_positive_float(value: Any, *, default: float) -> float:
     try:
         as_float = float(value)
     except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
         return default
     return max(as_float, 0.0)
 
@@ -255,7 +262,10 @@ def _build_portfolio_config(
     # Advanced settings
     max_weight = _coerce_positive_float(config.get("max_weight"), default=0.20)
     max_turnover = _coerce_positive_float(config.get("max_turnover"), default=1.0)
-    per_trade_bps = _coerce_positive_int(config.get("per_trade_bps"), default=0, minimum=0)
+    cost_model_bps = {
+        field: _coerce_positive_float(config.get(field), default=0.0)
+        for field in COST_MODEL_BPS_FIELDS
+    }
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
     # Fund holding rules (Phase 3)
@@ -278,7 +288,6 @@ def _build_portfolio_config(
     # For buy_and_hold, use the initial method's transform
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    half_spread_bps = _coerce_positive_int(config.get("half_spread_bps"), default=0, minimum=0)
     bottom_k = _coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     # Phase 9: Selection approach parameters
@@ -323,10 +332,7 @@ def _build_portfolio_config(
         "weighting": {"name": weighting_name, "params": {}},
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
-        "cost_model": {
-            "per_trade_bps": per_trade_bps,
-            "half_spread_bps": half_spread_bps,
-        },
+        "cost_model": cost_model_bps,
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,

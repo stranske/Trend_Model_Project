@@ -17,6 +17,7 @@ validation owns any domain-specific range constraint.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping
 
 import pandas as pd
@@ -33,6 +34,9 @@ METRIC_REGISTRY = {
     "vol": "Volatility",
 }
 
+# Both UI entry points must preserve these fractional values as cost rates, not counts.
+COST_MODEL_BPS_FIELDS = ("per_trade_bps", "half_spread_bps")
+
 
 def coerce_positive_int(value: Any, *, default: int, minimum: int = 1) -> int:
     try:
@@ -46,6 +50,8 @@ def coerce_positive_float(value: Any, *, default: float) -> float:
     try:
         as_float = float(value)
     except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
         return default
     return max(as_float, 0.0)
 
@@ -229,7 +235,10 @@ def build_portfolio_config(
 
     max_weight = coerce_positive_float(config.get("max_weight"), default=0.20)
     max_turnover = coerce_positive_float(config.get("max_turnover"), default=1.0)
-    per_trade_bps = coerce_positive_int(config.get("per_trade_bps"), default=0, minimum=0)
+    cost_model_bps = {
+        field: coerce_positive_float(config.get(field), default=0.0)
+        for field in COST_MODEL_BPS_FIELDS
+    }
     rebalance_freq = str(config.get("rebalance_freq", "M") or "M")
 
     min_tenure_n = coerce_positive_int(config.get("min_tenure_n"), default=0, minimum=0)
@@ -247,7 +256,6 @@ def build_portfolio_config(
     buy_hold_initial = str(config.get("buy_hold_initial", "top_n"))
     effective_approach = buy_hold_initial if is_buy_and_hold else selection_approach
     rank_transform = "zscore" if effective_approach == "threshold" else "raw"
-    half_spread_bps = coerce_positive_int(config.get("half_spread_bps"), default=0, minimum=0)
     bottom_k = coerce_positive_int(config.get("bottom_k"), default=0, minimum=0)
 
     rank_pct = coerce_positive_float(config.get("rank_pct"), default=0.10)
@@ -286,10 +294,7 @@ def build_portfolio_config(
         "weighting": {"name": weighting_name, "params": {}},
         "rebalance_freq": rebalance_freq,
         "max_turnover": max_turnover,
-        "cost_model": {
-            "per_trade_bps": per_trade_bps,
-            "half_spread_bps": half_spread_bps,
-        },
+        "cost_model": cost_model_bps,
         "constraints": {
             "long_only": long_only,
             "max_weight": max_weight,
