@@ -616,6 +616,13 @@ def _apply_turnover_and_cost(
                 target_w.loc[mgr] = 0.0
         target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
 
+    # Trim active positions before turnover-cap scaling so post-cap rescaling cannot
+    # restore turnover above the configured ceiling.
+    target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
+    target_w = _enforce_max_active_positions(
+        target_w, max_active_positions, protected=min_tenure_guard
+    )
+
     desired_trades = target_w - last_aligned
     desired_turnover = float(desired_trades.abs().sum())
     final_w = target_w.copy()
@@ -664,11 +671,8 @@ def _apply_turnover_and_cost(
             scale = remaining_turnover / optional_turnover if optional_turnover > 0 else 0.0
             scale = max(0.0, min(1.0, scale))
             final_w = last_aligned + mandatory + optional * scale
-    # Ensure bounds and normalisation remain satisfied
+    # Ensure bounds remain satisfied after turnover-cap scaling.
     final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
-    final_w = _enforce_max_active_positions(
-        final_w, max_active_positions, protected=min_tenure_guard
-    )
 
     # Prepare custom weights mapping in percent for the canonical pipeline runner.
     # We keep the internal turnover-cap/bounds logic here, but reconcile the

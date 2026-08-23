@@ -221,6 +221,15 @@ def test_portfolio_settings_validator_errors() -> None:
             }
         )
 
+    with pytest.raises(ValueError, match="must be finite"):
+        PortfolioSettings.model_validate(
+            {
+                "rebalance_calendar": "NYSE",
+                "max_turnover": float("nan"),
+                "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
+            }
+        )
+
     with pytest.raises(ValueError, match="per_trade_bps cannot be negative"):
         PortfolioSettings.model_validate(
             {

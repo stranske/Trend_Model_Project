@@ -478,6 +478,8 @@ class PortfolioSettings(BaseModel):
                     turnover = float(raw)
                 except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
                     raise ValueError("portfolio.max_turnover values must be numeric.") from exc
+                if not math.isfinite(turnover):
+                    raise ValueError("portfolio.max_turnover values must be finite.")
                 if turnover < 0:
                     raise ValueError("portfolio.max_turnover values cannot be negative.")
                 if turnover > MAX_TURNOVER_CEILING:
@@ -492,6 +494,8 @@ class PortfolioSettings(BaseModel):
             turnover = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             raise ValueError("portfolio.max_turnover must be numeric.") from exc
+        if not math.isfinite(turnover):
+            raise ValueError("portfolio.max_turnover must be finite.")
         if turnover < 0:
             raise ValueError("portfolio.max_turnover cannot be negative.")
         if turnover > MAX_TURNOVER_CEILING:

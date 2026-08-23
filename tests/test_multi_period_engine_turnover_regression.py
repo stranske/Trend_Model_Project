@@ -242,3 +242,36 @@ def test_multi_period_turnover_cap_above_one_is_enforced() -> None:
     assert turnover == pytest.approx(1.5)
     assert final_weights["A"] == pytest.approx(0.25)
     assert final_weights["B"] == pytest.approx(0.75)
+
+
+def test_turnover_cap_survives_max_active_position_trim() -> None:
+    """Trimming to max_active_positions must not rescale weights past the turnover cap."""
+
+    last_aligned = pd.Series({"A": 0.5, "B": 0.5})
+    applied = mp_engine._apply_turnover_and_cost(
+        bounded_weights=pd.Series({"A": 0.0, "B": 0.0, "C": 1.0}),
+        prev_final_weights=last_aligned,
+        lambda_tc=0.0,
+        min_w_bound=0.0,
+        max_w_bound=1.0,
+        forced_exits=set(),
+        min_funds=0,
+        holdings=["C"],
+        in_df=pd.DataFrame(),
+        max_turnover_cfg=1.5,
+        regime_settings=None,
+        benchmarks_cfg=None,
+        regime_frequency="M",
+        regime_ppy=12.0,
+        max_active_positions=1,
+        min_tenure_guard=set(),
+        manual_holdings=["C"],
+    )
+
+    final_weights = applied.final_weights.reindex(["A", "B", "C"], fill_value=0.0)
+    turnover = float((final_weights - last_aligned).abs().sum())
+
+    assert turnover <= 1.5 + 1e-12
+    assert final_weights["C"] == pytest.approx(0.75)
+    assert final_weights["A"] == pytest.approx(0.125)
+    assert final_weights["B"] == pytest.approx(0.125)
