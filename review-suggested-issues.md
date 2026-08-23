@@ -1,10 +1,10 @@
 # Suggested issues from the iamkayleb repo review
 
-> **Historical planning snapshot.** This file preserves the original issue-drafting
-> evidence and is not the current completion ledger. The exhaustive two-round
-> disposition, including all 120 Collab-Deliverables items and all nine legacy
-> campaign phases, is maintained in
-> [`docs/audits/collab-feedback-closeout.md`](docs/audits/collab-feedback-closeout.md).
+> **Superseded historical planning snapshot.** Do not file or implement work from
+> this document. The repository authority is
+> [`docs/audits/collab-feedback-closeout.md`](docs/audits/collab-feedback-closeout.md),
+> and the coordination-space corrective ledger is
+> `Code/Audits/Trend_Model_Project/2026-08-22-feedback-completion-ledger.md`.
 
 Derived from `trend-review-suggested-material-compendium.docx` (iamkayleb's subsystem
 briefs, PRs #8–#53, Jan–May 2026), **after independent verification against the current

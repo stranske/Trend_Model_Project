@@ -19,8 +19,8 @@ Converge the scattered modules into one fully test-covered, vectorised pipeline 
 # 2. Generate demo dataset
 python scripts/generate_demo.py
 
-# 3. Run full demo pipeline
-python scripts/run_multi_demo.py
+# 3. Run the real full demo pipeline (ignores pytest fast-mode sentinels)
+python scripts/run_multi_demo.py --release-verify
 
 # 4. Run test suite
 ./scripts/run_tests.sh

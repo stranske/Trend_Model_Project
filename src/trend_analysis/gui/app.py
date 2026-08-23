@@ -461,11 +461,11 @@ def _validate_loaded_gui_config(raw: Any) -> dict[str, Any]:
 
     if not isinstance(raw, dict):
         raise ValueError("configuration must be a YAML mapping")
-    retired = sorted(_RETIRED_GUI_TOP_LEVEL_KEYS.intersection(raw))
-    if retired:
-        names = ", ".join(retired)
+    forbidden = sorted(_RETIRED_GUI_TOP_LEVEL_KEYS.intersection(raw))
+    if forbidden:
+        names = ", ".join(forbidden)
         raise ValueError(
-            f"retired top-level configuration key(s): {names}; "
+            f"unsupported retired top-level configuration key(s): {names}; "
             "use portfolio.selection_mode, portfolio.rank, and vol_adjust.enabled"
         )
     return raw

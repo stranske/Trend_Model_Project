@@ -111,7 +111,7 @@ def _canonical_benchmark_columns(
     """Return columns from the canonical ``label -> column`` benchmark map.
 
     When frame columns are available, fail closed if the key resolves to a
-    column but its value does not. That is the retired ``column -> label``
+    column but its value does not. Reject the retired ``column -> label``
     orientation; accepting it would leave the benchmark investable.
     """
 
@@ -127,7 +127,7 @@ def _canonical_benchmark_columns(
         resolved_column = column_lookup.get(column_key)
         if resolved_column is None and label_key in column_lookup:
             raise ValueError(
-                "benchmarks uses the retired column-to-label mapping orientation; "
+                "benchmarks uses the unsupported retired column-to-label mapping orientation; "
                 "use benchmark label -> data column"
             )
         resolved.append(resolved_column or str(column))
@@ -1176,7 +1176,7 @@ def run_schedule(
     rank_column : str, optional
         Column to use for ranking
     rebalancer : Rebalancer, optional
-        Fund selection rebalancer (legacy threshold-hold system)
+        Fund selection rebalancer (threshold-hold system)
     rebalance_strategies : list[str], optional
         List of rebalancing strategy names to apply
     rebalance_params : dict, optional
@@ -1275,7 +1275,7 @@ def run_schedule(
         )
         target_weights = target_series.to_frame("weight")
 
-        # Apply legacy rebalancer (threshold-hold system) if configured
+        # Apply the threshold-hold rebalancer if configured
         if rebalancer is not None:
             if prev_weights is None:
                 prev_weights = target_weights["weight"].astype(float)

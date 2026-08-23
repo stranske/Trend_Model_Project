@@ -167,7 +167,7 @@ def annual_return(
         # Use numpy.asarray(...).item() to obtain a native Python scalar
         compounded_scalar = np.asarray(prod_val).item()
         compounded = float(compounded_scalar)
-        # If total growth is non-positive, legacy semantics return -1.0
+        # If total growth is non-positive, the established metric contract returns -1.0
         if compounded <= 0:
             return -1.0
         out = compounded ** (periods_per_year / n_periods) - 1.0
@@ -263,7 +263,7 @@ def sortino_ratio(
     excess = returns - target
 
     if isinstance(returns, Series):
-        # Match legacy behavior: only negative returns, use std with ddof=1
+        # Match the established contract: only negative returns, use std with ddof=1
         downside = excess[excess < 0]
         if downside.empty:
             return _empty_like(returns, "sortino_ratio")
@@ -282,7 +282,7 @@ def sortino_ratio(
         ar = float(cast(float, ar_val))
         return float(ar / float(down_vol))
     else:
-        # DataFrame path: apply legacy logic to each column
+        # DataFrame path: apply the same metric contract to each column
         def _calc_col(col_excess: Series) -> float:
             downside = col_excess[col_excess < 0]
             if downside.empty:
@@ -315,7 +315,7 @@ def sortino_ratio(
 def max_drawdown(returns: pd.Series | pd.DataFrame) -> float | pd.Series:
     """
     Maximum drawdown expressed as a *positive* fraction (0 → worst is 0%,
-    0.35 → ‑35 % loss).  Legacy tests expect ≥ 0.
+    0.35 → ‑35 % loss). The public metric contract expects ≥ 0.
     """
     if not isinstance(returns, (pd.Series, pd.DataFrame)):
         raise TypeError("max_drawdown expects a pandas Series or DataFrame")

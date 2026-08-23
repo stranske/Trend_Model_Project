@@ -198,7 +198,7 @@ def _run_pipeline(
         return result, run_id, log_path
     analysis = getattr(result, "analysis", None)
     # The following attributes are already set by run_simulation when analysis exists,
-    # but we need to backfill them when analysis is absent (legacy callers).
+    # but we need to backfill them when analysis is absent.
     details = result.details
     if isinstance(details, dict):
         if analysis is None:
@@ -384,7 +384,7 @@ def _write_trend_run_artifacts(
                 base_path=config_path.parent,
             ),
         )
-    except Exception as exc:  # pragma: no cover - defensive parity with legacy CLI
+    except Exception as exc:  # pragma: no cover - defensive CLI error boundary
         logger.warning("Failed to write run artifacts: %s", exc)
         return None
     maybe_log_step(

@@ -308,7 +308,7 @@ Validation completed on the final working tree before commit:
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| Complete demo and supported runtime path | `.venv/bin/python scripts/run_multi_demo.py` | Passed. Generated the demo inputs, completed four multi-period results, exercised report/export behavior and repeated CLI runs, ran `trend check` directly and through `TREND_CFG`, ran the quick check, verified the dependency lock, and completed the official full test runner. |
+| Complete demo and supported runtime path | `.venv/bin/python scripts/run_multi_demo.py --release-verify` | Passed. The release flag clears stale pytest fast-mode state and fails closed if a sentinel reappears. The run generated the demo inputs, completed four multi-period results, exercised report/export behavior and repeated CLI runs, ran `trend check` directly and through `TREND_CFG`, ran the quick check, verified the dependency lock, and completed the official full test runner. |
 | Full repository test suite | `./scripts/run_tests.sh` (also invoked by the complete demo) | 5,864 passed, 6 skipped; 87.37% coverage against an 85% gate. The suite includes the unified legacy-absence, isolated-wheel/installed-CLI, Streamlit, export/report, configuration, Monte Carlo, scheduler, and pipeline regressions. |
 | Development gate | `./scripts/dev_check.sh --verbose` | Passed syntax, import, Black, critical Flake8, mypy, and keepalive-harness checks. |
 | Full Ruff lint | `.venv/bin/ruff check src tests scripts streamlit_app` | Passed. |

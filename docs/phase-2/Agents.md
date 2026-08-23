@@ -573,7 +573,7 @@ feature lands, run the sequence below and update `config/demo.yml` or
    The optional flag skips the Excel copy when binary artefacts are not needed.
 3. **Run the full demo pipeline and export checks**
    ```bash
-   python scripts/run_multi_demo.py
+   python scripts/run_multi_demo.py --release-verify
    ```
    The script must call `export.export_data()` so CSV, Excel, JSON **and TXT**
    outputs are produced in one go. Extend the script and config whenever new

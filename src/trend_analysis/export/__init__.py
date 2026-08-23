@@ -420,7 +420,7 @@ def _metadata_summary_lines(res: Mapping[str, Any]) -> list[str]:
         segments.extend(_format_metadata_entries(metadata))
     if not segments:
         segments.append("Frequency: Unknown; NA policy: (not specified)")
-    # The legacy workbook layout expects a single metadata row before the
+    # The required Phase-1 workbook layout has a single metadata row before the
     # tabular header so downstream consumers can ``skiprows=4`` reliably.
     # Combine all entries into one readable line separated by " | " to
     # preserve the new metadata while keeping the row budget constant.

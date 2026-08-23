@@ -175,7 +175,7 @@ Generate the synthetic dataset and run the helper script to exercise the Phase 
 ```bash
 ./scripts/setup_env.sh
 python scripts/generate_demo.py [--no-xlsx]
-python scripts/run_multi_demo.py
+python scripts/run_multi_demo.py --release-verify
 ```
 Use `--no-xlsx` to skip generating the Excel workbook if binary files should be
 avoided.
@@ -199,7 +199,7 @@ exercises every new code path.
    ```
 3. **Run the full demo pipeline and export checks**
    ```bash
-   python scripts/run_multi_demo.py
+   python scripts/run_multi_demo.py --release-verify
    ```
 4. **Run the test suite**
    ```bash

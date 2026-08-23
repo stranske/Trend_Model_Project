@@ -67,6 +67,52 @@ RUNTIME_TEXT_ROOTS = (
     REPO_ROOT / "tools",
     *ROOT_RUNTIME_TEXT_FILES,
 )
+# The semantic marker gate is intentionally narrower than the retired-name
+# inventory above: these are the supported product and operator surfaces where
+# migration wording can otherwise disguise a live compatibility branch.
+SEMANTIC_MARKER_ROOTS = (
+    REPO_ROOT / "analysis",
+    REPO_ROOT / "src",
+    REPO_ROOT / "streamlit_app",
+    REPO_ROOT / "examples",
+)
+SEMANTIC_MARKER_FILES = (
+    REPO_ROOT / "scripts" / "run_multi_demo.py",
+    REPO_ROOT / "scripts" / "_run_multi_demo.py",
+    REPO_ROOT / "scripts" / "evaluate_settings_effectiveness.py",
+    REPO_ROOT / "scripts" / "test_settings_wiring.py",
+)
+LEGACY_MARKER_PATTERN = re.compile(
+    r"\b(?:compatibility|legacy|deprecated|obsolete|retired)\b" r"|\bbackwards?[- ]compatibility\b",
+    re.IGNORECASE,
+)
+NEGATIVE_ASSERTION_PATTERN = re.compile(
+    r"\b(?:avoid|deliberately removed|fail closed|forbid(?:den)?|must not|"
+    r"no longer|not supported|raise ValueError|reject(?:ed|s|ing)?|remove(?:d)?|unsupported|"
+    r"use .+ instead)\b",
+    re.IGNORECASE,
+)
+# Each exception is both path- and context-bound. A new generic compatibility
+# claim in one of these files therefore still fails unless its reason is added
+# explicitly here.
+LEGACY_MARKER_CLASSIFICATION_MANIFEST = {
+    "dependency-format": (
+        ("src/data/contracts.py", r"timestamp|pandas|offset|freq|canonical"),
+        ("src/trend/reporting/unified.py", r"freq|code|canonical|period"),
+        ("src/trend_analysis/api_server/__init__.py", r"FastAPI|on_event|lifespan"),
+        ("src/trend_analysis/multi_period/scheduler.py", r"codes|mapping|frequency"),
+        ("src/trend_analysis/perf/cache.py", r"pandas|fillna|forward fill"),
+        ("src/trend_analysis/schedules.py", r"pandas|period|alias"),
+        ("src/trend_analysis/timefreq.py", r"pandas|frequency|alias|resample"),
+        ("src/trend_analysis/viz/adapters.py", r"pandas|transpose|groupby"),
+    ),
+    "current-external-adapter": (
+        (
+            "src/trend_analysis/export/__init__.py",
+            r"writer|adapter|alias|openpyxl|workbook|proxy",
+        ),
+    ),
+}
 FORBIDDEN_RUNTIME_IMPORTS = (
     "trend." + "compat_entrypoints",
     "trend_analysis." + "cli",
@@ -108,6 +154,7 @@ REMOVED_TEST_ONLY_SYMBOLS = {
     },
     "src/trend_analysis/monte_carlo/runner.py": {"_inject_" + "cash_returns"},
     "src/trend_analysis/pipeline_helpers.py": {"_unwrap_" + "cfg"},
+    "src/trend_analysis/pipeline_runner.py": {"_run_" + "analysis"},
     "src/trend_analysis/pipeline.py": {
         "_sync_stage_" + "dependencies",
         "_call_with_" + "sync",
@@ -120,6 +167,9 @@ REMOVED_TEST_ONLY_SYMBOLS = {
         "_run_analysis_with_" + "diagnostics",
     },
     "src/trend_analysis/multi_period/engine.py": {"_run_" + "analysis"},
+}
+REMOVED_SCRIPT_SYMBOLS = {
+    "scripts/evaluate_settings_effectiveness.py": {"MODEL_" + "PAGE"},
 }
 REMOVED_GUI_SYMBOLS = {
     "src/trend_analysis/gui/app.py": {"_normalize_gui_" + "store_cfg"},
@@ -263,6 +313,45 @@ def _text_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root] if _include_text_file(root) else []
     return [path for path in root.rglob("*") if _include_text_file(path)]
+
+
+def _semantic_marker_files() -> list[Path]:
+    paths = {path for root in SEMANTIC_MARKER_ROOTS for path in _text_files(root)}
+    paths.update(path for path in SEMANTIC_MARKER_FILES if _include_text_file(path))
+    return sorted(paths)
+
+
+def _marker_classification(path: Path, line: str, context: str) -> str | None:
+    if NEGATIVE_ASSERTION_PATTERN.search(line):
+        return "negative-assertion"
+    try:
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return None
+    for category, entries in LEGACY_MARKER_CLASSIFICATION_MANIFEST.items():
+        for manifest_path, context_pattern in entries:
+            if relative_path == manifest_path and re.search(
+                context_pattern, context, flags=re.IGNORECASE
+            ):
+                return category
+    return None
+
+
+def _unclassified_legacy_markers(paths: list[Path]) -> list[str]:
+    offenders: list[str] = []
+    for path in paths:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        for index, line in enumerate(lines):
+            if not LEGACY_MARKER_PATTERN.search(line):
+                continue
+            context = "\n".join(lines[max(0, index - 2) : index + 3])
+            if _marker_classification(path, line, context) is None:
+                try:
+                    display_path = path.relative_to(REPO_ROOT)
+                except ValueError:
+                    display_path = path
+                offenders.append(f"{display_path}:{index + 1}: {line.strip()}")
+    return offenders
 
 
 def _defined_symbols(path: Path) -> set[str]:
@@ -541,6 +630,33 @@ def test_active_runtime_and_docs_do_not_reference_removed_modules() -> None:
     assert not offenders, "Active surfaces reference retired modules:\n" + "\n".join(offenders)
 
 
+def test_active_product_markers_have_allowed_semantic_classifications() -> None:
+    """Legacy-like wording must state a rejection, format bridge, or current adapter."""
+
+    assert set(LEGACY_MARKER_CLASSIFICATION_MANIFEST) == {
+        "dependency-format",
+        "current-external-adapter",
+    }
+    offenders = _unclassified_legacy_markers(_semantic_marker_files())
+    assert not offenders, "Unclassified legacy-like markers:\n" + "\n".join(offenders)
+
+
+def test_semantic_marker_gate_rejects_unclassified_compatibility_claim(
+    tmp_path: Path,
+) -> None:
+    """Deliberate-break proof rejects a generic compatibility promise."""
+
+    candidate = tmp_path / "operator.py"
+    candidate.write_text(
+        "# Remove a temporary file.\n# Preserve backward compatibility.\n",
+        encoding="utf-8",
+    )
+
+    assert _unclassified_legacy_markers([candidate]) == [
+        f"{candidate}:2: # Preserve backward compatibility."
+    ]
+
+
 def test_active_runtime_does_not_restore_removed_data_loaders() -> None:
     """Canonical data loading must not be shadowed by compatibility shims."""
 
@@ -564,6 +680,17 @@ def test_test_only_runtime_seams_remain_absent() -> None:
         offenders.extend(f"{relative_path}: {name}" for name in returned)
 
     assert not offenders, "Test-only runtime seams returned:\n" + "\n".join(offenders)
+
+
+def test_removed_script_aliases_remain_absent() -> None:
+    """Repository scripts must use their canonical constants directly."""
+
+    offenders: list[str] = []
+    for relative_path, removed_names in REMOVED_SCRIPT_SYMBOLS.items():
+        returned = sorted(_removed_symbol_offenders(REPO_ROOT / relative_path, removed_names))
+        offenders.extend(f"{relative_path}: {name}" for name in returned)
+
+    assert not offenders, "Removed script aliases returned:\n" + "\n".join(offenders)
 
 
 def test_test_only_runtime_seam_gate_detects_deliberate_restoration(tmp_path: Path) -> None:
