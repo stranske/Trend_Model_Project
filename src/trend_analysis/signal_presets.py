@@ -62,7 +62,7 @@ def _ordered_presets_items() -> tuple[tuple[str, TrendSpecPreset], ...]:
     """Return the canonical signal-compatible presets by stable slug.
 
     The full registry also includes full-config-only choices such as the cash
-    constrained preset.  This tuple is a compatibility surface selection, not
+    constrained preset. This tuple selects the current preset surface, not
     a second registry: each returned payload is still derived from the single
     YAML-backed owner.
     """

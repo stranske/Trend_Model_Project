@@ -323,7 +323,7 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
         )
     if "dist" in spec or "distribution" in spec:
         raise ValueError(
-            f"trade_cost_bps for regime '{regime}' uses a legacy discriminator; use kind"
+            f"trade_cost_bps for regime '{regime}' uses an unsupported legacy discriminator; use kind"
         )
     if "kind" not in spec:
         raise ValueError(f"trade_cost_bps for regime '{regime}' must define kind")

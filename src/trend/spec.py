@@ -162,7 +162,7 @@ def _maybe_path(value: Any, *, base_path: Path | None) -> Path | None:
 def _build_trend_spec(cfg: Any) -> TrendSpec:
     signals = _cfg_section(cfg, "signals")
     # The runtime leaves ``signal_spec`` unset when there is no signals
-    # section, then uses its non-vol-adjusted fallback.  Keep this compatibility
+    # section, then uses its non-vol-adjusted fallback. Keep this precedence
     # representation aligned so reports do not claim a transformation that did
     # not run.
     vol_adjust = _cfg_section(cfg, "vol_adjust") if signals else {}

@@ -78,7 +78,7 @@
 ```bash
 ./scripts/setup_env.sh
 python scripts/generate_demo.py
-python scripts/run_multi_demo.py
+python scripts/run_multi_demo.py --release-verify
 ```
 
 ---

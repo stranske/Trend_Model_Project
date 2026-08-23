@@ -35,7 +35,7 @@ sys.path.insert(0, str(PROJECT_ROOT))  # Allow scripts.* imports
 
 from scripts.evaluate_settings_effectiveness import (  # noqa: E402
     MODE_CONTEXT,
-    MODEL_PAGE,
+    MODEL_FILE,
     extract_settings_from_model_page,
 )
 from trend_analysis.config.models import Config  # noqa: E402
@@ -1371,7 +1371,7 @@ def _apply_mode_context(state: dict[str, Any], context: dict[str, Any]) -> dict[
 def _compute_coverage_summary() -> dict[str, Any]:
     """Compare wiring tests against the model settings list."""
     try:
-        _, model_settings = extract_settings_from_model_page(MODEL_PAGE)
+        _, model_settings = extract_settings_from_model_page(MODEL_FILE)
     except Exception as exc:
         return {
             "error": f"Failed to extract settings from model page: {exc}",

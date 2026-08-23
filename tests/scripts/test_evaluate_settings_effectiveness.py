@@ -35,7 +35,7 @@ def build():
 
 
 def test_extract_settings_from_model_page_includes_ui_settings() -> None:
-    model_page = effectiveness.MODEL_PAGE
+    model_page = effectiveness.MODEL_FILE
 
     baseline, keys = effectiveness.extract_settings_from_model_page(model_page)
 

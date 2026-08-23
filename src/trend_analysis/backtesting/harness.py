@@ -427,7 +427,7 @@ def _enforce_execution_lag_calendar(
     if not kept_dates and dates:
         # When every candidate would violate the lag constraint we still
         # surface the final date so the caller can report the attempted
-        # rebalance with zero turnover. This preserves backward-compatibility
+        # rebalance with zero turnover. This preserves the established result contract
         # for short datasets without introducing look-ahead because no future
         # returns will be consumed.
         return [dates[-1]]

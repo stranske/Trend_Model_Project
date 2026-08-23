@@ -284,7 +284,7 @@ if _HAS_PYDANTIC:
 
         # Field lists generated dynamically from model fields to prevent maintenance burden
         # These sections are accepted by the closed top-level schema but are
-        # optional in the shipped and legacy configurations.  Keep this list in
+        # optional in current configurations. Keep this list in
         # sync with the fallback model: ``_dict_field_names`` drives
         # ``REQUIRED_DICT_FIELDS`` for the runtime validation layer.
         OPTIONAL_DICT_FIELDS: ClassVar[set[str]] = {

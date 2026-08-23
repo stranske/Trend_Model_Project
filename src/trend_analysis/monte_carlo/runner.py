@@ -1880,7 +1880,7 @@ class MonteCarloRunner:
             frame.columns = frame.columns.set_names(names)
             assets = frame.columns.get_level_values(asset_level)
             if not (assets == "NAV").all():
-                # Force asset labels to NAV for fan chart compatibility.
+                # Force asset labels to NAV for the fan-chart input contract.
                 arrays = [frame.columns.get_level_values(i) for i in range(nlevels)]
                 arrays[asset_level] = pd.Index(["NAV"] * len(frame.columns))
                 frame.columns = pd.MultiIndex.from_arrays(arrays, names=frame.columns.names)

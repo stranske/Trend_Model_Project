@@ -31,6 +31,8 @@ import openpyxl
 import pandas as pd
 import yaml
 
+from trend._demo_guard import consume_fast_sentinel
+
 ROOT = Path(__file__).resolve().parent.parent
 
 try:
@@ -73,11 +75,10 @@ except ModuleNotFoundError as exc:  # pragma: no cover - guard for missing insta
     ) from exc
 
 FAST_SENTINEL = ROOT / "demo/.fast_demo_mode"
-if FAST_SENTINEL.exists():  # pragma: no cover - short-circuit path
-    try:
-        FAST_SENTINEL.unlink()
-    except OSError:
-        pass
+if consume_fast_sentinel(  # pragma: no cover - short-circuit path
+    FAST_SENTINEL,
+    release_verify=globals().get("RELEASE_VERIFY", False),
+):
     (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
 

@@ -778,7 +778,7 @@ register_metric("Sharpe")(
     )
 )
 
-# Register lowercase 'sharpe' for compatibility
+# Register lowercase 'sharpe' as an accepted current metric spelling.
 register_metric("sharpe")(
     lambda s, *, periods_per_year=12, risk_free=0.0: _metrics.sharpe_ratio(
         s,
@@ -867,7 +867,7 @@ def normalize_metric_scores(scores: pd.Series, metric_name: str) -> pd.Series:
     """Return scores in the canonical representation used for ranking.
 
     MaxDrawdown is a positive magnitude at this boundary.  Taking the absolute
-    value also supports legacy producers that emit signed-negative depths.
+    value also normalizes producers that emit signed-negative depths.
     Other metrics retain their registered numeric representation.
     """
 

@@ -1,8 +1,7 @@
 """Canonical ``trend mc`` parser and command handlers.
 
-The scenario implementation remains shared with the compatibility CLI during
-the migration.  Keeping the parser and dispatch boundary here lets callers use
-``trend mc`` now without creating a third Monte Carlo implementation.
+This module owns the public Monte Carlo command tree and delegates scenario
+execution to :mod:`trend_analysis.monte_carlo`.
 """
 
 from __future__ import annotations
@@ -74,7 +73,7 @@ def add_mc_subparsers(parent: argparse.ArgumentParser) -> None:
 
 
 def handle_mc_command(args: argparse.Namespace) -> int:
-    """Dispatch canonical Monte Carlo commands without the legacy CLI."""
+    """Dispatch the canonical Monte Carlo commands."""
     command = getattr(args, "mc_command", None)
     if command == "viz":
         from trend.mc.viz import execute_mc_viz_cli

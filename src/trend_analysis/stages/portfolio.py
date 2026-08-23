@@ -131,7 +131,7 @@ class _Stats:
 
     AvgCorr fields are optional and only populated when the user explicitly
     requests the ``AvgCorr`` metric (Issue #1160). They remain ``None`` to
-    preserve backward compatibility and avoid altering column order when the
+    preserve the current output contract and avoid altering column order when the
     feature is not in use.
     """
 

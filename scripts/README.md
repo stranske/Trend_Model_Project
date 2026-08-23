@@ -37,7 +37,7 @@ at the repository root.
     `config/demo.yml` for configuration.
   - Outputs: multi-period score frames and exports under `demo/exports/`
     (CSV/XLSX/JSON/TXT) plus logs.
-  - Example: `python scripts/run_multi_demo.py`
+  - Example: `python scripts/run_multi_demo.py --release-verify`
 - `scripts/run_threshold_churn_demo.py`
   - Purpose: simulate churn rules against the demo returns using Sharpe-based
     entry/exit thresholds.

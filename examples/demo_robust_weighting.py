@@ -165,7 +165,7 @@ def main() -> None:
     print("• Condition number monitoring with configurable thresholds")
     print("• Safe mode fallback (HRP/Risk Parity/Diagonal Loading) for ill-conditioned matrices")
     print("• Comprehensive logging of all robustness decisions")
-    print("• Backwards compatibility with existing configurations")
+    print("• Strict validation of current robust-weighting configuration names")
     print("• Enhanced numerical stability for pathological inputs")
 
 

@@ -13,8 +13,11 @@ This document summarises the steps required to keep the demo pipeline in sync wi
    Use `--no-xlsx` to skip the Excel file when binary artefacts are unwanted.
 3. **Run the full demo pipeline and export checks**
    ```bash
-python scripts/run_multi_demo.py
-```
+   python scripts/run_multi_demo.py --release-verify
+   ```
+The release-verification flag clears stale pytest fast-mode state and fails
+closed if a sentinel reappears, so this command cannot report success without
+running the real demo.
 The script calls `export.export_data()` so CSV, Excel, JSON and TXT outputs are
 produced in one go. It now writes the workbook frames from the multi‑period run
 via a single call to `export.export_data` to validate all exporters. Extend the
