@@ -47,7 +47,7 @@ def test_run_simulation_handles_none_result(monkeypatch: pytest.MonkeyPatch) -> 
     cfg = _DummyConfig()
     returns = _make_returns()
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: None)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: None)
 
     result = api.run_simulation(cfg, returns)
 
@@ -69,7 +69,7 @@ def test_run_simulation_passes_regime_config(
         captured["regime_cfg"] = kwargs.get("regime_cfg")
         return None
 
-    monkeypatch.setattr(api, "_run_analysis", _capture_run_analysis)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", _capture_run_analysis)
 
     api.run_simulation(cfg, returns)
 
@@ -110,7 +110,7 @@ def test_run_simulation_sanitizes_details_and_combines_portfolio(
         }
     )
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
 
     result = api.run_simulation(cfg, returns)
 
@@ -153,7 +153,7 @@ def test_run_simulation_builds_user_weight_combined_and_dedupes(
         }
     )
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
 
     result = api.run_simulation(cfg, returns)
 
@@ -219,7 +219,7 @@ def test_run_simulation_combined_keeps_last_duplicate_boundary(
         }
     )
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
 
     result = api.run_simulation(cfg, returns)
 
@@ -249,7 +249,7 @@ def test_run_simulation_handles_unexpected_result_type(
     cfg = _DummyConfig()
     returns = _make_returns()
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: object())
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: object())
 
     result = api.run_simulation(cfg, returns)
 
@@ -284,7 +284,7 @@ def test_run_simulation_handles_mapping_payload_and_logging_errors(
         if event == "selection":
             raise RuntimeError("boom")
 
-    monkeypatch.setattr(api, "_run_analysis", lambda *a, **k: payload)
+    monkeypatch.setattr(api, "_run_analysis_with_diagnostics", lambda *a, **k: payload)
     monkeypatch.setattr(api, "_log_step", fake_log_step)
 
     result = api.run_simulation(cfg, returns)
