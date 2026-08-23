@@ -876,8 +876,8 @@ def launch() -> widgets.Widget:
     """Return the root widget for the Trend Model GUI."""
     _load_notebook_deps()
     assert widgets is not None and Javascript is not None
-    store = load_state()
     discover_plugins()
+    store = load_state()
 
     mode = widgets.Dropdown(
         options=["all", "random", "manual", "rank"],

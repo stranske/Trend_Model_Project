@@ -35,5 +35,23 @@ def test_launch_survives_an_unselectable_persisted_format(monkeypatch, tmp_path)
     assert root.children[6].value == "xlsx"
 
 
+def test_launch_preserves_a_plugin_exporter_from_persisted_state(monkeypatch, tmp_path):
+    """Plugin discovery must precede validation of persisted export formats."""
+
+    state_file = tmp_path / "trend_gui_state.yml"
+    state_file.write_text("export:\n  formats:\n    - plugin-format\n")
+    monkeypatch.setattr(app, "STATE_FILE", state_file)
+    monkeypatch.setattr(app, "WEIGHT_STATE_FILE", tmp_path / "trend_gui_weights.pkl")
+
+    def discover_plugin_exporter() -> None:
+        monkeypatch.setitem(app.export.EXPORTERS, "plugin-format", lambda *_args: None)
+
+    monkeypatch.setattr(app, "discover_plugins", discover_plugin_exporter)
+
+    root = app.launch()
+
+    assert root.children[6].value == "plugin-format"
+
+
 def test_normalized_export_formats_keeps_valid_siblings():
     assert app._normalized_export_formats(["csv", ""]) == ["csv"]
