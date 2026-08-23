@@ -1675,7 +1675,7 @@ def test_launch_run_with_custom_exporter(monkeypatch, tmp_path):
 
     run_btn.click()
 
-    assert exported and exported[0][0].endswith("payload")
+    assert exported and exported[0][0].endswith("payload.json")
     assert "metrics" in exported[0][1]
     assert saved == [store]
     assert store.dirty is False

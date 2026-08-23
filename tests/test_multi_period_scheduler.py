@@ -1,5 +1,6 @@
-from trend_analysis.multi_period.scheduler import generate_periods
 import pytest
+
+from trend_analysis.multi_period.scheduler import generate_periods
 
 
 def test_generate_periods_includes_truncated_final_window():

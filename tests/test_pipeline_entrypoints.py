@@ -8,13 +8,13 @@ import pytest
 import trend_analysis.pipeline as pipeline
 import trend_analysis.pipeline_helpers as pipeline_helpers
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
-from trend_analysis.stages import portfolio as portfolio_stage
 from trend_analysis.pipeline_entrypoints import (
     _resolve_single_period_monthly_cost,
     _resolve_single_period_weighting_scheme,
     run_from_config,
     run_full_from_config,
 )
+from trend_analysis.stages import portfolio as portfolio_stage
 
 
 def _sample_stats(value: float = 0.1) -> portfolio_stage._Stats:

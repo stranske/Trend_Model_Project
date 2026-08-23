@@ -59,6 +59,8 @@ try:
     from trend_analysis.selector import RankSelector, ZScoreSelector
     from trend_analysis.stages.portfolio import (
         _Stats as CanonicalStats,
+    )
+    from trend_analysis.stages.portfolio import (
         calc_portfolio_returns,
     )
     from trend_analysis.stages.selection import single_period_run
