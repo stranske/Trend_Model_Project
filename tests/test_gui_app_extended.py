@@ -346,7 +346,7 @@ def test_launch_run_uses_registered_exporter(monkeypatch, tmp_path):
     assert export_calls, "Expected CSV exporter to be invoked"
     data, path = export_calls[-1]
     assert data["metrics"].equals(pd.DataFrame({"metric": [1.0]}))
-    assert path == str(tmp_path / "out")
+    assert path == str(tmp_path / "out.csv")
     assert store.dirty is False
 
 

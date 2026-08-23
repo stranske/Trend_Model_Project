@@ -928,40 +928,64 @@ def launch() -> widgets.Widget:
         store.dirty = True
 
     def on_run(_: Any, *, store: ParamStore) -> None:
-        cfg = build_config_from_store(store)
-        metrics = pipeline.run(cfg)
-        if metrics.empty:
-            return
-        export_cfg = cfg.export or {}
-        formats = _normalized_export_formats(export_cfg.get("formats"))
-        fmt = str(formats[0] if formats else "xlsx").lower()
-        path = Path(export_cfg.get("directory", ".")) / export_cfg.get("filename", "gui_output")
-        data = {"metrics": metrics}
-        if fmt == "xlsx":
-            full_result = pipeline.run_full(cfg)
-            res, diag = coerce_pipeline_result(full_result)
-            if not res:
-                if diag:
-                    warnings.warn(f"Pipeline aborted ({diag.reason_code}): {diag.message}")
+        try:
+            cfg = build_config_from_store(store)
+            export_cfg = cfg.export or {}
+            configured_formats = export_cfg.get("formats")
+            requested_formats = (
+                list(configured_formats)
+                if isinstance(configured_formats, (list, tuple))
+                else []
+            )
+            unsupported_formats = [
+                fmt
+                for fmt in requested_formats
+                if not isinstance(fmt, str) or not fmt or fmt not in export.EXPORTERS
+            ]
+            if unsupported_formats:
+                warnings.warn(
+                    "Unsupported export format(s): "
+                    + ", ".join(repr(fmt) for fmt in unsupported_formats)
+                    + "; no files were written."
+                )
                 return
-            split = cfg.sample_split
-            sheet_fmt = export.make_summary_formatter(
-                res,
-                str(split.get("in_start", "")),
-                str(split.get("in_end", "")),
-                str(split.get("out_start", "")),
-                str(split.get("out_end", "")),
-            )
-            data["summary"] = pd.DataFrame()
-            export.export_to_excel(
-                data,
-                str(Path(path).with_suffix(".xlsx")),
-                default_sheet_formatter=sheet_fmt,
-            )
-        elif fmt in export.EXPORTERS:
-            export.EXPORTERS[fmt](data, str(path), None)
-        save_state(store)
-        store.dirty = False
+
+            metrics = pipeline.run(cfg)
+            if metrics.empty:
+                warnings.warn("Run produced no metrics; no files were exported.")
+                return
+
+            formats = _normalized_export_formats(configured_formats)
+            path = Path(export_cfg.get("directory", ".")) / export_cfg.get("filename", "gui_output")
+            data = {"metrics": metrics}
+            if "xlsx" in formats:
+                full_result = pipeline.run_full(cfg)
+                res, diag = coerce_pipeline_result(full_result)
+                if not res:
+                    if diag:
+                        warnings.warn(f"Pipeline aborted ({diag.reason_code}): {diag.message}")
+                    return
+                split = cfg.sample_split
+                sheet_fmt = export.make_summary_formatter(
+                    res,
+                    str(split.get("in_start", "")),
+                    str(split.get("in_end", "")),
+                    str(split.get("out_start", "")),
+                    str(split.get("out_end", "")),
+                )
+                data["summary"] = pd.DataFrame()
+                export.export_to_excel(
+                    data,
+                    str(Path(path).with_suffix(".xlsx")),
+                    default_sheet_formatter=sheet_fmt,
+                )
+                formats = [fmt for fmt in formats if fmt != "xlsx"]
+            if formats:
+                export.export_data(data, str(path), formats=formats)
+            save_state(store)
+            store.dirty = False
+        except Exception as exc:
+            warnings.warn(f"Run failed: {exc}")
 
     vol_adj.observe(lambda ch, store=store: on_vol(ch, store=store), names="value")
     fmt_dd.observe(lambda ch, store=store: on_fmt(ch, store=store), names="value")
