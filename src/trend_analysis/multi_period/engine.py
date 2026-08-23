@@ -637,10 +637,7 @@ def _apply_turnover_and_cost(
         regime_frequency=regime_frequency,
         regime_ppy=regime_ppy,
     )
-    if (
-        max_turnover_cap < 1.0 - NUMERICAL_TOLERANCE_HIGH
-        and desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH
-    ):
+    if desired_turnover > max_turnover_cap + NUMERICAL_TOLERANCE_HIGH:
         # Respect turnover cap, but prioritise forced exits (soft/hard z exits).
         # This prevents below-threshold holdings from lingering indefinitely
         # solely because turnover is capped.

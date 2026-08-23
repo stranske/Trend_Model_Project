@@ -211,3 +211,34 @@ def test_multi_period_turnover_cap_reduces_rebalance_size() -> None:
     assert len(high_turnover) == len(low_turnover) >= 2
     assert low_turnover[1] <= 0.3 + 1e-12
     assert low_turnover[1] < high_turnover[1]
+
+
+def test_multi_period_turnover_cap_above_one_is_enforced() -> None:
+    """A valid cap above one must still constrain a full portfolio rotation."""
+
+    applied = mp_engine._apply_turnover_and_cost(
+        bounded_weights=pd.Series({"A": 0.0, "B": 1.0}),
+        prev_final_weights=pd.Series({"A": 1.0, "B": 0.0}),
+        lambda_tc=0.0,
+        min_w_bound=0.0,
+        max_w_bound=1.0,
+        forced_exits=set(),
+        min_funds=0,
+        holdings=["B"],
+        in_df=pd.DataFrame(),
+        max_turnover_cfg=1.5,
+        regime_settings=None,
+        benchmarks_cfg=None,
+        regime_frequency="M",
+        regime_ppy=12.0,
+        max_active_positions=None,
+        min_tenure_guard=set(),
+        manual_holdings=["B"],
+    )
+
+    final_weights = applied.final_weights.reindex(["A", "B"], fill_value=0.0)
+    turnover = float((final_weights - pd.Series({"A": 1.0, "B": 0.0})).abs().sum())
+
+    assert turnover == pytest.approx(1.5)
+    assert final_weights["A"] == pytest.approx(0.25)
+    assert final_weights["B"] == pytest.approx(0.75)
