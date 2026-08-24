@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis import api
-from trend_analysis.config import Config
+from trend_analysis.config import Config, load
 
 
 def _make_df() -> pd.DataFrame:
@@ -74,6 +74,14 @@ def test_single_period_public_api_preserves_phase1_score_frame_contract() -> Non
         "insample_len": 3,
         "period": ("2020-01", "2020-03"),
     }
+
+
+def test_shipped_single_period_config_uses_phase3_single_period_path() -> None:
+    cfg = load("config/single_period.yml")
+
+    assert cfg.multi_period is None
+    assert cfg.sample_split["in_start"] == "2015-01"
+    assert cfg.sample_split["out_end"] == "2024-12"
 
 
 def test_single_period_api_passes_nested_weighting_name_to_pipeline(

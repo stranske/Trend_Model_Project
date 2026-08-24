@@ -159,7 +159,7 @@ sample_split:
 The normal CLI then follows the single-period path:
 
 ```bash
-trend run -c config/single_period.yml --returns data/returns.csv
+trend run -c config/single_period.yml --returns demo/demo_returns.csv
 ```
 
 Python callers should use the canonical API. The detailed result retains the
