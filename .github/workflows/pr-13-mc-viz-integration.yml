@@ -16,7 +16,7 @@ on:
       - "tests/fixtures/mc_bundle/**"
       - ".github/workflows/pr-13-mc-viz-integration.yml"
   push:
-    branches: [phase-3]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:

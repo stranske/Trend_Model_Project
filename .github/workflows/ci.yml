@@ -16,7 +16,7 @@ name: CI
 
 on:
   push:
-    branches: [main, phase-3]
+    branches: [main]
   workflow_dispatch:
 
 jobs:

@@ -41,7 +41,7 @@ The active roster below mirrors the **Keep** list in the [Workflow System Overvi
 
 ### PR Checks
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.11/3.12) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only.
-- **`pr-11-ci-smoke.yml`** — Minimal invariant CI that runs on push/PR to phase-2-dev and main. Installs the project, validates imports, and runs `pytest tests/test_invariants.py` for fast regression detection.
+- **`pr-11-ci-smoke.yml`** — Minimal invariant CI that runs on push/PR to main. Installs the project, validates imports, and runs `pytest tests/test_invariants.py` for fast regression detection.
 
 _Inline Gate helper_
 - **Gate summary job (`pr-00-gate.yml`)** — Post-CI job that downloads artifacts, computes coverage deltas, runs the label-gated autofix routine, and updates the PR summary comment with a stable marker.

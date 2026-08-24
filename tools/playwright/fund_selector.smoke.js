@@ -9,8 +9,8 @@ const fetch = global.fetch;
 const ROOT = path.join(__dirname, '..', '..');
 const VENV_ACTIVATE = path.join(ROOT, '.venv', 'bin', 'activate');
 const APP_CMD = fs.existsSync(VENV_ACTIVATE)
-  ? `source ${VENV_ACTIVATE} && PYTHONPATH="." streamlit run streamlit_app/app.py --server.headless true --server.port 8599`
-  : 'PYTHONPATH="." python -m streamlit run streamlit_app/app.py --server.headless true --server.port 8599';
+  ? `source ${VENV_ACTIVATE} && TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." streamlit run streamlit_app/app.py --server.headless true --server.port 8599`
+  : 'TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." python -m streamlit run streamlit_app/app.py --server.headless true --server.port 8599';
 const APP_URL = 'http://localhost:8599';
 
 async function waitForHealth(url, timeoutMs = 30000, intervalMs = 500) {
@@ -49,7 +49,10 @@ async function main() {
     // Choose Sample dataset (avoids date-correction flow)
     const sampleRadio = page.getByRole('radio', { name: /Sample dataset/i });
     if ((await sampleRadio.count()) > 0) {
-      await sampleRadio.first().click();
+      const radio = sampleRadio.first();
+      if (!(await radio.isChecked())) {
+        await radio.check({ force: true });
+      }
     }
 
     // Wait for Fund Column Selection header and current selection count

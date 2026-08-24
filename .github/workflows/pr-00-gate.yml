@@ -71,7 +71,7 @@ jobs:
     with:
       python-versions: '["3.12", "3.13"]'
       coverage-min: "80"
-      # Must stay true: ci.yml enforces `black --check --line-length 100` on push to phase-3,
+      # Must stay true: ci.yml enforces `black --check --line-length 100` on push to main,
       # so a PR gate that skips the format check lets unformatted code merge green and redden
       # the default branch on the very next push. The old comment here ("Using ruff for
       # formatting") was inaccurate - this repo does not run `ruff format`, and its ruff config

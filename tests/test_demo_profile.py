@@ -134,11 +134,8 @@ def test_render_profile_controls_presentation_safe_caption() -> None:
     assert any("Presentation-safe" in c for c in fake.sidebar.captions)
 
 
-def test_public_browser_profile_omits_unsupported_developer_page_link(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_public_profile_omits_unsupported_developer_page_link() -> None:
     fake = _FakeStreamlit(dp.PUBLIC_LLM_DEMO)
-    monkeypatch.setattr(dp, "_running_in_browser_runtime", lambda: True)
 
     assert dp.render_profile_controls(fake) == dp.PUBLIC_LLM_DEMO
     assert fake.sidebar.page_link_calls == []

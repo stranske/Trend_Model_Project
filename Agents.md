@@ -285,7 +285,7 @@ gh issue close BROKEN_ISSUE --comment "Closed due to task explosion. Recreated a
 The end-to-end `trend mc viz` suite lives in `tests/integration/test_mc_viz.py` and is marked with `mc_viz_integration`.
 
 - Gate excludes it by default (for PR latency).
-- `.github/workflows/pr-13-mc-viz-integration.yml` runs it automatically when MC-viz codepaths change, and on pushes to `phase-3`.
+- `.github/workflows/pr-13-mc-viz-integration.yml` runs it automatically when MC-viz codepaths change, and on pushes to `main`.
 
 Local run:
 `PYTHONPATH=./src python -m pytest -m mc_viz_integration tests/integration/test_mc_viz.py`
