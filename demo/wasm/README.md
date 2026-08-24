@@ -82,7 +82,7 @@ The public GitHub Pages target is
 presentation-safe; the explicit LLM profile is available at
 <https://stranske.github.io/Trend_Model_Project/?profile=public_llm_demo>.
 
-Pushes to `phase-3` that change the browser-demo inputs run
+Pushes to `main` that change the browser-demo inputs run
 `.github/workflows/pages-wasm-demo.yml`. The workflow builds a self-contained
 artifact with:
 
