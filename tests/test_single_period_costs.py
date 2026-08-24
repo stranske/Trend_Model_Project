@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from trend_analysis import api
-from trend_analysis.config import Config
+from trend_analysis.config import Config, load
 
 
 def _make_df() -> pd.DataFrame:
@@ -53,6 +53,35 @@ def test_single_period_transaction_cost_bps_reduces_net_returns() -> None:
     assert charged.portfolio is not None
     assert zero_cost.portfolio is not None
     assert charged.portfolio.mean() < zero_cost.portfolio.mean()
+
+
+def test_single_period_public_api_preserves_phase1_score_frame_contract() -> None:
+    """Phase 3 keeps the phase-1 single-window score-frame behavior."""
+    result = api.run_simulation(_make_single_period_cfg(0.0), _make_df())
+
+    score_frame = result.details["score_frame"]
+
+    assert list(score_frame.index) == ["A", "B"]
+    assert list(score_frame.columns) == [
+        "AnnualReturn",
+        "Volatility",
+        "Sharpe",
+        "Sortino",
+        "MaxDrawdown",
+        "InformationRatio",
+    ]
+    assert score_frame.attrs == {
+        "insample_len": 3,
+        "period": ("2020-01", "2020-03"),
+    }
+
+
+def test_shipped_single_period_config_uses_phase3_single_period_path() -> None:
+    cfg = load("config/single_period.yml")
+
+    assert cfg.multi_period is None
+    assert cfg.sample_split["in_start"] == "2015-01"
+    assert cfg.sample_split["out_end"] == "2024-12"
 
 
 def test_single_period_api_passes_nested_weighting_name_to_pipeline(

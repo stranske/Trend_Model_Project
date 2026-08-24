@@ -141,6 +141,44 @@ trend stress -c config/demo.yml
 python scripts/walk_forward.py --config config/walk_forward.yml
 ```
 
+### Single-period analysis
+
+Single-period evaluation is a first-class phase-3 capability; a separate
+phase-1 runtime is not required. Omit the top-level `multi_period` section (or
+leave it unset) and provide one in-sample and one out-of-sample window through
+`sample_split`:
+
+```yaml
+sample_split:
+  in_start: "2020-01"
+  in_end: "2022-12"
+  out_start: "2023-01"
+  out_end: "2023-12"
+```
+
+The normal CLI then follows the single-period path:
+
+```bash
+trend run -c config/single_period.yml --returns demo/demo_returns.csv
+```
+
+Python callers should use the canonical API. The detailed result retains the
+phase-1 score-frame contract, including fund rows, configured metric-column
+order, and `insample_len` / `period` metadata:
+
+```python
+from trend_analysis import api
+from trend_analysis.config import load
+
+cfg = load("config/single_period.yml")
+result = api.run_simulation(cfg, returns)
+score_frame = result.details["score_frame"]
+```
+
+For callers that only need the pure metric frame rather than a complete
+portfolio evaluation, the low-level canonical helper is
+`trend_analysis.stages.single_period_run`.
+
 ### Monte Carlo Visualization (`trend mc viz`)
 
 ```bash

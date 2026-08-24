@@ -11,6 +11,7 @@
 |------|-------------|
 | `defaults.yml` | Default configuration values |
 | `demo.yml` | Demo run configuration |
+| `single_period.yml` | Single-period phase-3 run configuration |
 | `portfolio_test.yml` | Portfolio testing configuration |
 | `trend_universe_2004.yml` | Trend universe 2004 configuration |
 | `trend_concentrated_2004.yml` | Concentrated trend strategy |
