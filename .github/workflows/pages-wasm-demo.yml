@@ -2,7 +2,7 @@ name: Deploy stlite browser demo
 
 on:
   push:
-    branches: [phase-3]
+    branches: [main]
     paths:
       - ".github/workflows/pages-wasm-demo.yml"
       - "analysis/**"

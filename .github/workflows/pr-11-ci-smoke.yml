@@ -3,11 +3,9 @@ name: PR 11 - Minimal invariant CI
 on:
   push:
     branches:
-      - phase-3
       - main
   pull_request:
     branches:
-      - phase-3
       - main
   workflow_dispatch:
 
