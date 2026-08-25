@@ -52,10 +52,13 @@ def test_param_summary_resolves_effective_then_run_then_config_trend_spec() -> N
     assert effective["Signal scaling"] == "Raw"
     assert from_run["Signal scaling"] == "Vol-adjusted"
     assert from_config["Signal scaling"] == "Raw"
-    for params in (effective, from_run, from_config):
-        assert params["Target volatility"] == "15.0%"
-        assert params["Floor volatility"] == "5.0%"
-        assert params["Warm-up periods"] == "3"
+    for params in (effective, from_config):
+        assert "Target volatility" not in params
+        assert "Floor volatility" not in params
+        assert "Warm-up periods" not in params
+    assert from_run["Target volatility"] == "15.0%"
+    assert from_run["Floor volatility"] == "5.0%"
+    assert from_run["Warm-up periods"] == "3"
 
 
 def test_shared_parser_agrees_across_entrypoints() -> None:
