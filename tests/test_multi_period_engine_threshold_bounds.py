@@ -247,6 +247,31 @@ def test_threshold_hold_weight_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_threshold_hold_max_active_positions_respects_turnover_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """`max_active_positions` binds; the turnover cap may only DELAY it.
+
+    The precedence rule this test encodes, so that the next relaxation has to
+    argue with a written rule rather than with a bare number:
+
+    1. The turnover cap wins over the position-count target WITHIN a period. A
+       max-active target can require more turnover than the per-period cap
+       permits, and forcing an over-cap liquidation to hit the count is wrong.
+    2. The position-count target wins ACROSS periods. The cap meters the exit;
+       it does not cancel it. So a legacy holding may survive a bounded number
+       of transitional periods, and the FINAL record must be at the target.
+    3. The count may therefore fall or hold, never rise. A rising count means a
+       name the trim zeroed was restored — which is how a deferral that reads as
+       "one more period" silently becomes permanent.
+
+    Rule 2 is not free: `_apply_weight_bounds` floors every active position up to
+    `min_weight`, so before #6003 the post-cap bounds pass restored the trimmed
+    name every period and the count sat at `max_funds` forever. `_apply_weight_bounds`
+    now takes an `exiting` set that is exempt from that floor.
+
+    Asserting only `<= max_funds` (as this test did between #5993 and #6003)
+    satisfies rule 1 and asserts NOTHING about rules 2 and 3 — `max_funds` is the
+    count the fixture already had, so the assertion holds no matter how long the
+    trim is deferred, including forever.
+    """
     cfg = MinimalConfig()
     cfg.portfolio["constraints"]["max_active_positions"] = 2
 
@@ -361,10 +386,37 @@ def test_threshold_hold_max_active_positions_respects_turnover_cap(
 
     assert len(results) == 2
     assert records
+
+    max_active = cfg.portfolio["constraints"]["max_active_positions"]
+    counts = [len(record["funds"]) for record in records]
+
+    # MEASURED against this fixture under its configured cap (max_turnover=1.0,
+    # min_weight=0.2): the transitional rebalance needs ZERO periods -- the target
+    # is already met in the first emitted record. Recorded as a constant so that
+    # deferring the trim by even one period has to raise this number deliberately,
+    # in a diff, with a re-measurement behind it.
+    TRANSITIONAL_PERIODS = 0
+
+    # Only the transitional PREFIX may exceed the target. Written as an equality on
+    # the offending indices rather than an upper bound, so a record that exceeds it
+    # later -- the "deferred forever" case -- cannot pass by being small enough.
+    over_target = [index for index, count in enumerate(counts) if count > max_active]
+    assert over_target == list(range(TRANSITIONAL_PERIODS)), (
+        f"records {over_target} exceed max_active_positions={max_active}; only the "
+        f"first {TRANSITIONAL_PERIODS} transitional record(s) may, counts={counts}"
+    )
+
+    # The FINAL record is the one that must be at the target. Permitting an
+    # over-target count here is what turns "deferred by a period" into "never".
+    assert len(records[-1]["funds"]) <= max_active
+    assert len(records[-1]["weights"]) <= max_active
+
     for record in records:
-        # A max-active target can require more turnover than the configured
-        # per-period cap permits.  The cap must win during this transitional
-        # rebalance, so a legacy holding may remain until a later period rather
-        # than forcing an over-cap liquidation.
-        assert len(record["weights"]) <= cfg.portfolio["constraints"]["max_funds"]
-        assert len(record["funds"]) <= cfg.portfolio["constraints"]["max_funds"]
+        assert len(record["weights"]) == len(record["funds"])
+
+    # A trim may be METERED by the turnover cap; it may never be REVERSED. A count
+    # that rises between records means a name the trim zeroed came back, which is
+    # exactly how a bounded deferral becomes an unbounded one.
+    assert counts == sorted(counts, reverse=True), (
+        f"active-position count must be monotonically non-increasing, got {counts}"
+    )
