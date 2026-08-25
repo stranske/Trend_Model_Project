@@ -1,4 +1,9 @@
 # Default coverage configuration to ensure consistent branch data collection.
+#
+# NOT READ IN CI. The shared Python CI passes --cov-config=pyproject.toml whenever a
+# pyproject.toml exists, so coverage.py ignores this file on every Gate run. It still
+# applies to a bare local `pytest --cov`. Anything that must hold in CI belongs in
+# pyproject.toml's [tool.coverage.*] -- the omit patterns below are mirrored there.
 [run]
 branch = True
 source =
