@@ -478,6 +478,7 @@ def _build_param_summary(
     run_cfg = _get(config, "run", {})
     benchmarks = _get(config, "benchmarks", {})
     trend_spec_obj = _resolve_effective_trend_spec(config, spec, effective_trend_spec)
+    portfolio_vol_targeting_enabled = _get(vol_adj, "enabled", True) is not False
     params: list[tuple[str, str]] = []
     in_start = _get(sample, "in_start")
     in_end = _get(sample, "in_end")
@@ -488,14 +489,14 @@ def _build_param_summary(
     if out_start or out_end:
         params.append(("Out-of-sample window", f"{out_start or '—'} → {out_end or '—'}"))
     target_vol = _get(vol_adj, "target_vol")
-    if getattr(trend_spec_obj, "vol_adjust", False) and isinstance(target_vol, (int, float)):
+    if portfolio_vol_targeting_enabled and isinstance(target_vol, (int, float)):
         params.append(("Target volatility", _format_percent(float(target_vol))))
     floor_vol = _get(vol_adj, "floor_vol")
-    if getattr(trend_spec_obj, "vol_adjust", False) and isinstance(floor_vol, (int, float)):
+    if portfolio_vol_targeting_enabled and isinstance(floor_vol, (int, float)):
         params.append(("Floor volatility", _format_percent(float(floor_vol))))
     warmup = _get(vol_adj, "warmup_periods")
     if (
-        getattr(trend_spec_obj, "vol_adjust", False)
+        portfolio_vol_targeting_enabled
         and isinstance(warmup, (int, float))
         and math.isfinite(float(warmup))
     ):
