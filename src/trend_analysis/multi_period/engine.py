@@ -619,9 +619,21 @@ def _apply_turnover_and_cost(
     # Trim active positions before turnover-cap scaling so post-cap rescaling cannot
     # restore turnover above the configured ceiling.
     target_w = _apply_weight_bounds(target_w, min_w_bound, max_w_bound)
+    pre_trim_w = target_w.copy()
     target_w = _enforce_max_active_positions(
         target_w, max_active_positions, protected=min_tenure_guard
     )
+    # Names the max-active trim just targeted to zero. The turnover cap is allowed to
+    # METER their exit across periods; the min_weight floor is not allowed to REVERSE
+    # it. Without this set the post-cap bounds pass floors each one back up to
+    # min_weight every period, so the trim never completes and "deferred by a period"
+    # silently becomes "never". (#6003)
+    trim_exits = {
+        str(ix)
+        for ix in target_w.index
+        if abs(float(target_w.loc[ix])) <= NUMERICAL_TOLERANCE_HIGH
+        and abs(float(pre_trim_w.loc[ix])) > NUMERICAL_TOLERANCE_HIGH
+    }
 
     desired_trades = target_w - last_aligned
     desired_turnover = float(desired_trades.abs().sum())
@@ -672,7 +684,7 @@ def _apply_turnover_and_cost(
             scale = max(0.0, min(1.0, scale))
             final_w = last_aligned + mandatory + optional * scale
     # Ensure bounds remain satisfied after turnover-cap scaling.
-    final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound)
+    final_w = _apply_weight_bounds(final_w, min_w_bound, max_w_bound, exiting=trim_exits)
 
     # Prepare custom weights mapping in percent for the canonical pipeline runner.
     # We keep the internal turnover-cap/bounds logic here, but reconcile the
@@ -952,8 +964,17 @@ def _apply_weight_bounds(
     weights: pd.Series,
     min_w_bound: float,
     max_w_bound: float,
+    *,
+    exiting: Iterable[object] | None = None,
 ) -> pd.Series:
-    """Clamp weights to the configured bounds while preserving normalisation."""
+    """Clamp weights to the configured bounds while preserving normalisation.
+
+    ``exiting`` names positions that are being wound down rather than held. They
+    are exempt from the ``min_w_bound`` floor: a position the caller has already
+    targeted to zero must be allowed to sit BELOW the minimum while the turnover
+    cap meters its exit. Flooring it back up would reverse the exit every period,
+    which turns a trim that reads as "deferred" into one that never happens.
+    """
 
     if weights.empty:
         return weights
@@ -965,24 +986,41 @@ def _apply_weight_bounds(
     # Apply the minimum weight constraint only to active positions.
     # Dropped/absent managers must be allowed to remain at 0.
     active = floored > NUMERICAL_TOLERANCE_HIGH
+    # An exiting name's floor is 0.0, not ``min_w_bound``. The mask has to reach every
+    # floor-direction step below -- the flooring, the donor/receiver redistribution and
+    # the unconditional re-clip -- because ANY one of them left at ``min_w_bound`` puts
+    # the position straight back and the exemption becomes a no-op.
+    exempt = pd.Series(False, index=floored.index, dtype=bool)
+    if exiting:
+        exiting_set = {str(ix) for ix in exiting}
+        exempt = pd.Series(
+            [str(ix) in exiting_set for ix in floored.index],
+            index=floored.index,
+            dtype=bool,
+        )
+        active &= ~exempt
+    lower = pd.Series(min_w_bound, index=floored.index, dtype=float)
+    lower[exempt] = 0.0
     floored[active & (floored < min_w_bound)] = min_w_bound
 
     total = floored.sum()
-    at_min = floored <= (min_w_bound + NUMERICAL_TOLERANCE_HIGH)
+    at_min = floored <= (lower + NUMERICAL_TOLERANCE_HIGH)
     at_max = floored >= (max_w_bound - NUMERICAL_TOLERANCE_HIGH)
 
     if total > 1.0 + NUMERICAL_TOLERANCE_HIGH:
         excess = total - 1.0
         donors = floored[~at_min]
         if not donors.empty:
-            avail = (donors - min_w_bound).clip(lower=0.0)
+            donor_floor = lower.loc[donors.index]
+            avail = (donors - donor_floor).clip(lower=0.0)
             avail_sum = avail.sum()
             if avail_sum > 0:
                 cut = (avail / avail_sum) * excess
-                floored.loc[donors.index] = (donors - cut).clip(lower=min_w_bound)
+                floored.loc[donors.index] = (donors - cut).clip(lower=donor_floor)
     elif total < 1.0 - NUMERICAL_TOLERANCE_HIGH:
         deficit = 1.0 - total
-        receivers = floored[~at_max]
+        # An exiting position must never absorb a top-up; that is a re-entry.
+        receivers = floored[~at_max & ~exempt]
         if not receivers.empty:
             room = (max_w_bound - receivers).clip(lower=0.0)
             room_sum = room.sum()
@@ -990,23 +1028,24 @@ def _apply_weight_bounds(
                 add = (room / room_sum) * deficit
                 floored.loc[receivers.index] = (receivers + add).clip(upper=max_w_bound)
 
-    floored = floored.clip(lower=min_w_bound, upper=max_w_bound)
+    floored = floored.clip(lower=lower, upper=max_w_bound)
 
     total = floored.sum()
     if abs(total - 1.0) > 1e-9:
         if total > 1.0:
             excess = total - 1.0
-            donors = floored[~(floored <= min_w_bound + NUMERICAL_TOLERANCE_HIGH)]
+            donors = floored[~(floored <= lower + NUMERICAL_TOLERANCE_HIGH)]
             if not donors.empty:
-                share = (donors - min_w_bound).clip(lower=0.0)
+                donor_floor = lower.loc[donors.index]
+                share = (donors - donor_floor).clip(lower=0.0)
                 sh = share.sum()
                 if sh > 0:
                     floored.loc[donors.index] = (donors - (share / sh) * excess).clip(
-                        lower=min_w_bound
+                        lower=donor_floor
                     )
         else:
             deficit = 1.0 - total
-            receivers = floored[~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH)]
+            receivers = floored[~(floored >= max_w_bound - NUMERICAL_TOLERANCE_HIGH) & ~exempt]
             if not receivers.empty:
                 room = (max_w_bound - receivers).clip(lower=0.0)
                 rm = room.sum()
