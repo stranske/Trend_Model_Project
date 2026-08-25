@@ -175,8 +175,31 @@ mypy_path = ["src", "src/trend_analysis/stubs"]
 explicit_package_bases = true
 namespace_packages = true
 
+# COVERAGE CONFIG MUST LIVE HERE, NOT IN .coveragerc. The fleet's shared Python CI
+# (stranske/Workflows reusable-10-ci-python.yml) runs pytest with a bare `--cov` plus
+# `--cov-config=pyproject.toml` whenever a pyproject.toml exists -- which means coverage.py
+# never reads this repo's .coveragerc in CI. The omit patterns below were correctly written
+# there and silently had no effect: the Gate payload on 2026-08-25 carried 95 files under
+# /tmp/pytest-of-runner/.../test_autofix_pipeline_repairs_0/workspace/src/, a COPY of the
+# source tree that tests/workflows/test_autofix_pipeline_live_docs.py makes in a tmpdir.
+#
+# The cost was not just a wrong total. Each copied module is counted TWICE -- once as itself
+# and once as a barely-executed duplicate -- so the duplicates sorted to the top of the
+# hotspot table and 13 of the 15 "worst files" the Gate reported were paths that do not exist
+# in this repository. Measured with the omit applied: 90.79% over 104,163 in-repo statements,
+# against 83.33% over 116,654 with the phantom rows included.
+[tool.coverage.run]
+omit = [
+    "/tmp/pytest-of-*/**",
+    "*/pytest-of-*/**",
+]
+
 [tool.coverage.report]
 fail_under = 80
+omit = [
+    "/tmp/pytest-of-*/**",
+    "*/pytest-of-*/**",
+]
 
 [[tool.mypy.overrides]]
 module = "src.*"
