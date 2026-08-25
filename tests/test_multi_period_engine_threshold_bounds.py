@@ -417,6 +417,6 @@ def test_threshold_hold_max_active_positions_respects_turnover_cap(
     # A trim may be METERED by the turnover cap; it may never be REVERSED. A count
     # that rises between records means a name the trim zeroed came back, which is
     # exactly how a bounded deferral becomes an unbounded one.
-    assert counts == sorted(counts, reverse=True), (
-        f"active-position count must be monotonically non-increasing, got {counts}"
-    )
+    assert counts == sorted(
+        counts, reverse=True
+    ), f"active-position count must be monotonically non-increasing, got {counts}"
