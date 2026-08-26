@@ -1,7 +1,7 @@
 {
-  "line": 85.0,
+  "line": 90.0,
   "warn_drop": 1.0,
   "recovery_days": 3,
-  "updated": "2024-12-01",
-  "notes": "Baseline coverage percentage used for soft alerts. Update after significant test changes."
+  "updated": "2026-08-26",
+  "notes": "RAISED 85 -> 90 on 2026-08-26. Measured 90.79%, so the previous value carried 5.8 points of slack -- the contamination fix in #6006 moved this from a reported 83.33% to a real 90.79% by excluding 95 tmp-workspace rows, so the 85 predates the number being correct. A baseline far below reality cannot fail and therefore reports nothing. Set at floored measured current, leaving the jitter tolerance in warn_drop rather than in the floor. A ratchet: raise it as coverage rises, never lower it to make a run pass. Keyed `line`, which takes precedence over `coverage` in both coverage_trend.py and coverage_guard.py."
 }
