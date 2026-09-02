@@ -7,7 +7,7 @@ Files for closed issues are archived to `archives/agents/` with a date prefix.
 
 | File | Issue | Status |
 |------|-------|--------|
-| `codex-3572.md` | [#3572](https://github.com/stranske/Trend_Model_Project/issues/3572) | OPEN |
+| _None_ | — | — |
 
 ## Maintenance
 
