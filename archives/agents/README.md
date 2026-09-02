@@ -29,3 +29,8 @@ archives/agents/
 - `2025-11-22-codex-2684.md` – bootstrap plan for drafting the original agents policy file that has since been published and maintained elsewhere.
 - `2025-11-22-codex-2729.md` – branch-protection checklist tied to the phased Gate/Health 45 setup that has been replaced by the current Gate + Agents Guard enforcement described in the CI docs.
 - `2025-11-22-codex-2738.md` – repository ruleset validation plan targeting the legacy `agent63_pair*.yml` workflow names, superseded by the `agents-63-issue-intake.yml` + `agents-70-orchestrator.yml` pairing.
+
+## Archived on 2026-09-02 (Workflows#3306 bootstrap-marker cleanup)
+- `2026-09-02-codex-4454.md` – session bootstrap for issue #4454 (turnover/cost diagnostics in Q&A flow); issue CLOSED.
+- `2026-09-02-codex-4735.md` – session bootstrap for issue #4735 (regime-conditional turnover caps in Monte Carlo simulation); issue CLOSED.
+- `2026-09-02-codex-4914.md` – autofix diagnostics for PR #4914 (Gate CI fix); PR MERGED.
