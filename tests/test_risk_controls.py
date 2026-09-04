@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from trend_analysis.risk import RiskWindow, compute_constrained_weights
+from trend_analysis.risk import RiskWindow, compute_constrained_weights, realised_volatility
 
 
 def test_low_target_volatility_leaves_cash_exposure() -> None:
@@ -30,8 +30,15 @@ def test_low_target_volatility_leaves_cash_exposure() -> None:
         max_weight=None,
     )
 
-    # The fully-invested portfolio is about 4.9% annualized, so the 2% target
-    # must leave the balance in cash rather than normalizing the asset weights
-    # back to 100% exposure.
-    assert weights.sum() == pytest.approx(0.4082482904638631)
+    # Derive the exposure cap from these inputs rather than pinning an
+    # implementation-specific literal. A 2% target must leave the balance in
+    # cash instead of normalizing the asset weights back to 100% exposure.
+    fully_invested_returns = returns.mul(pd.Series({"A": 0.5, "B": 0.5}), axis=1).sum(axis=1)
+    fully_invested_volatility = realised_volatility(
+        fully_invested_returns.to_frame("portfolio"),
+        RiskWindow(length=6),
+        periods_per_year=12,
+    )["portfolio"].dropna().iloc[-1]
+    expected_exposure = min(1.0, 0.02 / fully_invested_volatility)
+    assert weights.sum() == pytest.approx(expected_exposure)
     assert diagnostics.portfolio_volatility.dropna().iloc[-1] == pytest.approx(0.02)
