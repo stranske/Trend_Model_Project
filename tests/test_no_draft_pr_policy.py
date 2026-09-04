@@ -229,10 +229,12 @@ def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
 
     assert "reusable-codex-run.yml@main" in workflow
     assert "reusable-claude-run.yml@main" in workflow
-    assert "reusable-cursor-run.yml@main" not in workflow
-    assert "reusable-gemini-run.yml@main" not in workflow
-    assert "no Cursor runner job" in labels
-    assert "no Gemini runner job" in labels
+    # LABELS.md is published by the documentation sync independently of the
+    # generated workflow delivery.  Cursor and Gemini can therefore be
+    # documented before their jobs reach this consumer's stable branch; their
+    # source-level workflow wiring is covered in Workflows instead.
+    assert "agent:cursor" in labels
+    assert "agent:gemini" in labels
 
     assert "INPUT_FORCE_RETRY" in workflow
     assert "github.event.inputs.force_retry" in workflow
