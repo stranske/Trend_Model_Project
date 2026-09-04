@@ -67,7 +67,7 @@ async function main() {
 
     // Clear All
     await page.getByRole('button', { name: '❌ Clear All' }).first().click();
-    await page.getByText('0 of').waitFor({ timeout: 10000 });
+    await page.getByText(/^0 of \d+ funds selected$/).first().waitFor({ timeout: 10000 });
 
     // Select All again to confirm state can recover
     await page.getByRole('button', { name: '✅ Select All' }).first().click();
