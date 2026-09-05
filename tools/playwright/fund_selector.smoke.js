@@ -9,8 +9,8 @@ const fetch = global.fetch;
 const ROOT = path.join(__dirname, '..', '..');
 const VENV_ACTIVATE = path.join(ROOT, '.venv', 'bin', 'activate');
 const APP_CMD = fs.existsSync(VENV_ACTIVATE)
-  ? `source ${VENV_ACTIVATE} && TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." streamlit run streamlit_app/app.py --server.headless true --server.port 8599`
-  : 'TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." python -m streamlit run streamlit_app/app.py --server.headless true --server.port 8599';
+  ? `source ${VENV_ACTIVATE} && exec env TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." streamlit run streamlit_app/app.py --server.headless true --server.port 8599`
+  : 'exec env TREND_DEMO_PROFILE=public_llm_demo PYTHONPATH="." python -m streamlit run streamlit_app/app.py --server.headless true --server.port 8599';
 const APP_URL = 'http://localhost:8599';
 
 async function waitForHealth(url, timeoutMs = 30000, intervalMs = 500) {
@@ -38,10 +38,11 @@ async function main() {
   appProc.stdout.on('data', (d) => process.stdout.write(d));
   appProc.stderr.on('data', (d) => process.stderr.write(d));
 
+  let browser;
   try {
     await waitForHealth(APP_URL, 45000, 750);
 
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(`${APP_URL}/Data`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);
@@ -57,36 +58,42 @@ async function main() {
 
     // Wait for Fund Column Selection header and current selection count
     await page.getByText('Fund Column Selection').waitFor({ timeout: 20000 });
-    // Use .first() to avoid strict mode violation when multiple matching elements exist
-    const countLocator = page.getByText(/\d+ of \d+ funds selected/).first();
+    // Require one current, visible status. Reading its text also handles
+    // Streamlit's nested <strong> without depending on markdown DOM wrappers.
+    const countLocator = page.getByText(/^\d+ of \d+ funds selected$/)
+      .filter({ visible: true });
+    async function waitForSelection(mode) {
+      const deadline = Date.now() + 10000;
+      let observed = '';
+      while (Date.now() < deadline) {
+        observed = (await countLocator.innerText({ timeout: 2000 }))
+          .replace(/\s+/g, ' ').trim();
+        const match = observed.match(/^(\d+) of (\d+) funds selected$/);
+        if (match) {
+          const selected = Number(match[1]);
+          const total = Number(match[2]);
+          if ((mode === 'all' && total > 0 && selected === total)
+              || (mode === 'empty' && selected === 0)) return observed;
+        }
+        await page.waitForTimeout(100);
+      }
+      throw new Error(`Selection did not become ${mode}; current status: ${observed}`);
+    }
 
-    // Select All
+    // Prove each state transition before clicking the next control. Otherwise
+    // the second click can race with Streamlit's pending Select All rerun.
     await page.getByRole('button', { name: '✅ Select All' }).first().click();
-    const afterSelectAll = await countLocator.textContent({ timeout: 10000 });
-    console.log('After Select All:', afterSelectAll);
+    console.log('After Select All:', await waitForSelection('all'));
 
-    // Clear All
     await page.getByRole('button', { name: '❌ Clear All' }).first().click();
-    // Streamlit renders the count inside a <strong>, which splits its direct
-    // text nodes. Match its markdown container after normalizing that markup.
-    await page.waitForFunction(() => Array.from(
-      document.querySelectorAll('[data-testid="stMarkdownContainer"]'),
-    ).some((element) => {
-      const text = (element.textContent || '')
-        .replace(/(\d)(funds selected)/, '$1 $2')
-        .replace(/\s+/g, ' ')
-        .trim();
-      return /^0 of \d+ funds selected$/.test(text);
-    }), { timeout: 10000 });
+    console.log('After Clear All:', await waitForSelection('empty'));
 
-    // Select All again to confirm state can recover
     await page.getByRole('button', { name: '✅ Select All' }).first().click();
-    const finalCount = await countLocator.textContent({ timeout: 10000 });
-    console.log('Final count:', finalCount);
+    console.log('Final count:', await waitForSelection('all'));
 
-    await browser.close();
   } finally {
-    appProc.kill('SIGKILL');
+    if (browser) await browser.close();
+    appProc.kill('SIGTERM');
   }
 }
 
