@@ -30,8 +30,19 @@ async function waitForHealth(url, timeoutMs = 30000, intervalMs = 500) {
 async function main() {
   // Start app
   const appProc = spawn('bash', ['-lc', `cd ${ROOT} && ${APP_CMD}`], {
-    env: { ...process.env },
+    // Arrow 25's mimalloc pool can segfault when Streamlit recreates script
+    // threads on rerun. Use Arrow's supported system pool for this UI smoke.
+    env: {
+      ...process.env,
+      ARROW_DEFAULT_MEMORY_POOL: process.env.ARROW_DEFAULT_MEMORY_POOL || 'system',
+      PYTHONFAULTHANDLER: '1',
+    },
     stdio: 'pipe',
+  });
+
+  appProc.on('exit', (code, signal) => {
+    if (signal && signal !== 'SIGTERM') console.error(`Streamlit terminated by ${signal}`);
+    else if (code) console.error(`Streamlit exited with code ${code}`);
   });
 
   // Pipe app logs for debugging
