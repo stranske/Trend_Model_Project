@@ -28,6 +28,17 @@ _DRAFT_PR_FORBIDDEN = re.compile(
 )
 
 
+def _workflow_job_block(workflow: str, job: str) -> str:
+    """Return one top-level GitHub Actions job block for topology assertions."""
+
+    match = re.search(
+        rf"^  {re.escape(job)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        workflow,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group(0) if match else ""
+
+
 def _has_affirmative_draft_instruction(text: str) -> bool:
     """Return whether current guidance tells an operator to use a draft PR."""
 
@@ -240,8 +251,9 @@ def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
     for label, job, reusable in staged_runners:
         assert label in labels
         assert job in labels
-        if f"{job}:" in workflow:
-            assert reusable in workflow
+        job_block = _workflow_job_block(workflow, job)
+        if job_block:
+            assert reusable in job_block
         else:
             assert f"{job}:" not in workflow
 
