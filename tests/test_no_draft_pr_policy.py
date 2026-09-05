@@ -28,6 +28,17 @@ _DRAFT_PR_FORBIDDEN = re.compile(
 )
 
 
+def _workflow_job_block(workflow: str, job: str) -> str:
+    """Return one top-level GitHub Actions job block for topology assertions."""
+
+    match = re.search(
+        rf"^  {re.escape(job)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        workflow,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group(0) if match else ""
+
+
 def _has_affirmative_draft_instruction(text: str) -> bool:
     """Return whether current guidance tells an operator to use a draft PR."""
 
@@ -229,10 +240,22 @@ def test_operator_docs_match_gate_followup_runner_and_retry_topology() -> None:
 
     assert "reusable-codex-run.yml@main" in workflow
     assert "reusable-claude-run.yml@main" in workflow
-    assert "reusable-cursor-run.yml@main" not in workflow
-    assert "reusable-gemini-run.yml@main" not in workflow
-    assert "no Cursor runner job" in labels
-    assert "no Gemini runner job" in labels
+    # LABELS.md is published independently of the generated workflow delivery.
+    # During that short staging window, prove both the documented destination
+    # and the currently unavailable job; once delivery lands, require its
+    # reusable-workflow binding instead of silently accepting a label name.
+    staged_runners = (
+        ("agent:cursor", "run-cursor", "reusable-cursor-run.yml@main"),
+        ("agent:gemini", "run-gemini", "reusable-gemini-run.yml@main"),
+    )
+    for label, job, reusable in staged_runners:
+        assert label in labels
+        assert job in labels
+        job_block = _workflow_job_block(workflow, job)
+        if job_block:
+            assert reusable in job_block
+        else:
+            assert f"{job}:" not in workflow
 
     assert "INPUT_FORCE_RETRY" in workflow
     assert "github.event.inputs.force_retry" in workflow
