@@ -87,15 +87,44 @@ async function main() {
       throw new Error(`Selection did not become ${mode}; current status: ${observed}`);
     }
 
+    async function clickAndWaitForRerun(name) {
+      await page.locator('[data-testid="stApp"][data-test-script-state="notRunning"]')
+        .waitFor({ timeout: 20000 });
+      // A count can already equal the requested value before the click. Observe
+      // the complete server rerun so the next click cannot be lost in that run.
+      await page.evaluate(() => {
+        const app = document.querySelector('[data-testid="stApp"]');
+        window.fundSelectorRerun = new Promise((resolve, reject) => {
+          let started = false;
+          const observer = new MutationObserver(() => {
+            const state = app.getAttribute('data-test-script-state');
+            if (state === 'running' || state === 'rerunRequested') started = true;
+            if (started && state === 'notRunning') {
+              clearTimeout(timer);
+              observer.disconnect();
+              resolve();
+            }
+          });
+          const timer = setTimeout(() => {
+            observer.disconnect();
+            reject(new Error('Fund selection rerun did not finish'));
+          }, 20000);
+          observer.observe(app, { attributes: true, attributeFilter: ['data-test-script-state'] });
+        });
+      });
+      await page.getByRole('button', { name, exact: true }).click();
+      await page.evaluate(() => window.fundSelectorRerun);
+    }
+
     // Prove each state transition before clicking the next control. Otherwise
     // the second click can race with Streamlit's pending Select All rerun.
-    await page.getByRole('button', { name: '✅ Select All' }).first().click();
+    await clickAndWaitForRerun('✅ Select All');
     console.log('After Select All:', await waitForSelection('all'));
 
-    await page.getByRole('button', { name: '❌ Clear All' }).first().click();
+    await clickAndWaitForRerun('❌ Clear All');
     console.log('After Clear All:', await waitForSelection('empty'));
 
-    await page.getByRole('button', { name: '✅ Select All' }).first().click();
+    await clickAndWaitForRerun('✅ Select All');
     console.log('Final count:', await waitForSelection('all'));
 
   } finally {
