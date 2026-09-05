@@ -66,8 +66,15 @@ async function main() {
       const deadline = Date.now() + 10000;
       let observed = '';
       while (Date.now() < deadline) {
-        observed = (await countLocator.innerText({ timeout: 2000 }))
-          .replace(/\s+/g, ' ').trim();
+        // A Streamlit rerun briefly leaves both old and new statuses visible.
+        // Wait for the unique settled status instead of reading either copy.
+        const statuses = await countLocator.allTextContents();
+        if (statuses.length !== 1) {
+          observed = `${statuses.length} visible selection statuses during rerun`;
+          await page.waitForTimeout(100);
+          continue;
+        }
+        observed = statuses[0].replace(/\s+/g, ' ').trim();
         const match = observed.match(/^(\d+) of (\d+) funds selected$/);
         if (match) {
           const selected = Number(match[1]);
@@ -92,8 +99,11 @@ async function main() {
     console.log('Final count:', await waitForSelection('all'));
 
   } finally {
-    if (browser) await browser.close();
-    appProc.kill('SIGTERM');
+    try {
+      if (browser) await browser.close();
+    } finally {
+      appProc.kill('SIGTERM');
+    }
   }
 }
 
