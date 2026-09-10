@@ -3,90 +3,12 @@ from __future__ import annotations
 import importlib
 import sys
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 import pytest
 
-
-class RecordingSessionState(dict[str, Any]):
-    def __init__(self) -> None:
-        super().__init__()
-        self.get_keys: list[str] = []
-
-    def get(self, key: str, default: Any = None) -> Any:
-        self.get_keys.append(key)
-        return super().get(key, default)
-
-
-class DummyStreamlit:
-    class _Context:
-        def __init__(self, parent: "DummyStreamlit") -> None:
-            self._parent = parent
-
-        def __enter__(self) -> "DummyStreamlit":
-            return self._parent
-
-        def __exit__(self, exc_type, exc, tb) -> bool:
-            return False
-
-        def __getattr__(self, name: str) -> Any:
-            return getattr(self._parent, name)
-
-    def __init__(self) -> None:
-        self.session_state = RecordingSessionState()
-        self.page_config_calls: list[dict[str, Any]] = []
-        self.title_calls: list[str] = []
-        self.warning_messages: list[str] = []
-        self.stop_called = False
-        self.sidebar = DummyStreamlit._Context(self)
-
-    def set_page_config(self, **kwargs: Any) -> None:
-        self.page_config_calls.append(kwargs)
-
-    def title(self, text: str) -> None:
-        self.title_calls.append(text)
-
-    def warning(self, message: str) -> None:
-        self.warning_messages.append(message)
-
-    def stop(self) -> None:
-        self.stop_called = True
-        raise AssertionError("validation page should not stop when returns_df exists")
-
-    def selectbox(self, *args: Any, **kwargs: Any) -> Any:
-        options = kwargs.get("options") or args[1]
-        return options[0]
-
-    def columns(self, spec: int | list[int]) -> list["DummyStreamlit._Context"]:
-        count = spec if isinstance(spec, int) else len(spec)
-        return [DummyStreamlit._Context(self) for _ in range(count)]
-
-    def expander(self, *args: Any, **kwargs: Any) -> "DummyStreamlit._Context":
-        return DummyStreamlit._Context(self)
-
-    def button(self, *args: Any, **kwargs: Any) -> bool:
-        return False
-
-    def cache_data(
-        self, *args: Any, **kwargs: Any
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            return func
-
-        return decorator
-
-    def markdown(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    def header(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    def subheader(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    def code(self, *args: Any, **kwargs: Any) -> None:
-        return None
+from tests.support.dummy_streamlit import DummyStreamlit
 
 
 def _install_streamlit_stub(
@@ -140,6 +62,9 @@ def test_validation_page_auto_renders_with_uploaded_returns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub = DummyStreamlit()
+    # This page must never reach st.stop() while returns_df exists; fail fast
+    # at the offending call rather than only at the end-of-test assertion.
+    stub.stop_error = "validation page should not stop when returns_df exists"
     stub.session_state.update(
         {
             "show_perf_diagnostics": True,
@@ -171,6 +96,9 @@ def test_run_test_analysis_uses_public_analysis_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub = DummyStreamlit()
+    # This page must never reach st.stop() while returns_df exists; fail fast
+    # at the offending call rather than only at the end-of-test assertion.
+    stub.stop_error = "validation page should not stop when returns_df exists"
     streamlit_module = _install_streamlit_stub(
         monkeypatch,
         stub,
