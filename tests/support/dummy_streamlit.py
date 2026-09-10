@@ -142,7 +142,7 @@ class DummyStreamlit:
         self.slider_calls: list[tuple[str, dict[str, Any]]] = []
 
         # --- scripted responses ------------------------------------------
-        self.radio_value = "Sample dataset"
+        self.radio_value: Any = None
         self.selectbox_value: Any = None
         self.selectbox_map: dict[str, Any] = {}
         self.selectbox_returns: list[Any] = []
@@ -204,12 +204,16 @@ class DummyStreamlit:
         self.warning_messages.append(str(message))
 
     # --- inputs ------------------------------------------------------------
-    def radio(self, *args: Any, **kwargs: Any) -> str:
+    def radio(self, *args: Any, **kwargs: Any) -> Any:
         options = kwargs.get("options") or args[1]
-        index = kwargs.get("index", 0)
+        index = kwargs.get("index", args[2] if len(args) > 2 else 0)
+        if self.radio_value is not None:
+            return self.radio_value
+        if index is None:
+            return None
         if index >= len(options):
             raise IndexError("radio index out of range")
-        return self.radio_value
+        return options[index]
 
     def selectbox(self, *args: Any, **kwargs: Any) -> Any:
         label = args[0] if args else kwargs.get("label", "")
@@ -226,7 +230,7 @@ class DummyStreamlit:
             return self.selectbox_value
         index = kwargs.get("index", args[2] if len(args) > 2 else 0)
         if index is None:
-            index = 0
+            return None
         return options[index] if options else None
 
     def multiselect(self, label: str = "", options: list[Any] | None = None, **_kwargs: Any):
