@@ -1,10 +1,12 @@
 import logging
+from functools import partial
 
 import numpy as np
 import pandas as pd
 import pandas.testing as tm
 import pytest
 
+from trend_analysis import pipeline, pipeline_helpers, signals
 from trend_analysis.pipeline import compute_signal
 from trend_analysis.signals import TrendSpec, compute_trend_signals
 
@@ -66,10 +68,19 @@ def test_signal_is_shift_safe():
     )
 
 
-def test_pipeline_compute_signal_uses_trend_engine():
+def test_pipeline_compute_signal_uses_trend_engine(monkeypatch):
     returns = _sample_returns()[["fund_a"]].rename(columns={"fund_a": "returns"})
+    calls = []
+
+    def record_engine(frame, spec):
+        calls.append(spec)
+        return compute_trend_signals(frame, spec)
+
+    monkeypatch.setattr(signals, "compute_trend_signals", record_engine)
+    monkeypatch.setattr(pipeline, "get_cache", lambda: None)
     series = compute_signal(returns, window=4)
-    spec = TrendSpec(window=4, min_periods=4)
+    spec = TrendSpec(window=4, min_periods=4, lag=1)
+    assert calls == [spec]
     expected = compute_trend_signals(returns, spec)["returns"].rename("returns_signal")
     tm.assert_series_equal(series, expected)
 
@@ -111,3 +122,53 @@ def test_compute_trend_signals_logs_stage_timings(
     stage_logs = [rec.message for rec in caplog.records if "compute_trend_signals[" in rec.message]
     assert stage_logs, "expected timing logs for compute_trend_signals"
     assert any("float_coerce" in msg for msg in stage_logs)
+
+
+@pytest.mark.parametrize("lag", [1, 2])
+@pytest.mark.parametrize("min_periods", [None, 2])
+def test_pipeline_signal_multicolumn_equivalence(monkeypatch, lag, min_periods):
+    returns = _sample_returns()
+    returns.loc[returns.index[2], "fund_b"] = np.nan
+    original = returns.copy(deep=True)
+    # Keep the public helper signature stable while exercising a different spec lag.
+    monkeypatch.setattr(pipeline_helpers, "TrendSpec", partial(TrendSpec, lag=lag))
+    monkeypatch.setattr(pipeline, "get_cache", lambda: None)
+    expected = compute_trend_signals(
+        returns.copy(), TrendSpec(window=4, min_periods=min_periods, lag=lag)
+    )
+    for column in returns.columns:
+        actual = compute_signal(returns, column=column, window=4, min_periods=min_periods)
+        tm.assert_series_equal(actual, expected[column].rename(f"{column}_signal"))
+    tm.assert_frame_equal(returns, original)
+
+
+def test_pipeline_signal_cache_separates_spec_lags(monkeypatch):
+    class MemoryCache:
+        def __init__(self):
+            self.values = {}
+
+        def is_enabled(self):
+            return True
+
+        def get_or_compute(self, dataset, window, frequency, method, compute):
+            key = (dataset, window, frequency, method)
+            if key not in self.values:
+                self.values[key] = compute()
+            return self.values[key]
+
+    cache = MemoryCache()
+    monkeypatch.setattr(pipeline, "get_cache", lambda: cache)
+    returns = _sample_returns()
+    results = []
+    for lag in [1, 2]:
+        monkeypatch.setattr(pipeline_helpers, "TrendSpec", partial(TrendSpec, lag=lag))
+        results.append(compute_signal(returns, column="fund_a", window=4))
+    assert len(cache.values) == 2
+    assert not results[0].equals(results[1])
+    assert compute_signal(returns, column="fund_a", window=4) is results[1]
+
+
+def test_pipeline_signal_preserves_empty_series():
+    returns = pd.DataFrame({"returns": pd.Series(dtype=float)})
+    expected = pd.Series(dtype=float, name="returns_signal")
+    tm.assert_series_equal(compute_signal(returns), expected)
