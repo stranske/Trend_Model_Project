@@ -558,10 +558,10 @@ def compute_signal(
     compute_dataset_hash_func: Any | None = None,
     log: logging.Logger | None = None,
 ) -> pd.Series:
-    """Adapt the canonical trend engine to the legacy single-Series interface.
+    """Adapt the canonical trend engine to the single-Series interface.
 
     The canonical ``TrendSpec`` supplies the causal lag; this adapter preserves
-    the legacy column selection, name, empty input, and cache hooks.
+    the existing column selection, name, empty input, and cache hooks.
 
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
@@ -598,7 +598,7 @@ def compute_signal(
     spec = TrendSpec(window=window, min_periods=effective_min_periods)
 
     def _compute() -> pd.Series:
-        # Preserve the legacy empty-Series contract; the frame engine requires rows.
+        # Preserve the empty-Series contract; the frame engine requires rows.
         if base.empty:
             return base.rename(f"{column}_signal")
         return signals.compute_trend_signals(base.to_frame(), spec)[column].rename(
