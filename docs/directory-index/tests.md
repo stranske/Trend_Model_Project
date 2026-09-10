@@ -20,6 +20,7 @@
 | `scripts/` | Script tests |
 | `smoke/` | Smoke tests for quick validation |
 | `soft_coverage/` | Soft coverage tracking |
+| `support/` | Shared test doubles (e.g. `DummyStreamlit`) imported across page test modules |
 | `tools/` | Tool tests |
 | `trend_analysis/` | Core analysis tests |
 | `unit/` | Pure unit tests |
