@@ -172,3 +172,39 @@ def test_pipeline_signal_preserves_empty_series():
     returns = pd.DataFrame({"returns": pd.Series(dtype=float)})
     expected = pd.Series(dtype=float, name="returns_signal")
     tm.assert_series_equal(compute_signal(returns), expected)
+
+
+def test_pipeline_signal_ignores_inherited_engine_memo(monkeypatch):
+    """A frame derived from one the engine has already seen must not reuse its memo.
+
+    ``pandas`` copies ``attrs`` through ``df[col]``/``astype``/``to_frame``, so
+    without an explicit clear the adapter hands the engine a memo whose cached
+    ``float_frame`` and rolling frames belong to the caller's *earlier* values.
+    """
+
+    monkeypatch.setattr(pipeline, "get_cache", lambda: None)
+    seeded = pd.DataFrame({"returns": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]})
+    compute_trend_signals(seeded, TrendSpec(window=3, min_periods=3))
+    memo_attr = signals._MEMO_ATTR
+    assert memo_attr in seeded.attrs, "precondition: the engine memoised the seed frame"
+
+    derived = seeded * 100.0
+    assert memo_attr in derived.attrs, "precondition: pandas propagated the memo"
+
+    actual = compute_signal(derived, column="returns", window=3, min_periods=3)
+    clean = pd.DataFrame({"returns": derived["returns"].to_numpy()}, index=derived.index)
+    expected = compute_signal(clean, column="returns", window=3, min_periods=3)
+    tm.assert_series_equal(actual, expected)
+    # The caller's own frames keep their memo; only the adapter's copy is cleared.
+    assert memo_attr in derived.attrs
+    assert memo_attr in seeded.attrs
+
+
+def test_clear_signal_cache_leaves_the_source_frame_untouched():
+    seeded = pd.DataFrame({"returns": [1.0, 2.0, 3.0, 4.0]})
+    compute_trend_signals(seeded, TrendSpec(window=2, min_periods=2))
+    derived = seeded["returns"].to_frame()
+
+    assert signals.clear_signal_cache(derived) is derived
+    assert signals._MEMO_ATTR not in derived.attrs
+    assert signals._MEMO_ATTR in seeded.attrs

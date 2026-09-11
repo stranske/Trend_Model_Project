@@ -601,9 +601,12 @@ def compute_signal(
         # Preserve the empty-Series contract; the frame engine requires rows.
         if base.empty:
             return base.rename(f"{column}_signal")
-        return signals.compute_trend_signals(base.to_frame(), spec)[column].rename(
-            f"{column}_signal"
-        )
+        # ``attrs`` (and with it the engine's private memo) propagates from
+        # ``df`` through the column selection and ``to_frame`` above. That memo
+        # is keyed only by window parameters, so leaving it in place would let
+        # the engine answer from frames built for the caller's earlier values.
+        adapter_frame = signals.clear_signal_cache(base.to_frame())
+        return signals.compute_trend_signals(adapter_frame, spec)[column].rename(f"{column}_signal")
 
     _get_cache = get_cache_func
     _compute_hash = compute_dataset_hash_func
