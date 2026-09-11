@@ -12,6 +12,8 @@ import pytest
 from streamlit_app.components.upload_guard import GuardedUpload, hash_bytes
 from trend_analysis.io.market_data import MarketDataValidationError
 
+from tests.support.dummy_streamlit import DummyStreamlit
+
 
 class DummyUpload:
     def __init__(self, name: str, data: bytes) -> None:
@@ -26,143 +28,6 @@ class DummyUpload:
 
     def seek(self, _pos: int) -> None:
         return None
-
-
-class DummyStreamlit:
-    class _Column:
-        def __init__(self, parent: "DummyStreamlit") -> None:
-            self._parent = parent
-
-        def __enter__(self) -> "DummyStreamlit._Column":  # pragma: no cover - trivial
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> bool:  # pragma: no cover - trivial
-            return False
-
-        def __getattr__(self, name: str):
-            return getattr(self._parent, name)
-
-    class _ColumnConfig:
-        class CheckboxColumn:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                return None
-
-        class TextColumn:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                return None
-
-    def __init__(self) -> None:
-        self.session_state: dict[str, Any] = {}
-        self.radio_value = "Sample dataset"
-        self.selectbox_value = None
-        self.uploaded: Any = None
-        self.title_calls: list[str] = []
-        self.write_calls: list[str] = []
-        self.info_messages: list[str] = []
-        self.success_messages: list[str] = []
-        self.error_messages: list[str] = []
-        self.warning_messages: list[str] = []
-        self.captions: list[str] = []
-        self.markdowns: list[str] = []
-        self.code_blocks: list[tuple[str, str | None]] = []
-        self.dataframes: list[pd.DataFrame] = []
-        self.selectbox_map: dict[str, Any] = {}
-        self.subheaders: list[str] = []
-        self.column_config = DummyStreamlit._ColumnConfig()
-        self.rerun_called = False
-        self.metrics: list[tuple[str, Any]] = []
-        self.expander_labels: list[str] = []
-
-    def title(self, text: str) -> None:
-        self.title_calls.append(text)
-
-    def write(self, text: str) -> None:
-        self.write_calls.append(str(text))
-
-    def subheader(self, text: str) -> None:
-        self.subheaders.append(text)
-
-    def radio(self, *args: Any, **kwargs: Any) -> str:
-        options = kwargs.get("options") or args[1]
-        index = kwargs.get("index", 0)
-        if index >= len(options):
-            raise IndexError("radio index out of range")
-        return self.radio_value
-
-    def selectbox(self, *args: Any, **kwargs: Any) -> Any:
-        label = args[0] if args else kwargs.get("label", "")
-        if label in self.selectbox_map:
-            return self.selectbox_map[label]
-        if self.selectbox_value is not None:
-            return self.selectbox_value
-        options = kwargs.get("options") or args[1]
-        return options[0]
-
-    def file_uploader(self, *args: Any, **kwargs: Any) -> Any:
-        return self.uploaded
-
-    def button(self, *args: Any, **kwargs: Any) -> bool:
-        return False
-
-    def info(self, message: str) -> None:
-        self.info_messages.append(message)
-
-    def success(self, message: str) -> None:
-        self.success_messages.append(message)
-
-    def error(self, message: str) -> None:
-        self.error_messages.append(message)
-
-    def warning(self, message: str) -> None:
-        self.warning_messages.append(message)
-
-    def caption(self, text: str) -> None:
-        self.captions.append(text)
-
-    def code(self, text: str, *, language: str | None = None) -> None:
-        self.code_blocks.append((str(text), language))
-
-    def dataframe(self, df: pd.DataFrame) -> None:
-        self.dataframes.append(df)
-
-    def markdown(self, text: str, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - trivial
-        self.markdowns.append(str(text))
-
-    def expander(self, label: str, **_kwargs: Any) -> "DummyStreamlit._Column":
-        self.expander_labels.append(label)
-        return DummyStreamlit._Column(self)
-
-    def container(self, *_args: Any, **_kwargs: Any) -> "DummyStreamlit._Column":
-        return DummyStreamlit._Column(self)
-
-    def checkbox(self, label: str, *, key: str | None = None, **_kwargs: Any) -> bool:
-        if key is None:
-            return False
-        current = bool(self.session_state.get(key, False))
-        self.session_state.setdefault(key, current)
-        return bool(self.session_state.get(key, False))
-
-    def json(self, *_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - trivial
-        return None
-
-    def cache_data(self, *args: Any, **kwargs: Any):
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def columns(self, spec: int | list[int]) -> list["DummyStreamlit"]:
-        count = spec if isinstance(spec, int) else len(spec)
-        return [DummyStreamlit._Column(self) for _ in range(count)]
-
-    def data_editor(self, df: pd.DataFrame, **_: Any) -> pd.DataFrame:
-        return df
-
-    def rerun(self) -> None:
-        self.rerun_called = True
-
-    def metric(self, label: str, value: Any) -> None:
-        self.metrics.append((label, value))
 
 
 @pytest.fixture
