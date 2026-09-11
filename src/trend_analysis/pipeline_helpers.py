@@ -8,6 +8,7 @@ import pandas as pd
 
 from trend.config_schema import CoreConfigError
 
+from . import signals
 from .regime_utils import alias_regime_key, normalize_regime_key
 from .regimes import compute_regimes, normalise_settings
 from .signals import TrendSpec, trend_spec_from_mapping
@@ -557,8 +558,10 @@ def compute_signal(
     compute_dataset_hash_func: Any | None = None,
     log: logging.Logger | None = None,
 ) -> pd.Series:
-    """Return a trailing rolling-mean signal using information strictly prior
-    to the current row.
+    """Adapt the canonical trend engine to the single-Series interface.
+
+    The canonical ``TrendSpec`` supplies the causal lag; this adapter preserves
+    the existing column selection, name, empty input, and cache hooks.
 
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
@@ -592,14 +595,18 @@ def compute_signal(
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
 
+    spec = TrendSpec(window=window, min_periods=effective_min_periods)
+
     def _compute() -> pd.Series:
-        signal = (
-            base.rolling(window=window, min_periods=effective_min_periods)
-            .mean()
-            .shift(1)
-            .rename(f"{column}_signal")
-        )
-        return signal.astype(float)
+        # Preserve the empty-Series contract; the frame engine requires rows.
+        if base.empty:
+            return base.rename(f"{column}_signal")
+        # ``attrs`` (and with it the engine's private memo) propagates from
+        # ``df`` through the column selection and ``to_frame`` above. That memo
+        # is keyed only by window parameters, so leaving it in place would let
+        # the engine answer from frames built for the caller's earlier values.
+        adapter_frame = signals.clear_signal_cache(base.to_frame())
+        return signals.compute_trend_signals(adapter_frame, spec)[column].rename(f"{column}_signal")
 
     _get_cache = get_cache_func
     _compute_hash = compute_dataset_hash_func
@@ -646,7 +653,7 @@ def compute_signal(
         )
 
     dataset_hash = _compute_hash([base])
-    method = f"compute_signal:{column}:min{effective_min_periods}"
+    method = f"compute_signal:{column}:lag{spec.lag}:min{effective_min_periods}"
     return cache.get_or_compute(dataset_hash, window, freq, method, _compute)
 
 

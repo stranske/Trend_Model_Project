@@ -55,6 +55,23 @@ def _ensure_signal_cache(frame: pd.DataFrame) -> dict[Hashable, Any]:
     return new_memo
 
 
+def clear_signal_cache(frame: pd.DataFrame) -> pd.DataFrame:
+    """Drop an inherited signal memo from ``frame`` and return it.
+
+    ``pandas`` copies ``attrs`` through column selection, ``astype`` and
+    ``to_frame``, so a frame *derived* from one that was previously passed to
+    :func:`compute_trend_signals` still carries that frame's memo. The memo is
+    keyed only by window parameters, never by the frame's contents, so reusing
+    it would return signals computed from the earlier values. Callers that
+    build an adapter frame out of caller-supplied data must clear it before
+    delegating. Only the copy held by ``frame`` is modified; the frame it was
+    derived from keeps its own memo.
+    """
+
+    frame.attrs.pop(_MEMO_ATTR, None)
+    return frame
+
+
 def _memoised_frame(
     frame: pd.DataFrame,
     key: Hashable,
@@ -302,4 +319,10 @@ def compute_trend_signals(returns: pd.DataFrame, spec: TrendSpec) -> pd.DataFram
     return signal
 
 
-__all__ = ["TrendSpec", "SignalFrame", "compute_trend_signals", "trend_spec_from_mapping"]
+__all__ = [
+    "TrendSpec",
+    "SignalFrame",
+    "clear_signal_cache",
+    "compute_trend_signals",
+    "trend_spec_from_mapping",
+]
