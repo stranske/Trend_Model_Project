@@ -61,8 +61,8 @@ def test_normalize_weights_zero_sum() -> None:
     assert normalized["FundB"] == pytest.approx(0.0)
 
 
-def test_normalize_weights_negative_total_not_percent() -> None:
+def test_normalize_weights_mixed_sign_ambiguous_total() -> None:
     weights = {"FundA": -30.0, "FundB": 70.0}
     normalized = normalize_weights(weights)
-    assert normalized["FundA"] == pytest.approx(-0.75)
-    assert normalized["FundB"] == pytest.approx(1.75)
+    assert normalized["FundA"] == pytest.approx(-0.3)
+    assert normalized["FundB"] == pytest.approx(0.7)
