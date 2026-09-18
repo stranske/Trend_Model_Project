@@ -46,11 +46,11 @@ def normalize_weights(
     if series.empty:
         return {}
 
-    series = series.fillna(0.0)
     values = series.to_numpy(dtype=float)
     if not np.all(np.isfinite(values)):
         return {}
 
+    series = series.fillna(0.0)
     total = float(series.sum())
     if not np.isfinite(total):
         return {}
