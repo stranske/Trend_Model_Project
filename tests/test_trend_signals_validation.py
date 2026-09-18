@@ -22,6 +22,13 @@ def test_trend_spec_validates_parameters() -> None:
         TrendSpec(vol_target=-0.5)
 
 
+def test_trend_spec_rejects_min_periods_above_window() -> None:
+    """``TrendSpec`` should mirror ``SignalSettings`` min_periods/window bounds."""
+
+    with pytest.raises(ValueError, match="min_periods cannot exceed signals.window"):
+        TrendSpec(window=5, min_periods=6)
+
+
 def test_compute_trend_signals_rejects_empty_returns() -> None:
     """An empty input frame should fail fast with a clear error."""
 
