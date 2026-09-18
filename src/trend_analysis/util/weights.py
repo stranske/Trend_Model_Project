@@ -16,10 +16,12 @@ def normalize_weights(
 ) -> dict[str, float]:
     """Return weights as fractions.
 
-    Percent-like inputs (``sum(abs)`` ≈ 100) are divided by 100. Fraction-like
-    inputs (``sum(abs)`` ≈ 1) are returned unchanged. For any other non-zero
-    total, weights are normalised by dividing each value by ``sum(abs)`` so
-    callers always receive unit-scale fractions.
+    Percent-like and fraction-like detection uses the absolute *net* total
+    (``abs(sum(weights))``). Percent-like inputs (≈ 100) are divided by 100;
+    fraction-like inputs (≈ 1) are returned unchanged. For any other non-zero
+    total, weights are normalised by dividing each value by the gross absolute
+    sum (``sum(abs(weights))``) so mixed-sign ambiguous inputs scale
+    consistently.
     """
     if weights is None:
         return {}
@@ -43,6 +45,8 @@ def normalize_weights(
     elif total_abs and np.isclose(total_abs, 1.0, rtol=0.0, atol=fraction_tolerance):
         series = series
     elif total_abs:
-        series = series / total_abs
+        gross_abs = float(series.abs().sum())
+        if gross_abs:
+            series = series / gross_abs
 
     return {str(k): float(v) for k, v in series.items()}
