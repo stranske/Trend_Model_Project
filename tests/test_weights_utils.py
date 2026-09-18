@@ -45,3 +45,24 @@ def test_normalize_weights_long_short() -> None:
     normalized = normalize_weights(weights)
     assert normalized["FundA"] == pytest.approx(1.2)
     assert normalized["FundB"] == pytest.approx(-0.2)
+
+
+def test_normalize_weights_ambiguous_total() -> None:
+    weights = {"FundA": 30.0, "FundB": 20.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(0.6)
+    assert normalized["FundB"] == pytest.approx(0.4)
+
+
+def test_normalize_weights_zero_sum() -> None:
+    weights = {"FundA": 0.0, "FundB": 0.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(0.0)
+    assert normalized["FundB"] == pytest.approx(0.0)
+
+
+def test_normalize_weights_negative_total_not_percent() -> None:
+    weights = {"FundA": -30.0, "FundB": 70.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(-0.75)
+    assert normalized["FundB"] == pytest.approx(1.75)

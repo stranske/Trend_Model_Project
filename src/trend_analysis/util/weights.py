@@ -14,7 +14,13 @@ def normalize_weights(
     percent_tolerance: float = 1e-2,
     fraction_tolerance: float = 1e-6,
 ) -> dict[str, float]:
-    """Return weights as fractions, converting percent-like inputs when detected."""
+    """Return weights as fractions.
+
+    Percent-like inputs (``sum(abs)`` ≈ 100) are divided by 100. Fraction-like
+    inputs (``sum(abs)`` ≈ 1) are returned unchanged. For any other non-zero
+    total, weights are normalised by dividing each value by ``sum(abs)`` so
+    callers always receive unit-scale fractions.
+    """
     if weights is None:
         return {}
 
@@ -36,5 +42,7 @@ def normalize_weights(
         series = series / 100.0
     elif total_abs and np.isclose(total_abs, 1.0, rtol=0.0, atol=fraction_tolerance):
         series = series
+    elif total_abs:
+        series = series / total_abs
 
     return {str(k): float(v) for k, v in series.items()}
