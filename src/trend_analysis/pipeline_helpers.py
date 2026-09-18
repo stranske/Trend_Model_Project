@@ -290,9 +290,7 @@ def _apply_regime_overrides(
                 "regime.risk_off_fund_count_multiplier must be a finite number"
             ) from exc
         if not np.isfinite(multiplier):
-            raise CoreConfigError(
-                "regime.risk_off_fund_count_multiplier must be a finite number"
-            )
+            raise CoreConfigError("regime.risk_off_fund_count_multiplier must be a finite number")
         if multiplier <= 0 or multiplier > 1:
             multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
 

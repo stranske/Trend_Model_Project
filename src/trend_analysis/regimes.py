@@ -89,11 +89,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     if cfg is None:
         return RegimeSettings()
 
-    enabled = (
-        _coerce_bool_flag(cfg["enabled"], "enabled")
-        if "enabled" in cfg
-        else False
-    )
+    enabled = _coerce_bool_flag(cfg["enabled"], "enabled") if "enabled" in cfg else False
     proxy = cfg.get("proxy")
     if proxy is not None:
         proxy = str(proxy).strip() or None
@@ -131,11 +127,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
         else _coerce_float(cfg.get("neutral_band"), 0.001)
     )
     min_obs = _coerce_positive_int(cfg.get("min_observations"), 4, minimum=1)
-    cache = (
-        _coerce_bool_flag(cfg["cache"], "cache")
-        if "cache" in cfg
-        else True
-    )
+    cache = _coerce_bool_flag(cfg["cache"], "cache") if "cache" in cfg else True
     annualise_volatility = (
         _coerce_bool_flag(cfg["annualise_volatility"], "annualise_volatility")
         if "annualise_volatility" in cfg

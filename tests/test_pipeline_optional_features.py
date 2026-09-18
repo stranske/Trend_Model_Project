@@ -9,13 +9,13 @@ import pytest
 
 from tests._pipeline_test_utils import run_analysis_payload
 from trend.config_schema import CoreConfigError
+from trend_analysis.core import rank_selection as rank_selection_mod
+from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.engine import optimizer as optimizer_mod
 from trend_analysis.pipeline_helpers import (
     _apply_regime_overrides,
     _apply_regime_weight_overrides,
 )
-from trend_analysis.core import rank_selection as rank_selection_mod
-from trend_analysis.core.rank_selection import RiskStatsConfig
-from trend_analysis.engine import optimizer as optimizer_mod
 from trend_analysis.stages import portfolio as portfolio_stage
 from trend_analysis.stages import selection as selection_stage
 
