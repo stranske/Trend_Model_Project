@@ -285,10 +285,16 @@ def _apply_regime_overrides(
     if "risk_off_fund_count_multiplier" in cfg:
         try:
             multiplier = float(cfg["risk_off_fund_count_multiplier"])
-            if multiplier <= 0 or multiplier > 1:
-                multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(
+                "regime.risk_off_fund_count_multiplier must be a finite number"
+            ) from exc
+        if not np.isfinite(multiplier):
+            raise CoreConfigError(
+                "regime.risk_off_fund_count_multiplier must be a finite number"
+            )
+        if multiplier <= 0 or multiplier > 1:
+            multiplier = _DEFAULT_RISK_OFF_FUND_MULTIPLIER
 
     updated_random_n = random_n
     if isinstance(random_n, int) and random_n > 1:
@@ -353,11 +359,29 @@ def _apply_regime_weight_overrides(
             return default
         return num
 
+    def _require_finite_positive(value: Any, field: str) -> float:
+        try:
+            num = float(value)
+        except (TypeError, ValueError) as exc:
+            raise CoreConfigError(f"regime.{field} must be a finite positive number") from exc
+        if not np.isfinite(num) or num <= 0:
+            raise CoreConfigError(f"regime.{field} must be a finite positive number")
+        return num
+
     updated_target = target_vol
     if "risk_off_target_vol" in cfg:
-        updated_target = _coerce_positive_float(cfg.get("risk_off_target_vol"), target_vol)
+        updated_target = _require_finite_positive(
+            cfg.get("risk_off_target_vol"),
+            "risk_off_target_vol",
+        )
     else:
-        multiplier = _coerce_positive_float(cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5)
+        if "risk_off_target_vol_multiplier" in cfg:
+            multiplier = _require_finite_positive(
+                cfg["risk_off_target_vol_multiplier"],
+                "risk_off_target_vol_multiplier",
+            )
+        else:
+            multiplier = _coerce_positive_float(cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5)
         updated_target = float(target_vol) * multiplier
 
     return updated_target, constraints
