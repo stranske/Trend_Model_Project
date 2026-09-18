@@ -1125,24 +1125,22 @@ class _RecordingCache:
 
 class _RaisingFreqIndex(pd.DatetimeIndex):
     @property
-    def freq(self):  # type: ignore[override]
+    def freqstr(self):  # type: ignore[override]
         raise RuntimeError("freq unavailable")
 
 
 @pytest.mark.parametrize(
-    "frame,window,min_periods,column,check_call_tags",
+    "frame,window,min_periods,column,expected_freq_tag",
     [
         (
             pd.DataFrame(
-                {
-                    "Date": pd.date_range("2020-01-01", periods=6, freq="D"),
-                    "value": np.arange(6),
-                }
-            ).set_index("Date"),
+                {"value": np.arange(6)},
+                index=pd.date_range("2020-01-01", periods=6, freq="D"),
+            ),
             3,
             2,
             "value",
-            True,
+            "D",
         ),
         (
             pd.DataFrame(
@@ -1152,7 +1150,7 @@ class _RaisingFreqIndex(pd.DatetimeIndex):
             2,
             1,
             "returns",
-            False,
+            "unknown",
         ),
     ],
     ids=["daily-cache-tags", "monthly-freq-unavailable"],
@@ -1163,7 +1161,7 @@ def test_compute_signal_uses_cache(
     window: int,
     min_periods: int,
     column: str,
-    check_call_tags: bool,
+    expected_freq_tag: str,
 ) -> None:
     cache = _RecordingCache()
     monkeypatch.setattr(pipeline, "get_cache", lambda: cache)
@@ -1173,14 +1171,14 @@ def test_compute_signal_uses_cache(
     assert cache.calls, "Expected cache to be used when enabled"
     assert series.name == f"{column}_signal"
     assert series.index.equals(frame.index)
-    if check_call_tags:
-        _, window_arg, _freq_tag, method_tag, _ = cache.calls[-1]
-        assert window_arg == window
-        assert method_tag.endswith(f"min{min_periods}")
+    _, window_arg, freq_tag, method_tag, _ = cache.calls[-1]
+    assert window_arg == window
+    assert freq_tag == expected_freq_tag
+    assert method_tag.endswith(f"min{min_periods}")
 
 
 @pytest.mark.parametrize(
-    "frame,window,min_periods,column",
+    "frame,window,min_periods,column,expected_tail_value",
     [
         (
             pd.DataFrame(
@@ -1192,6 +1190,7 @@ def test_compute_signal_uses_cache(
             2,
             1,
             "value",
+            2.5,
         ),
         (
             pd.DataFrame(
@@ -1201,6 +1200,7 @@ def test_compute_signal_uses_cache(
             2,
             1,
             "returns",
+            -0.05,
         ),
     ],
     ids=["daily-nonzero-tail", "monthly-index-preservation"],
@@ -1211,6 +1211,7 @@ def test_compute_signal_without_cache(
     window: int,
     min_periods: int,
     column: str,
+    expected_tail_value: float,
 ) -> None:
     class DisabledCache:
         def is_enabled(self) -> bool:
@@ -1221,7 +1222,7 @@ def test_compute_signal_without_cache(
     assert isinstance(series, pd.Series)
     assert series.name == f"{column}_signal"
     assert series.index.equals(frame.index)
-    assert series.iloc[-1] != 0.0
+    assert series.iloc[-1] == pytest.approx(expected_tail_value)
 
 
 def test_position_from_signal_behaviour() -> None:
