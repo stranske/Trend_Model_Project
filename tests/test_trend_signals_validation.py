@@ -25,9 +25,7 @@ def test_trend_spec_validates_parameters() -> None:
 def test_trend_spec_rejects_min_periods_above_window() -> None:
     """``TrendSpec`` should mirror ``SignalSettings`` min_periods/window bounds."""
 
-    with pytest.raises(
-        ValueError, match=r"^signals\.min_periods cannot exceed signals\.window\.$"
-    ):
+    with pytest.raises(ValueError, match=r"^signals\.min_periods cannot exceed signals\.window\.$"):
         TrendSpec(window=5, min_periods=6)
 
 

@@ -12,14 +12,17 @@ from typing import Any, Callable
 import pandas as pd
 import pytest
 
-from trend_analysis.monte_carlo.registry import ScenarioRegistryEntry
-from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
-
 from tests.support.dummy_streamlit import (
     DummyStreamlit,
+)
+from tests.support.dummy_streamlit import (
     Placeholder as _Placeholder,
+)
+from tests.support.dummy_streamlit import (
     ProgressBar as _ProgressBar,
 )
+from trend_analysis.monte_carlo.registry import ScenarioRegistryEntry
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 
 
 @dataclass
