@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -45,3 +48,45 @@ def test_normalize_weights_long_short() -> None:
     normalized = normalize_weights(weights)
     assert normalized["FundA"] == pytest.approx(1.2)
     assert normalized["FundB"] == pytest.approx(-0.2)
+
+
+def test_normalize_weights_ambiguous_total() -> None:
+    weights = {"FundA": 30.0, "FundB": 20.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(0.6)
+    assert normalized["FundB"] == pytest.approx(0.4)
+
+
+def test_normalize_weights_zero_sum() -> None:
+    weights = {"FundA": 0.0, "FundB": 0.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(0.0)
+    assert normalized["FundB"] == pytest.approx(0.0)
+
+
+def test_normalize_weights_mixed_sign_ambiguous_total() -> None:
+    weights = {"FundA": -30.0, "FundB": 70.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(-0.3)
+    assert normalized["FundB"] == pytest.approx(0.7)
+
+
+def test_normalize_weights_negative_net_ambiguous_total() -> None:
+    weights = {"FundA": -70.0, "FundB": 30.0}
+    normalized = normalize_weights(weights)
+    assert normalized["FundA"] == pytest.approx(-0.7)
+    assert normalized["FundB"] == pytest.approx(0.3)
+
+
+def test_normalize_weights_rejects_non_finite_inputs() -> None:
+    assert normalize_weights({"FundA": math.inf, "FundB": 2.0}) == {}
+    assert normalize_weights({"FundA": math.inf, "FundB": -math.inf}) == {}
+    assert normalize_weights(pd.Series({"FundA": float("nan"), "FundB": 2.0})) == {}
+
+
+def test_normalize_weights_large_finite_inputs_no_overflow() -> None:
+    large = 1e308
+    normalized = normalize_weights({"FundA": large, "FundB": large})
+    assert normalized["FundA"] == pytest.approx(0.5)
+    assert normalized["FundB"] == pytest.approx(0.5)
+    assert all(np.isfinite(value) for value in normalized.values())
