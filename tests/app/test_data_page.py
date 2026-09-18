@@ -10,9 +10,8 @@ import pandas as pd
 import pytest
 
 from streamlit_app.components.upload_guard import GuardedUpload, hash_bytes
-from trend_analysis.io.market_data import MarketDataValidationError
-
 from tests.support.dummy_streamlit import DummyStreamlit
+from trend_analysis.io.market_data import MarketDataValidationError
 
 
 class DummyUpload:

@@ -1,4 +1,5 @@
 import logging
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -53,6 +54,33 @@ def test_normalise_helpers_and_build_trend_spec() -> None:
     # Numeric z-score values are canonical scale factors; only YAML booleans
     # retain boolean identity.
     assert spec.zscore == pytest.approx(1.0)
+
+
+def test_coerce_int_infinity_fallbacks() -> None:
+    """Regression: non-finite inputs must not abort preset integer coercion."""
+    assert presets._coerce_int(float("inf"), default=9, minimum=1) == 9
+    assert presets._coerce_int(float("-inf"), default=9, minimum=1) == 9
+    assert presets._coerce_int(math.inf, default=11, minimum=1) == 11
+    assert presets._coerce_int(-math.inf, default=11, minimum=1) == 11
+    assert presets._coerce_optional_int(float("inf"), minimum=1) is None
+    assert presets._coerce_optional_int(float("-inf"), minimum=1) is None
+    assert presets._coerce_optional_int(math.inf, minimum=1) is None
+    assert presets._coerce_optional_int(-math.inf, minimum=1) is None
+
+
+def test_build_trend_spec_infinity_signals_do_not_abort() -> None:
+    spec = presets._build_trend_spec(
+        {
+            "signals": {
+                "window": float("inf"),
+                "min_periods": float("-inf"),
+                "lag": 1,
+            }
+        }
+    )
+    assert isinstance(spec, TrendSpec)
+    assert spec.window >= 1
+    assert spec.min_periods is None or spec.min_periods <= spec.window
 
 
 def test_trend_preset_helpers_cover_defaults() -> None:

@@ -6,9 +6,8 @@ from types import ModuleType, SimpleNamespace
 import pandas as pd
 import pytest
 
-from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
-
 from tests.support.dummy_streamlit import DummyStreamlit
+from trend_analysis.diagnostics import PipelineReasonCode, pipeline_failure
 
 
 @pytest.fixture()

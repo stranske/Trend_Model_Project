@@ -594,6 +594,8 @@ def compute_signal(
     effective_min_periods = window if min_periods is None else int(min_periods)
     if effective_min_periods <= 0:
         raise ValueError("min_periods must be positive")
+    if effective_min_periods > window:
+        raise ValueError("signals.min_periods cannot exceed signals.window.")
 
     spec = TrendSpec(window=window, min_periods=effective_min_periods)
 
