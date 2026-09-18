@@ -83,3 +83,17 @@ def test_string_coercion():
     cfg = Config(**cfg_dict)
     assert cfg.portfolio["cost_model"]["per_trade_bps"] == 15.0
     assert cfg.portfolio["max_turnover"] == 0.75
+
+
+@pytest.mark.parametrize("lam", [float("nan"), float("inf"), float("-inf")])
+def test_lambda_tc_rejects_non_finite(lam):
+    cfg_dict = make_cfg({"portfolio": {"lambda_tc": lam}})
+    with pytest.raises(Exception):
+        Config(**cfg_dict)
+
+
+@pytest.mark.parametrize("lam", [0, 0.5, 1.0])
+def test_lambda_tc_accepts_finite_values(lam):
+    cfg_dict = make_cfg({"portfolio": {"lambda_tc": lam}})
+    cfg = Config(**cfg_dict)
+    assert float(cfg.portfolio["lambda_tc"]) == float(lam)

@@ -485,6 +485,8 @@ if _HAS_PYDANTIC:
                     lam = float(raw)
                 except Exception as exc:  # pragma: no cover - defensive
                     raise ValueError("lambda_tc must be numeric") from exc
+                if not math.isfinite(lam):
+                    raise ValueError("lambda_tc must be finite")
                 if lam < 0:
                     raise ValueError("lambda_tc must be >= 0")
                 if lam > 1:
@@ -748,6 +750,8 @@ else:  # Fallback mode for tests without pydantic
                         lam = float(port["lambda_tc"])
                     except Exception as exc:  # pragma: no cover - defensive
                         raise ValueError("lambda_tc must be numeric") from exc
+                    if not math.isfinite(lam):
+                        raise ValueError("lambda_tc must be finite")
                     if lam < 0:
                         raise ValueError("lambda_tc must be >= 0")
                     if lam > 1:

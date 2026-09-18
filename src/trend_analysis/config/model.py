@@ -523,6 +523,8 @@ class PortfolioSettings(BaseModel):
             lam = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             raise ValueError("portfolio.lambda_tc must be numeric.") from exc
+        if not math.isfinite(lam):
+            raise ValueError("portfolio.lambda_tc must be finite.")
         if lam < 0 or lam > 1:
             raise ValueError("portfolio.lambda_tc must be between 0 and 1 inclusive.")
         return lam
