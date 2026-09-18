@@ -8,14 +8,18 @@ import numpy as np
 import pandas as pd
 
 
-def _gross_abs_sum(series: pd.Series) -> float:
-    """Return sum(abs(weights)) without overflowing on large finite inputs."""
+def _divide_by_gross_abs(series: pd.Series) -> pd.Series | None:
+    """Divide series by sum(abs(weights)) using scaled arithmetic to avoid overflow."""
     values = series.to_numpy(dtype=float)
     abs_vals = np.abs(values)
     max_abs = float(np.max(abs_vals)) if len(abs_vals) else 0.0
     if max_abs == 0.0:
-        return 0.0
-    return float(np.sum(abs_vals / max_abs) * max_abs)
+        return None
+    scaled_abs_sum = float(np.sum(abs_vals / max_abs))
+    if not np.isfinite(scaled_abs_sum) or scaled_abs_sum == 0.0:
+        return None
+    # series / gross_abs = (series / max_abs) / scaled_abs_sum — avoids overflow
+    return series / max_abs / scaled_abs_sum
 
 
 def normalize_weights(
@@ -68,15 +72,15 @@ def normalize_weights(
     ):
         series = series
     elif total_is_finite and total_abs:
-        gross_abs = _gross_abs_sum(series)
-        if not np.isfinite(gross_abs) or gross_abs == 0.0:
+        normalized = _divide_by_gross_abs(series)
+        if normalized is None:
             return {}
-        series = series / gross_abs
+        series = normalized
     elif not total_is_finite:
         # Large finite inputs can overflow net sum while remaining valid per-value.
-        gross_abs = _gross_abs_sum(series)
-        if not np.isfinite(gross_abs) or gross_abs == 0.0:
+        normalized = _divide_by_gross_abs(series)
+        if normalized is None:
             return {}
-        series = series / gross_abs
+        series = normalized
 
     return {str(k): float(v) for k, v in series.items()}
