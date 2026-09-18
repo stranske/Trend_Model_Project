@@ -52,16 +52,24 @@ def normalize_weights(
 
     series = series.fillna(0.0)
     total = float(series.sum())
-    if not np.isfinite(total):
-        return {}
+    total_is_finite = np.isfinite(total)
+    total_abs = abs(total) if total_is_finite else 0.0
 
-    total_abs = abs(total)
-
-    if total_abs and np.isclose(total_abs, 100.0, rtol=0.0, atol=percent_tolerance):
+    if total_is_finite and total_abs and np.isclose(
+        total_abs, 100.0, rtol=0.0, atol=percent_tolerance
+    ):
         series = series / 100.0
-    elif total_abs and np.isclose(total_abs, 1.0, rtol=0.0, atol=fraction_tolerance):
+    elif total_is_finite and total_abs and np.isclose(
+        total_abs, 1.0, rtol=0.0, atol=fraction_tolerance
+    ):
         series = series
-    elif total_abs:
+    elif total_is_finite and total_abs:
+        gross_abs = _gross_abs_sum(series)
+        if not np.isfinite(gross_abs) or gross_abs == 0.0:
+            return {}
+        series = series / gross_abs
+    elif not total_is_finite:
+        # Large finite inputs can overflow net sum while remaining valid per-value.
         gross_abs = _gross_abs_sum(series)
         if not np.isfinite(gross_abs) or gross_abs == 0.0:
             return {}
