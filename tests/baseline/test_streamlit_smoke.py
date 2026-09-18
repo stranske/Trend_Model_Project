@@ -12,7 +12,6 @@ correct behavior -- it's a guard, not a crash.
 
 from __future__ import annotations
 
-import sys
 
 import pytest
 
