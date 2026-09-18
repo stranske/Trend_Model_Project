@@ -117,9 +117,16 @@ def _build_trend_spec(config: Mapping[str, Any]) -> TrendSpec:
     if not isinstance(signals, Mapping):
         signals = {}
 
-    spec = trend_spec_from_mapping(signals, retain_disabled_vol_target=True)
-    # Presets historically clamp an overlong warm-up to their own window. This
-    # is preset default policy, not a second signal parser.
+    # Presets historically clamp an overlong warm-up to their own window. Clamp
+    # before TrendSpec construction so __post_init__ validation can still reject
+    # direct TrendSpec(min_periods>window) callers without breaking preset policy.
+    signals_for_spec: dict[str, Any] = dict(signals)
+    window = _coerce_int(signals_for_spec.get("window"), _DEFAULT_SPEC_WINDOW)
+    min_periods = _coerce_optional_int(signals_for_spec.get("min_periods"))
+    if min_periods is not None and min_periods > window:
+        signals_for_spec["min_periods"] = window
+
+    spec = trend_spec_from_mapping(signals_for_spec, retain_disabled_vol_target=True)
     if spec.min_periods is not None and spec.min_periods > spec.window:
         return replace(spec, min_periods=spec.window)
     return spec
