@@ -140,6 +140,8 @@ class TrendSpec:
             raise ValueError("window must be a positive integer")
         if self.min_periods is not None and self.min_periods <= 0:
             raise ValueError("min_periods must be positive when provided")
+        if self.min_periods is not None and self.min_periods > self.window:
+            raise ValueError("signals.min_periods cannot exceed signals.window.")
         if self.lag < 1:
             raise ValueError("lag must be at least 1")
         if self.vol_target is not None and self.vol_target < 0:
