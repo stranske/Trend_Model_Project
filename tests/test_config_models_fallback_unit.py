@@ -153,6 +153,24 @@ def test_fallback_config_rejects_invalid_portfolio_values(
         )
 
 
+@pytest.mark.parametrize("lam", [float("nan"), float("inf"), float("-inf")])
+def test_fallback_config_rejects_non_finite_lambda_tc(
+    fallback_models: ModuleType,
+    lam: float,
+) -> None:
+    Config = fallback_models.Config  # type: ignore[attr-defined]
+
+    with pytest.raises(ValueError, match="lambda_tc must be finite"):
+        Config(
+            **_base_config_payload(
+                portfolio={
+                    "cost_model": {"per_trade_bps": 0, "half_spread_bps": 0},
+                    "lambda_tc": lam,
+                }
+            )
+        )
+
+
 def test_fallback_config_requires_dict_sections(fallback_models: ModuleType) -> None:
     Config = fallback_models.Config  # type: ignore[attr-defined]
     with pytest.raises(ValueError, match="data section is required"):
