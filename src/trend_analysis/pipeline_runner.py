@@ -4,8 +4,6 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from trend.config_schema import CoreConfigError
-
 from .core.rank_selection import RiskStatsConfig
 from .diagnostics import PipelineResult
 from .pipeline_helpers import (
@@ -103,10 +101,7 @@ def _run_analysis_with_diagnostics(
         settings=regime_settings,
         regime_cfg=regime_cfg,
     )
-    try:
-        parsed_turnover = parse_regime_turnover_caps(max_turnover, regime_settings)
-    except CoreConfigError:
-        parsed_turnover = None
+    parsed_turnover = parse_regime_turnover_caps(max_turnover, regime_settings)
     resolved_max_turnover = _resolve_turnover_cap_from_parsed(
         parsed_turnover,
         regime_label,

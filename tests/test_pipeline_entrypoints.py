@@ -7,6 +7,9 @@ import pytest
 
 import trend_analysis.pipeline as pipeline
 import trend_analysis.pipeline_helpers as pipeline_helpers
+import trend_analysis.pipeline_runner as pipeline_runner
+from trend_analysis.stages import selection as selection_stage
+from trend.config_schema import CoreConfigError
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.pipeline_entrypoints import (
     _resolve_single_period_monthly_cost,
@@ -503,3 +506,36 @@ def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> No
     assert isinstance(portfolio, pd.Series)
     expected = (sample_frame[["FundA", "FundB"]] * weights).sum(axis=1)
     pd.testing.assert_series_equal(portfolio, expected)
+
+
+def test_run_from_config_rejects_invalid_regime_turnover_cap(
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+    base_config: dict[str, object],
+) -> None:
+    base_config["portfolio"] = {"max_turnover": {"mystery": 0.1}}
+    selection_called = False
+
+    def fake_select_universe(*_args, **_kwargs):
+        nonlocal selection_called
+        selection_called = True
+        raise AssertionError("selection should not run when turnover parsing fails")
+
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(selection_stage, "_select_universe", fake_select_universe)
+
+    bindings = replace(
+        pipeline._bindings(),
+        invoke_analysis_with_diag=pipeline_runner._run_analysis_with_diagnostics,
+    )
+
+    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
+        run_from_config(base_config, bindings=bindings)
+
+    assert "allowed labels" in str(excinfo.value)
+    assert not selection_called
