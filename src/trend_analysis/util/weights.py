@@ -55,12 +55,16 @@ def normalize_weights(
     total_is_finite = np.isfinite(total)
     total_abs = abs(total) if total_is_finite else 0.0
 
-    if total_is_finite and total_abs and np.isclose(
-        total_abs, 100.0, rtol=0.0, atol=percent_tolerance
+    if (
+        total_is_finite
+        and total_abs
+        and np.isclose(total_abs, 100.0, rtol=0.0, atol=percent_tolerance)
     ):
         series = series / 100.0
-    elif total_is_finite and total_abs and np.isclose(
-        total_abs, 1.0, rtol=0.0, atol=fraction_tolerance
+    elif (
+        total_is_finite
+        and total_abs
+        and np.isclose(total_abs, 1.0, rtol=0.0, atol=fraction_tolerance)
     ):
         series = series
     elif total_is_finite and total_abs:
