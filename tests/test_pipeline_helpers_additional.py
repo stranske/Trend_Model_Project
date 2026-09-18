@@ -915,7 +915,9 @@ def test_compute_signal_error_paths(monthly_frame: pd.DataFrame) -> None:
         compute_signal(monthly_frame, column="A", window=0)
     with pytest.raises(ValueError):
         compute_signal(monthly_frame, column="A", window=2, min_periods=0)
-    with pytest.raises(ValueError, match="min_periods cannot exceed signals.window"):
+    with pytest.raises(
+        ValueError, match=r"^signals\.min_periods cannot exceed signals\.window\.$"
+    ):
         compute_signal(monthly_frame, column="A", window=5, min_periods=6)
 
 

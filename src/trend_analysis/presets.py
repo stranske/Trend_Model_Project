@@ -83,7 +83,7 @@ def _normalise_metric_weights(raw: Mapping[str, Any]) -> dict[str, float]:
 def _coerce_int(value: Any, default: int, minimum: int = 1) -> int:
     try:
         coerced = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
     return max(coerced, minimum)
 
@@ -93,7 +93,7 @@ def _coerce_optional_int(value: Any | None, minimum: int = 1) -> int | None:
         return None
     try:
         coerced = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if coerced < minimum:
         return None
