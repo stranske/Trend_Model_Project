@@ -38,7 +38,7 @@ def test_disabled_volatility_regime_allows_default_threshold() -> None:
 
 def test_volatility_regime_rejects_non_finite_threshold() -> None:
     for threshold in (float("nan"), float("inf"), float("-inf")):
-        with pytest.raises(ValueError, match="threshold must be finite and positive"):
+        with pytest.raises(ValueError, match="regime\\.threshold must be a finite number"):
             normalise_settings({"enabled": True, "method": "volatility", "threshold": threshold})
 
 

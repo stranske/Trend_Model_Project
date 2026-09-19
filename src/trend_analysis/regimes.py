@@ -57,6 +57,26 @@ def _coerce_float(value: Any, default: float) -> float:
         return float(default)
 
 
+def _coerce_bool_flag(value: Any, field_name: str) -> bool:
+    """Accept only real booleans; reject YAML string flags that ``bool()`` misreads."""
+
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"regime.{field_name} must be a boolean")
+
+
+def _require_finite_float(value: Any, field_name: str) -> float:
+    try:
+        num = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"regime.{field_name} must be a finite number") from exc
+    if not np.isfinite(num):
+        raise ValueError(f"regime.{field_name} must be a finite number")
+    return num
+
+
 def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     """Return :class:`RegimeSettings` populated from a mapping.
 
@@ -69,7 +89,7 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
     if cfg is None:
         return RegimeSettings()
 
-    enabled = bool(cfg.get("enabled", False))
+    enabled = _coerce_bool_flag(cfg["enabled"], "enabled") if "enabled" in cfg else False
     proxy = cfg.get("proxy")
     if proxy is not None:
         proxy = str(proxy).strip() or None
@@ -90,17 +110,29 @@ def normalise_settings(cfg: Mapping[str, Any] | None) -> RegimeSettings:
 
     lookback = _coerce_positive_int(cfg.get("lookback"), 126)
     smoothing = _coerce_positive_int(cfg.get("smoothing"), 3)
-    threshold = _coerce_float(cfg.get("threshold"), 0.0)
+    threshold = (
+        _require_finite_float(cfg["threshold"], "threshold")
+        if "threshold" in cfg
+        else _coerce_float(cfg.get("threshold"), 0.0)
+    )
     if enabled and method == "volatility" and (not np.isfinite(threshold) or threshold <= 0):
         raise ValueError(
             "regime.threshold must be finite and positive when regime.method is 'volatility' "
             "(signal = threshold - volatility, and volatility is non-negative, so a "
             "non-positive threshold collapses the split to all Risk-Off)"
         )
-    neutral_band = abs(_coerce_float(cfg.get("neutral_band"), 0.001))
+    neutral_band = abs(
+        _require_finite_float(cfg["neutral_band"], "neutral_band")
+        if "neutral_band" in cfg
+        else _coerce_float(cfg.get("neutral_band"), 0.001)
+    )
     min_obs = _coerce_positive_int(cfg.get("min_observations"), 4, minimum=1)
-    cache = bool(cfg.get("cache", True))
-    annualise_volatility = bool(cfg.get("annualise_volatility", True))
+    cache = _coerce_bool_flag(cfg["cache"], "cache") if "cache" in cfg else True
+    annualise_volatility = (
+        _coerce_bool_flag(cfg["annualise_volatility"], "annualise_volatility")
+        if "annualise_volatility" in cfg
+        else True
+    )
 
     risk_on_label = str(cfg.get("risk_on_label", "Risk-On") or "Risk-On").strip()
     risk_off_label = str(cfg.get("risk_off_label", "Risk-Off") or "Risk-Off").strip()

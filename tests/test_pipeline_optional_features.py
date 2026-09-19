@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import inspect
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from tests._pipeline_test_utils import run_analysis_payload
+from trend.config_schema import CoreConfigError
 from trend_analysis.core import rank_selection as rank_selection_mod
 from trend_analysis.core.rank_selection import RiskStatsConfig
 from trend_analysis.engine import optimizer as optimizer_mod
+from trend_analysis.pipeline_helpers import (
+    _apply_regime_overrides,
+    _apply_regime_weight_overrides,
+)
 from trend_analysis.stages import portfolio as portfolio_stage
 from trend_analysis.stages import selection as selection_stage
 
@@ -408,6 +414,36 @@ def test_regime_enabled_scales_random_selection_count() -> None:
 
 # Default multiplier from config/defaults.yml regime.risk_off_target_vol_multiplier
 RISK_OFF_TARGET_VOL_MULTIPLIER = 0.5
+
+_RISK_OFF_SETTINGS = SimpleNamespace(risk_off_label="Risk-Off")
+
+
+@pytest.mark.parametrize("modifier", [float("nan"), float("inf"), float("-inf"), 10**1000])
+def test_regime_overrides_reject_non_finite_modifiers(modifier: float) -> None:
+    with pytest.raises(CoreConfigError, match="risk_off_fund_count_multiplier"):
+        _apply_regime_overrides(
+            random_n=4,
+            rank_kwargs={"n": 4},
+            regime_label="Risk-Off",
+            settings=_RISK_OFF_SETTINGS,
+            regime_cfg={"risk_off_fund_count_multiplier": modifier},
+        )
+    with pytest.raises(CoreConfigError, match="risk_off_target_vol"):
+        _apply_regime_weight_overrides(
+            target_vol=1.0,
+            constraints=None,
+            regime_label="Risk-Off",
+            settings=_RISK_OFF_SETTINGS,
+            regime_cfg={"risk_off_target_vol": modifier},
+        )
+    with pytest.raises(CoreConfigError, match="risk_off_target_vol_multiplier"):
+        _apply_regime_weight_overrides(
+            target_vol=1.0,
+            constraints=None,
+            regime_label="Risk-Off",
+            settings=_RISK_OFF_SETTINGS,
+            regime_cfg={"risk_off_target_vol_multiplier": modifier},
+        )
 
 
 def test_regime_enabled_scales_target_vol_in_all_mode() -> None:
@@ -944,3 +980,19 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
     # Non-numeric portfolio IR enrichment should yield NaN placeholders
     assert np.isnan(ir_payload.get("equal_weight"))
     assert np.isnan(ir_payload.get("user_weight"))
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0])
+@pytest.mark.parametrize(
+    "field, expected", [("risk_off_target_vol", 2.0), ("risk_off_target_vol_multiplier", 1.0)]
+)
+def test_nonpositive_target_volatility_modifiers_keep_existing_fallback(field, value, expected):
+    target, constraints = _apply_regime_weight_overrides(
+        target_vol=2.0,
+        constraints=None,
+        regime_label="Risk-Off",
+        settings=_RISK_OFF_SETTINGS,
+        regime_cfg={field: value},
+    )
+    assert target == expected
+    assert constraints is None
