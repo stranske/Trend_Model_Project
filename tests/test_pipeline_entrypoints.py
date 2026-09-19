@@ -508,13 +508,15 @@ def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> No
     pd.testing.assert_series_equal(portfolio, expected)
 
 
+@pytest.mark.parametrize("turnover", [{"mystery": 0.1}, "bad", "oops"])
 def test_run_from_config_rejects_invalid_regime_turnover_cap(
+    turnover: object,
     monkeypatch: pytest.MonkeyPatch,
     sample_frame: pd.DataFrame,
     sample_split: dict[str, str],
     base_config: dict[str, object],
 ) -> None:
-    base_config["portfolio"] = {"max_turnover": {"mystery": 0.1}}
+    base_config["portfolio"] = {"max_turnover": turnover}
     selection_called = False
 
     def fake_select_universe(*_args, **_kwargs):
@@ -529,13 +531,12 @@ def test_run_from_config_rejects_invalid_regime_turnover_cap(
     monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(selection_stage, "_select_universe", fake_select_universe)
 
-    bindings = replace(
-        pipeline._bindings(),
-        invoke_analysis_with_diag=pipeline_runner._run_analysis_with_diagnostics,
-    )
+    bindings = _bindings_with_analysis(pipeline_runner._run_analysis_with_diagnostics)
 
-    with pytest.raises(CoreConfigError, match="mystery") as excinfo:
+    with pytest.raises(CoreConfigError) as excinfo:
         run_from_config(base_config, bindings=bindings)
 
-    assert "allowed labels" in str(excinfo.value)
+    assert ("allowed labels" if isinstance(turnover, dict) else "finite numeric scalar") in str(
+        excinfo.value
+    )
     assert not selection_called

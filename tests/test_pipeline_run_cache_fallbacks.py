@@ -451,7 +451,7 @@ def test_run_analysis_rank_branch_with_fallbacks(
         custom_weights={"FundB": 0.0},
         constraints="not-a-mapping",
         risk_window={"length": "bad", "lambda": "oops"},
-        max_turnover="oops",
+        max_turnover=None,  # Invalid caps now fail closed; exercise other fallbacks here.
         warmup_periods=2,
         **RUN_KWARGS,
     ).unwrap()

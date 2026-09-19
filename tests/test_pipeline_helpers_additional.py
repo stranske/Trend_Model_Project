@@ -811,7 +811,7 @@ def test_run_analysis_rank_selection_with_fallbacks(
             missing_limit=1,
             risk_window={"length": "bad", "lambda": "bad"},
             previous_weights=None,
-            max_turnover="bad",
+            max_turnover=None,  # Invalid caps now fail closed; exercise other fallbacks here.
             signal_spec=TrendSpec(
                 window=2,
                 min_periods=None,
