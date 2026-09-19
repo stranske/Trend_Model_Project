@@ -7,6 +7,9 @@ import pytest
 
 import trend_analysis.pipeline as pipeline
 import trend_analysis.pipeline_helpers as pipeline_helpers
+import trend_analysis.pipeline_runner as pipeline_runner
+from trend_analysis.stages import selection as selection_stage
+from trend.config_schema import CoreConfigError
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend_analysis.pipeline_entrypoints import (
     _resolve_single_period_monthly_cost,
@@ -503,3 +506,37 @@ def test_calc_portfolio_returns_scales_weights(sample_frame: pd.DataFrame) -> No
     assert isinstance(portfolio, pd.Series)
     expected = (sample_frame[["FundA", "FundB"]] * weights).sum(axis=1)
     pd.testing.assert_series_equal(portfolio, expected)
+
+
+@pytest.mark.parametrize("turnover", [{"mystery": 0.1}, "bad", "oops"])
+def test_run_from_config_rejects_invalid_regime_turnover_cap(
+    turnover: object,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_frame: pd.DataFrame,
+    sample_split: dict[str, str],
+    base_config: dict[str, object],
+) -> None:
+    base_config["portfolio"] = {"max_turnover": turnover}
+    selection_called = False
+
+    def fake_select_universe(*_args, **_kwargs):
+        nonlocal selection_called
+        selection_called = True
+        raise AssertionError("selection should not run when turnover parsing fails")
+
+    monkeypatch.setattr(pipeline, "load_csv", lambda *_, **__: sample_frame)
+    monkeypatch.setattr(
+        pipeline_helpers, "_resolve_sample_split", lambda *_args, **_kwargs: sample_split
+    )
+    monkeypatch.setattr(pipeline_helpers, "_build_trend_spec", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(selection_stage, "_select_universe", fake_select_universe)
+
+    bindings = _bindings_with_analysis(pipeline_runner._run_analysis_with_diagnostics)
+
+    with pytest.raises(CoreConfigError) as excinfo:
+        run_from_config(base_config, bindings=bindings)
+
+    assert ("allowed labels" if isinstance(turnover, dict) else "finite numeric scalar") in str(
+        excinfo.value
+    )
+    assert not selection_called
