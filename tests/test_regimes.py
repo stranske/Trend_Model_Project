@@ -205,7 +205,7 @@ def test_regime_summary_identifies_similar_performance() -> None:
 
 def test_normalise_settings_aliases_and_defaults() -> None:
     config = {
-        "enabled": "yes",
+        "enabled": True,
         "proxy": "  SPX  ",
         "method": "Vol",
         "lookback": "15",

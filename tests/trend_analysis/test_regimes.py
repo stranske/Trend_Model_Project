@@ -43,7 +43,7 @@ def test_normalise_settings_defaults_empty_labels() -> None:
 
 def test_normalise_settings_interprets_user_mapping() -> None:
     cfg: Mapping[str, Any] = {
-        "enabled": "yes",
+        "enabled": True,
         "proxy": " Proxy  ",
         "method": "VOL",
         "lookback": "21",

@@ -70,7 +70,7 @@ def _coerce_bool_flag(value: Any, field_name: str) -> bool:
 def _require_finite_float(value: Any, field_name: str) -> float:
     try:
         num = float(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"regime.{field_name} must be a finite number") from exc
     if not np.isfinite(num):
         raise ValueError(f"regime.{field_name} must be a finite number")

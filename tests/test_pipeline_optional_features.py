@@ -418,7 +418,7 @@ RISK_OFF_TARGET_VOL_MULTIPLIER = 0.5
 _RISK_OFF_SETTINGS = SimpleNamespace(risk_off_label="Risk-Off")
 
 
-@pytest.mark.parametrize("modifier", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("modifier", [float("nan"), float("inf"), float("-inf"), 10**1000])
 def test_regime_overrides_reject_non_finite_modifiers(modifier: float) -> None:
     with pytest.raises(CoreConfigError, match="risk_off_fund_count_multiplier"):
         _apply_regime_overrides(
@@ -980,3 +980,19 @@ def test_run_analysis_benchmark_ir_non_numeric_enrichment(
     # Non-numeric portfolio IR enrichment should yield NaN placeholders
     assert np.isnan(ir_payload.get("equal_weight"))
     assert np.isnan(ir_payload.get("user_weight"))
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0])
+@pytest.mark.parametrize(
+    "field, expected", [("risk_off_target_vol", 2.0), ("risk_off_target_vol_multiplier", 1.0)]
+)
+def test_nonpositive_target_volatility_modifiers_keep_existing_fallback(field, value, expected):
+    target, constraints = _apply_regime_weight_overrides(
+        target_vol=2.0,
+        constraints=None,
+        regime_label="Risk-Off",
+        settings=_RISK_OFF_SETTINGS,
+        regime_cfg={field: value},
+    )
+    assert target == expected
+    assert constraints is None

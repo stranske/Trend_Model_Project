@@ -285,7 +285,7 @@ def _apply_regime_overrides(
     if "risk_off_fund_count_multiplier" in cfg:
         try:
             multiplier = float(cfg["risk_off_fund_count_multiplier"])
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             raise CoreConfigError(
                 "regime.risk_off_fund_count_multiplier must be a finite number"
             ) from exc
@@ -357,26 +357,28 @@ def _apply_regime_weight_overrides(
             return default
         return num
 
-    def _require_finite_positive(value: Any, field: str) -> float:
+    def _require_finite_or_default(value: Any, field: str, default: float) -> float:
         try:
             num = float(value)
-        except (TypeError, ValueError) as exc:
-            raise CoreConfigError(f"regime.{field} must be a finite positive number") from exc
-        if not np.isfinite(num) or num <= 0:
-            raise CoreConfigError(f"regime.{field} must be a finite positive number")
-        return num
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CoreConfigError(f"regime.{field} must be a finite number") from exc
+        if not np.isfinite(num):
+            raise CoreConfigError(f"regime.{field} must be a finite number")
+        return num if num > 0 else default
 
     updated_target = target_vol
     if "risk_off_target_vol" in cfg:
-        updated_target = _require_finite_positive(
+        updated_target = _require_finite_or_default(
             cfg.get("risk_off_target_vol"),
             "risk_off_target_vol",
+            float(target_vol),
         )
     else:
         if "risk_off_target_vol_multiplier" in cfg:
-            multiplier = _require_finite_positive(
+            multiplier = _require_finite_or_default(
                 cfg["risk_off_target_vol_multiplier"],
                 "risk_off_target_vol_multiplier",
+                0.5,
             )
         else:
             multiplier = _coerce_positive_float(cfg.get("risk_off_target_vol_multiplier", 0.5), 0.5)

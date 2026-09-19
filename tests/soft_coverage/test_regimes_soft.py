@@ -36,7 +36,7 @@ def test_regime_setting_coercion_and_defaults() -> None:
     assert regimes._coerce_float(object(), 2.0) == pytest.approx(2.0)
 
     cfg = {
-        "enabled": "yes",
+        "enabled": True,
         "proxy": "  SPX  ",
         "method": "VOL",
         "lookback": "4",

@@ -69,15 +69,18 @@ def test_annualise_volatility_scales_neutral_band_with_signal() -> None:
     pd.testing.assert_series_equal(annualised, non_annualised)
 
 
+@pytest.mark.parametrize("field", ["enabled", "cache", "annualise_volatility"])
 @pytest.mark.parametrize("flag_value", ["false", "true", "0", "no"])
-def test_regime_control_values_reject_string_boolean_flags(flag_value: str) -> None:
+def test_regime_control_values_reject_string_boolean_flags(field: str, flag_value: str) -> None:
     with pytest.raises(ValueError, match="must be a boolean"):
-        normalise_settings({"enabled": flag_value})
+        normalise_settings({field: flag_value})
 
 
 @pytest.mark.parametrize(
     ("field", "value"),
     [
+        ("threshold", 10**1000),
+        ("neutral_band", 10**1000),
         ("threshold", float("nan")),
         ("threshold", float("inf")),
         ("neutral_band", float("nan")),
