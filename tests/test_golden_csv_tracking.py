@@ -10,9 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 HYPOTHETICAL_GOLDEN_CSV = (
     REPO_ROOT / "tests" / "baseline" / "test_golden" / "__hypothetical_fixture__.csv"
 )
-HYPOTHETICAL_UNRELATED_CSV = (
-    REPO_ROOT / "tests" / "baseline" / "__hypothetical_unrelated__.csv"
-)
+HYPOTHETICAL_UNRELATED_CSV = REPO_ROOT / "tests" / "baseline" / "__hypothetical_unrelated__.csv"
 
 
 def test_gitignore_keeps_broad_csv_ignore_rule() -> None:
@@ -72,6 +70,4 @@ def test_unrelated_csv_outside_test_golden_is_ignored() -> None:
     )
     output = result.stdout.strip()
     matching_rule = output.split("\t", 1)[0].split(":", 2)[-1]
-    assert matching_rule == "*.csv", (
-        f"expected broad *.csv ignore rule; matched: {matching_rule}"
-    )
+    assert matching_rule == "*.csv", f"expected broad *.csv ignore rule; matched: {matching_rule}"
