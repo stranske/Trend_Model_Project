@@ -45,7 +45,6 @@ def test_golden_fixture_pattern_is_not_ignored() -> None:
     ), f"unexpected check-ignore output: {output or result.stderr.strip()}"
     matching_rule = output.split("\t", 1)[0].split(":", 2)[-1]
     assert matching_rule.startswith("!"), (
-        "golden fixture path should not be ignored; "
-        f"matched rule: {matching_rule}"
+        "golden fixture path should not be ignored; " f"matched rule: {matching_rule}"
     )
     assert "test_golden" in matching_rule
