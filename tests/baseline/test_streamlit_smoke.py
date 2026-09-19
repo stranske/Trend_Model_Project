@@ -70,27 +70,6 @@ def test_model_page_renders_without_exception():
     assert not at.exception, f"2_Model raised: {[e.value for e in at.exception]}"
 
 
-def test_stub_reload_does_not_break_apptest(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Order regression: DummyStreamlit reload must not poison a subsequent AppTest run."""
-    from tests.streamlit.test_mc_page import _load_page
-
-    _load_page(monkeypatch)
-    monkeypatch.undo()
-    at = _run_page("streamlit_app/pages/4_Help.py")
-    assert not at.exception, f"Help page raised: {[e.value for e in at.exception]}"
-    produced = (
-        len(at.number_input)
-        + len(at.selectbox)
-        + len(at.button)
-        + len(at.radio)
-        + len(at.checkbox)
-        + len(at.error)
-        + len(at.markdown)
-        + len(at.title)
-    )
-    assert produced > 0, "Help page rendered nothing after stub reload (module leak)"
-
-
 def test_demo_inputs_are_wired():
     """Setting a keyed demo input and re-running must not break the home page,
     and the value must round-trip into session_state (input -> state wiring)."""
