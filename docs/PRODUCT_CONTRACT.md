@@ -8,7 +8,7 @@ Turn fund-return data and configuration into a ranked, weighted trend portfolio/
 Provide returns and configuration → run model → inspect holdings and metrics → export analyst report → verify configuration/data changes affect results.
 
 ## Core functions
-| id | a <user> can … and sees … | entry point | probe (how to exercise it; vary these determinants) | status 2026-09-20 |
+| id | a user can … and sees … | entry point | probe (how to exercise it; vary these determinants) | status 2026-09-20 |
 |---|---|---|---|---|
 | C1 | an analyst can run the trend model and sees ranked holdings, weights and portfolio metrics | `trend run -c CONFIG --returns CSV`; Streamlit | run demo returns with complete config; truncate to 72 rows and diff holdings/warnings | WORKS |
 | C2 | an analyst can produce deliverables and sees HTML plus CSV, JSON, XLSX and TXT describing the run | `trend report -c CONFIG -i CSV --out DIR --output FILE`; GUI export | export baseline and enabled-volatility reports; compare parameters and artifacts | WORKS |
