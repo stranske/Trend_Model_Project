@@ -40,6 +40,7 @@ from .pipeline_helpers import (
     _resolve_target_vol,
 )
 from .pipeline_runner import _run_analysis_with_diagnostics
+from .regimes import build_regime_payload
 from .risk import periods_per_year_from_code
 from .stages.portfolio import calc_portfolio_returns
 from .util.hash import normalise_for_json as _normalise_for_json
@@ -198,6 +199,14 @@ def _run_multi_period_simulation(
 
     # Build combined portfolio returns series
     portfolio_series = _build_multi_period_portfolio(period_results)
+    equal_weight_series = _combine_multi_period_series(
+        period_results,
+        "portfolio_equal_weight",
+    )
+    risk_free_series = _combine_multi_period_series(
+        period_results,
+        "risk_free_out_sample",
+    )
 
     # Aggregate results across all periods (may fail if period results lack keys)
     try:
@@ -227,8 +236,43 @@ def _run_multi_period_simulation(
     details["period_count"] = len(period_results)
     if portfolio_series is not None:
         details["portfolio_user_weight_combined"] = portfolio_series
+    if equal_weight_series is not None:
+        details["portfolio_equal_weight_combined"] = equal_weight_series
     if turnover_series is not None:
         details["turnover"] = turnover_series
+
+    regime_returns: dict[str, pd.Series] = {}
+    if portfolio_series is not None:
+        regime_returns["User"] = portfolio_series
+    if equal_weight_series is not None:
+        regime_returns["Equal-Weight"] = equal_weight_series
+    if regime_returns:
+        data_cfg = getattr(config, "data", {}) or {}
+        multi_period_cfg = getattr(config, "multi_period", {}) or {}
+        frequency = str(data_cfg.get("frequency") or multi_period_cfg.get("frequency") or "M")
+        period_ppy: float | None = None
+        for period_result in period_results:
+            candidate = period_result.get("periods_per_year")
+            if isinstance(candidate, (int, float)):
+                period_ppy = float(candidate)
+                break
+        if period_ppy is None:
+            period_ppy = float(periods_per_year_from_code(frequency))
+        regime_payload = build_regime_payload(
+            data=returns,
+            out_index=next(iter(regime_returns.values())).index,
+            returns_map=regime_returns,
+            risk_free=risk_free_series if risk_free_series is not None else 0.0,
+            config=getattr(config, "regime", {}) or {},
+            freq_code=frequency,
+            periods_per_year=period_ppy,
+        )
+        details["performance_by_regime"] = regime_payload.get("table", pd.DataFrame())
+        details["regime_labels"] = regime_payload.get("labels", pd.Series(dtype="string"))
+        details["regime_labels_out"] = regime_payload.get("out_labels", pd.Series(dtype="string"))
+        details["regime_notes"] = regime_payload.get("notes", [])
+        details["regime_settings"] = regime_payload.get("settings", {})
+        details["regime_summary"] = regime_payload.get("summary")
 
     # Surface a silent risk-weighting -> equal-weight fallback recorded by the
     # multi-period engine so the Results page banner fires (see
@@ -369,6 +413,25 @@ def _build_multi_period_portfolio(
         return None
 
     combined = pd.concat(out_series_list)
+    combined = combined[~combined.index.duplicated(keep="last")]
+    return combined.sort_index()
+
+
+def _combine_multi_period_series(
+    period_results: list[dict[str, Any]],
+    key: str,
+) -> pd.Series | None:
+    """Combine a named out-of-sample series across multi-period results."""
+
+    series = [
+        value.astype(float)
+        for result in period_results
+        if isinstance((value := result.get(key)), pd.Series) and not value.empty
+    ]
+    if not series:
+        return None
+
+    combined = pd.concat(series)
     combined = combined[~combined.index.duplicated(keep="last")]
     return combined.sort_index()
 
