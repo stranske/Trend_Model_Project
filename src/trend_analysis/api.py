@@ -43,7 +43,9 @@ from .pipeline_runner import _run_analysis_with_diagnostics
 from .regimes import build_regime_payload
 from .risk import periods_per_year_from_code
 from .stages.portfolio import calc_portfolio_returns
+from .timefreq import MONTHLY_DATE_FREQ
 from .util.hash import normalise_for_json as _normalise_for_json
+from .util.frequency import detect_frequency
 from .util.risk_free import resolve_risk_free_settings
 from .util.weights import normalize_weights
 from .weights.robust_config import weight_engine_params_from_robustness
@@ -258,11 +260,26 @@ def _run_multi_period_simulation(
                 break
         if period_ppy is None:
             period_ppy = float(periods_per_year_from_code(frequency))
+        regime_index = pd.DatetimeIndex(
+            pd.to_datetime(next(iter(regime_returns.values())).index, utc=True)
+        ).tz_localize(None)
+        regime_data = _prepare_multi_period_regime_data(returns, regime_index)
+        normalised_regime_returns = {
+            name: series.set_axis(
+                pd.DatetimeIndex(pd.to_datetime(series.index, utc=True)).tz_localize(None)
+            )
+            for name, series in regime_returns.items()
+        }
+        normalised_risk_free = risk_free_series
+        if risk_free_series is not None:
+            normalised_risk_free = risk_free_series.set_axis(
+                pd.DatetimeIndex(pd.to_datetime(risk_free_series.index, utc=True)).tz_localize(None)
+            )
         regime_payload = build_regime_payload(
-            data=returns,
-            out_index=next(iter(regime_returns.values())).index,
-            returns_map=regime_returns,
-            risk_free=risk_free_series if risk_free_series is not None else 0.0,
+            data=regime_data,
+            out_index=regime_index,
+            returns_map=normalised_regime_returns,
+            risk_free=normalised_risk_free if normalised_risk_free is not None else 0.0,
             config=getattr(config, "regime", {}) or {},
             freq_code=frequency,
             periods_per_year=period_ppy,
@@ -434,6 +451,27 @@ def _combine_multi_period_series(
     combined = pd.concat(series)
     combined = combined[~combined.index.duplicated(keep="last")]
     return combined.sort_index()
+
+
+def _prepare_multi_period_regime_data(
+    returns: pd.DataFrame,
+    out_index: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    """Align regime inputs with the multi-period engine's reporting calendar."""
+
+    prepared = returns.copy()
+    prepared["Date"] = pd.to_datetime(prepared["Date"], utc=True).dt.tz_localize(None)
+    prepared.sort_values("Date", inplace=True)
+    prepared = prepared.groupby("Date", as_index=False, sort=True).last()
+
+    if detect_frequency(prepared["Date"]).resampled and not detect_frequency(out_index).resampled:
+        value_columns = [column for column in prepared.columns if column != "Date"]
+        numeric = prepared[value_columns].apply(pd.to_numeric, errors="coerce")
+        numeric.index = pd.DatetimeIndex(prepared["Date"], name="Date")
+        monthly = (1 + numeric).resample(MONTHLY_DATE_FREQ).prod(min_count=1) - 1
+        prepared = monthly.reset_index()
+
+    return prepared
 
 
 def _build_combined_portfolio_series(
