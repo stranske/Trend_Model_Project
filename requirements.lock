@@ -155,7 +155,7 @@ ipywidgets==8.1.8
     # via
     #   trend-model (pyproject.toml)
     #   ipyfilechooser
-isort==8.0.1
+isort==9.0.1
     # via trend-model (pyproject.toml)
 itsdangerous==2.2.0
     # via streamlit
@@ -450,7 +450,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.7
+ruff==0.16.8
     # via trend-model (pyproject.toml)
 scipy==1.18.0
     # via trend-model (pyproject.toml)
