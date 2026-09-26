@@ -9,6 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 from trend_analysis.config import model as config_model
+from trend_analysis.config.models import load_config
 
 
 def test_resolve_path_prefers_base_directory(tmp_path: Path) -> None:
@@ -403,6 +404,52 @@ def test_portfolio_settings_rejects_out_of_range_values() -> None:
                 "cost_model": {"per_trade_bps": -1, "half_spread_bps": 0},
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("per_trade_bps", float("nan")),
+        ("per_trade_bps", float("inf")),
+        ("per_trade_bps", float("-inf")),
+        ("half_spread_bps", float("nan")),
+        ("half_spread_bps", float("inf")),
+        ("half_spread_bps", float("-inf")),
+    ],
+)
+def test_cost_model_rejects_non_finite_values(
+    tmp_path: Path,
+    field: str,
+    value: float,
+) -> None:
+    payload = _valid_config_payload(tmp_path)
+    payload["portfolio"]["cost_model"][field] = value
+
+    with pytest.raises(ValueError, match="must be finite"):
+        config_model.validate_trend_config(payload, base_path=tmp_path)
+
+    mapping_payload = {
+        "version": "1",
+        "data": {
+            "csv_path": str(tmp_path / "returns.csv"),
+            "date_column": "date",
+            "frequency": "D",
+        },
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
+        },
+        "vol_adjust": {
+            "target_vol": 0.2,
+            "floor_vol": 0.01,
+            "warmup_periods": 0,
+        },
+    }
+    mapping_payload["portfolio"]["cost_model"][field] = value
+
+    with pytest.raises(ValueError, match="must be finite"):
+        load_config(mapping_payload)
 
 
 def test_portfolio_settings_requires_calendar() -> None:

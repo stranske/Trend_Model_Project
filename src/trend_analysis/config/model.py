@@ -348,6 +348,8 @@ class CostModelSettings(BaseModel):
             parsed = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             raise ValueError(f"portfolio.cost_model.{info.field_name} must be numeric.") from exc
+        if not math.isfinite(parsed):
+            raise ValueError(f"portfolio.cost_model.{info.field_name} must be finite.")
         if parsed < 0:
             raise ValueError(f"portfolio.cost_model.{info.field_name} cannot be negative.")
         return parsed
