@@ -512,6 +512,8 @@ if _HAS_PYDANTIC:
                     parsed = float(cost_cfg[key])
                 except Exception as exc:  # pragma: no cover - defensive
                     raise ValueError(f"cost_model.{key} must be numeric") from exc
+                if not math.isfinite(parsed):
+                    raise ValueError(f"cost_model.{key} must be finite")
                 if parsed < 0:
                     raise ValueError(f"cost_model.{key} must be >= 0")
                 cost_cfg[key] = parsed
@@ -777,6 +779,8 @@ else:  # Fallback mode for tests without pydantic
                         parsed = float(cost_cfg[key])
                     except Exception as exc:  # pragma: no cover - defensive
                         raise ValueError(f"cost_model.{key} must be numeric") from exc
+                    if not math.isfinite(parsed):
+                        raise ValueError(f"cost_model.{key} must be finite")
                     if parsed < 0:
                         raise ValueError(f"cost_model.{key} must be >= 0")
                     cost_cfg[key] = parsed

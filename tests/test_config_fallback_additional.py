@@ -227,6 +227,95 @@ def test_load_rejects_removed_output_settings(monkeypatch: pytest.MonkeyPatch) -
         sys.modules.pop("tests.config_models_fallback_load", None)
 
 
+def _fallback_load_config_mapping() -> dict[str, Any]:
+    """Minimal mapping accepted by fallback ``load_config`` for cost_model guards."""
+
+    return {
+        "version": "1.0",
+        "data": {
+            "csv_path": "returns.csv",
+            "date_column": "date",
+            "frequency": "D",
+        },
+        "preprocessing": {},
+        "vol_adjust": {
+            "target_vol": 0.2,
+            "floor_vol": 0.01,
+            "warmup_periods": 0,
+        },
+        "sample_split": {},
+        "portfolio": {
+            "rebalance_calendar": "NYSE",
+            "max_turnover": 0.5,
+            "cost_model": {"per_trade_bps": 10, "half_spread_bps": 0},
+        },
+        "benchmarks": {},
+        "metrics": {},
+        "export": {},
+        "performance": {},
+        "run": {},
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("per_trade_bps", float("nan")),
+        ("per_trade_bps", float("inf")),
+        ("per_trade_bps", float("-inf")),
+        ("half_spread_bps", float("nan")),
+        ("half_spread_bps", float("inf")),
+        ("half_spread_bps", float("-inf")),
+    ],
+)
+def test_fallback_config_rejects_non_finite_cost_model_fields(
+    fallback_models: ModuleType,
+    field: str,
+    value: float,
+) -> None:
+    """``_FallbackConfig`` must reject non-finite cost_model basis-point values."""
+
+    Config = fallback_models.Config  # type: ignore[attr-defined]
+    cost_model = {"per_trade_bps": 10, "half_spread_bps": 0}
+    cost_model[field] = value
+
+    with pytest.raises(ValueError, match="must be finite"):
+        Config(
+            version="1.0",
+            portfolio={
+                "rebalance_calendar": "NYSE",
+                "max_turnover": 0.5,
+                "cost_model": cost_model,
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("per_trade_bps", float("nan")),
+        ("per_trade_bps", float("inf")),
+        ("per_trade_bps", float("-inf")),
+        ("half_spread_bps", float("nan")),
+        ("half_spread_bps", float("inf")),
+        ("half_spread_bps", float("-inf")),
+    ],
+)
+def test_fallback_load_config_rejects_non_finite_cost_model(
+    fallback_models: ModuleType,
+    field: str,
+    value: float,
+) -> None:
+    """Fallback ``load_config`` must surface the finite-value guard on both cost fields."""
+
+    load_config = fallback_models.load_config  # type: ignore[attr-defined]
+    payload = _fallback_load_config_mapping()
+    payload["portfolio"]["cost_model"][field] = value
+
+    with pytest.raises(ValueError, match="must be finite"):
+        load_config(payload)
+
+
 def test_load_without_pydantic_when_model_cached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
