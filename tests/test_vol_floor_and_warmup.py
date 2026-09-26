@@ -42,6 +42,19 @@ def test_infinite_floor_vol_is_rejected_before_scaling() -> None:
         config_model.RiskSettings.model_validate(
             {"target_vol": 0.1, "floor_vol": math.inf, "warmup_periods": 0}
         )
+    df = _constant_df()
+    with pytest.raises(ValueError, match="floor_vol must be finite"):
+        run_analysis(
+            df,
+            "2020-01",
+            "2020-03",
+            "2020-04",
+            "2020-06",
+            target_vol=0.10,
+            monthly_cost=0.0,
+            floor_vol=float("inf"),
+            **RUN_KWARGS,
+        )
 
 
 def test_floor_vol_limits_scaling() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -124,6 +125,8 @@ def _prepare_preprocess_stage(
         min_floor = float(floor_vol) if floor_vol is not None else 0.0
     except (TypeError, ValueError):  # pragma: no cover - defensive
         min_floor = 0.0
+    if floor_vol is not None and not math.isfinite(min_floor):
+        raise ValueError("floor_vol must be finite")
     if min_floor < 0:
         min_floor = 0.0
     try:
