@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from tests._pipeline_test_utils import run_analysis_payload as run_analysis
+from trend_analysis.config import model as config_model
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.risk import RiskWindow, _scale_factors, realised_volatility
 
@@ -27,6 +31,17 @@ def _constant_df(include_nan: bool = False) -> pd.DataFrame:
         # Introduce a NaN in the out-of-sample window for A.
         df.loc[df.index[4], "A"] = np.nan
     return df
+
+
+def test_infinite_floor_vol_is_rejected_before_scaling() -> None:
+    latest_vol = pd.Series({"A": 0.2, "B": 0.1})
+    silent_zero = _scale_factors(latest_vol, 0.10, floor_vol=float("inf"))
+    assert silent_zero["A"] == pytest.approx(0.0)
+    assert silent_zero["B"] == pytest.approx(0.0)
+    with pytest.raises(ValueError, match="must be finite"):
+        config_model.RiskSettings.model_validate(
+            {"target_vol": 0.1, "floor_vol": math.inf, "warmup_periods": 0}
+        )
 
 
 def test_floor_vol_limits_scaling() -> None:
