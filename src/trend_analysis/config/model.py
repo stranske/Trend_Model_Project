@@ -620,6 +620,8 @@ class RiskSettings(BaseModel):
             floor = float(value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             raise ValueError("vol_adjust.floor_vol must be numeric.") from exc
+        if not math.isfinite(floor):
+            raise ValueError("vol_adjust.floor_vol must be finite.")
         if floor < 0:
             raise ValueError("vol_adjust.floor_vol cannot be negative.")
         return floor

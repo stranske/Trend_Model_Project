@@ -492,6 +492,14 @@ def test_risk_settings_rejects_invalid_values() -> None:
         )
 
 
+def test_risk_settings_reject_non_finite_floor_vol() -> None:
+    for bad_floor in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="must be finite"):
+            config_model.RiskSettings.model_validate(
+                {"target_vol": 0.1, "floor_vol": bad_floor, "warmup_periods": 0}
+            )
+
+
 def test_resolve_config_path_uses_env_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
