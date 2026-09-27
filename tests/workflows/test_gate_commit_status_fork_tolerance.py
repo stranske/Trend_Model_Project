@@ -33,7 +33,13 @@ RUNNER_JS = textwrap.dedent("""
       return error;
     }
 
-    async function runCase({ headRepo, baseRepo, error, state }) {
+    async function runCase({
+      headRepo,
+      baseRepo,
+      error,
+      state,
+      description = 'all checks passed',
+    }) {
       const warnings = [];
       const summaryWrites = [];
       const summaryRaw = [];
@@ -53,7 +59,7 @@ RUNNER_JS = textwrap.dedent("""
         process: {
           env: {
             STATE: state,
-            DESCRIPTION: 'all checks passed',
+            DESCRIPTION: description,
             TARGET_URL: 'https://example.invalid/run',
           },
         },
@@ -101,6 +107,12 @@ RUNNER_JS = textwrap.dedent("""
         fork_read_only: await runCase({
           ...FORK,
           state: 'success',
+          error: makeError(403, 'Resource not accessible by integration'),
+        }),
+        fork_read_only_failure: await runCase({
+          ...FORK,
+          state: 'failure',
+          description: 'Python CI failed',
           error: makeError(403, 'Resource not accessible by integration'),
         }),
         deleted_fork_read_only: await runCase({
@@ -179,6 +191,21 @@ def test_fork_read_only_403_reports_the_real_verdict(outcomes: dict[str, Any]) -
     assert "headsha" in summary
     assert "success" in summary
     assert "all checks passed" in summary
+    assert not any("Rate limit" in item for item in case["warnings"])
+
+
+def test_fork_read_only_403_preserves_a_failure_verdict(
+    outcomes: dict[str, Any],
+) -> None:
+    case = outcomes["fork_read_only_failure"]
+    warning = " ".join(case["warnings"])
+    summary = " ".join(case["summaryRaw"])
+    assert case["threw"] is None
+    assert case["summaryWrites"] == 1
+    assert "'failure': Python CI failed" in warning
+    assert "headsha" in summary
+    assert "failure" in summary
+    assert "Python CI failed" in summary
 
 
 def test_deleted_fork_read_only_403_reports_the_verdict(
@@ -199,6 +226,9 @@ def test_rate_limit_403_keeps_its_own_path(outcomes: dict[str, Any]) -> None:
     case = outcomes["fork_rate_limit"]
     assert case["threw"] is None
     assert any("Rate limit" in warning for warning in case["warnings"])
+    assert not any("read-only" in warning for warning in case["warnings"])
+    assert case["summaryWrites"] == 0
+    assert case["summaryRaw"] == []
 
 
 def test_non_403_errors_still_fail_the_gate(outcomes: dict[str, Any]) -> None:
