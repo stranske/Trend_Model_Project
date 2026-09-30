@@ -234,7 +234,6 @@ class _LLMRuntimeMixin:
         return str(response)
 
 
-
 def _llm_model_name(llm: Any) -> str:
     return str(getattr(llm, "model", None) or getattr(llm, "model_name", None) or "")
 
@@ -256,6 +255,7 @@ def _rejects_forced_tool_use(llm: Any) -> bool:
     return model.startswith(
         ("claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1", "claude-mythos-5-1")
     )
+
 
 @dataclass(slots=True)
 class _BaseConfigPatchChain(_LLMRuntimeMixin):
