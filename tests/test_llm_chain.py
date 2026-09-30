@@ -293,6 +293,6 @@ def test_claude5_family_skips_temperature_and_forced_tool_structured_output() ->
     class ChatOpenAI:
         model = "gpt-4o-mini"
 
-    assert chain_mod._structured_output_kwargs(ChatAnthropic()) == {"method": "json_schema"}
-    assert chain_mod._structured_output_kwargs(ChatOpenAI()) == {}
+    assert chain_mod._rejects_forced_tool_use(ChatAnthropic())
+    assert not chain_mod._rejects_forced_tool_use(ChatOpenAI())
     assert chain_mod._llm_model_name(ChatAnthropic()) == "claude-sonnet-5-5"

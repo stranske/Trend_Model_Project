@@ -247,11 +247,15 @@ def _rejects_sampling_params(model: str) -> bool:
     )
 
 
-def _structured_output_kwargs(llm: Any) -> dict[str, str]:
-    """langchain-anthropic's default ``function_calling`` method forces ``tool_choice``, which
-    Claude Sonnet 5.5 / Opus 5.5 / Fable 5.1 reject; native ``json_schema`` works on every
-    current Claude model. Other providers keep their defaults."""
-    return {"method": "json_schema"} if type(llm).__name__ == "ChatAnthropic" else {}
+def _rejects_forced_tool_use(llm: Any) -> bool:
+    """langchain-anthropic's default ``with_structured_output`` forces ``tool_choice``, which
+    Claude Sonnet 5.5 / Opus 5.5 / Fable 5.1 reject with a 400. ``json_schema`` is not a safe
+    substitute (the SDK closes every object, emptying untyped ``dict`` fields), so these models
+    take the existing text-output fallback instead."""
+    model = _llm_model_name(llm).lower()
+    return model.startswith(
+        ("claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1", "claude-mythos-5-1")
+    )
 
 @dataclass(slots=True)
 class _BaseConfigPatchChain(_LLMRuntimeMixin):
@@ -362,12 +366,10 @@ class _BaseConfigPatchChain(_LLMRuntimeMixin):
                 return None
             if not supports:
                 return None
-        if not hasattr(base_llm, "with_structured_output"):
+        if not hasattr(base_llm, "with_structured_output") or _rejects_forced_tool_use(base_llm):
             return None
         try:
-            structured_llm = base_llm.with_structured_output(
-                schema, **_structured_output_kwargs(base_llm)
-            )
+            structured_llm = base_llm.with_structured_output(schema)
         except Exception as exc:
             logger.info("Structured output unavailable; falling back to text output: %s", exc)
             return None
