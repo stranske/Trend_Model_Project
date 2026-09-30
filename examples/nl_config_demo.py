@@ -31,7 +31,7 @@ def build_provider_configs() -> list[LLMProviderConfig]:
         ),
         LLMProviderConfig(
             provider="anthropic",
-            model=os.environ.get("TREND_ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            model=os.environ.get("TREND_ANTHROPIC_MODEL", "claude-sonnet-5-5"),
             api_key=os.environ.get("ANTHROPIC_API_KEY"),
         ),
     ]
@@ -109,7 +109,7 @@ def demo_patch_retry_workflow(logger: logging.Logger) -> None:
             1,
         ),
         (
-            LLMProviderConfig(provider="anthropic", model="claude-3-5-sonnet-20241022"),
+            LLMProviderConfig(provider="anthropic", model="claude-sonnet-5-5"),
             [
                 "not-json-response",
                 json.dumps(

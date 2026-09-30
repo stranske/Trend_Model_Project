@@ -277,3 +277,22 @@ def test_structured_output_invocation_count_three_when_fallback_retries() -> Non
         )
 
     assert llm.invocation_count == 3
+
+
+def test_claude5_family_skips_temperature_and_forced_tool_structured_output() -> None:
+    from trend_analysis.llm import chain as chain_mod
+
+    assert chain_mod._rejects_sampling_params("claude-sonnet-5-5")
+    assert chain_mod._rejects_sampling_params("claude-opus-5-5")
+    assert not chain_mod._rejects_sampling_params("gpt-4o-mini")
+    assert not chain_mod._rejects_sampling_params("claude-haiku-4-5")
+
+    class ChatAnthropic:  # the helper keys on the client class name
+        model = "claude-sonnet-5-5"
+
+    class ChatOpenAI:
+        model = "gpt-4o-mini"
+
+    assert chain_mod._structured_output_kwargs(ChatAnthropic()) == {"method": "json_schema"}
+    assert chain_mod._structured_output_kwargs(ChatOpenAI()) == {}
+    assert chain_mod._llm_model_name(ChatAnthropic()) == "claude-sonnet-5-5"

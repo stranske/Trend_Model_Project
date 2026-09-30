@@ -202,7 +202,9 @@ class _LLMRuntimeMixin:
     def _bind_llm_with(self, llm: Any) -> Any:
         if not hasattr(llm, "bind"):
             return llm
-        params: dict[str, Any] = {"temperature": self.temperature}
+        params: dict[str, Any] = {}
+        if not _rejects_sampling_params(self.model or _llm_model_name(llm)):
+            params["temperature"] = self.temperature
         if self.model is not None:
             params["model"] = self.model
         if self.max_tokens is not None:
@@ -231,6 +233,25 @@ class _LLMRuntimeMixin:
             return json.dumps(payload, ensure_ascii=True, default=str)
         return str(response)
 
+
+
+def _llm_model_name(llm: Any) -> str:
+    return str(getattr(llm, "model", None) or getattr(llm, "model_name", None) or "")
+
+
+def _rejects_sampling_params(model: str) -> bool:
+    """The always-thinking Claude 5 family returns a 400 for a custom ``temperature``."""
+    lowered = model.lower().strip()
+    return any(
+        lowered.startswith(f"claude-{family}-5") for family in ("opus", "sonnet", "haiku", "fable")
+    )
+
+
+def _structured_output_kwargs(llm: Any) -> dict[str, str]:
+    """langchain-anthropic's default ``function_calling`` method forces ``tool_choice``, which
+    Claude Sonnet 5.5 / Opus 5.5 / Fable 5.1 reject; native ``json_schema`` works on every
+    current Claude model. Other providers keep their defaults."""
+    return {"method": "json_schema"} if type(llm).__name__ == "ChatAnthropic" else {}
 
 @dataclass(slots=True)
 class _BaseConfigPatchChain(_LLMRuntimeMixin):
@@ -344,7 +365,9 @@ class _BaseConfigPatchChain(_LLMRuntimeMixin):
         if not hasattr(base_llm, "with_structured_output"):
             return None
         try:
-            structured_llm = base_llm.with_structured_output(schema)
+            structured_llm = base_llm.with_structured_output(
+                schema, **_structured_output_kwargs(base_llm)
+            )
         except Exception as exc:
             logger.info("Structured output unavailable; falling back to text output: %s", exc)
             return None
