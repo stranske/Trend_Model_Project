@@ -199,10 +199,18 @@ class _LLMRuntimeMixin:
     def _bind_llm(self) -> Any:
         return self._bind_llm_with(self.llm)
 
+    def _effective_model(self) -> str:
+        """The model a call will actually use: the explicit override, else the client's."""
+        return self.model or _llm_model_name(self.llm)
+
     def _bind_llm_with(self, llm: Any) -> Any:
         if not hasattr(llm, "bind"):
             return llm
-        params: dict[str, Any] = {"temperature": self.temperature}
+        params: dict[str, Any] = {}
+        # Resolve against the BASE client, not ``llm``: a ``with_structured_output`` wrapper
+        # carries no model name, which would otherwise re-enable temperature for Claude 5.
+        if not _rejects_sampling_params(self._effective_model()):
+            params["temperature"] = self.temperature
         if self.model is not None:
             params["model"] = self.model
         if self.max_tokens is not None:
@@ -230,6 +238,32 @@ class _LLMRuntimeMixin:
             payload = response.dict()
             return json.dumps(payload, ensure_ascii=True, default=str)
         return str(response)
+
+
+def _llm_model_name(llm: Any) -> str:
+    return str(getattr(llm, "model", None) or getattr(llm, "model_name", None) or "")
+
+
+def _rejects_sampling_params(model: str) -> bool:
+    """The always-thinking Claude 5 family returns a 400 for a custom ``temperature``."""
+    lowered = model.lower().strip()
+    return any(
+        lowered.startswith(f"claude-{family}-5") for family in ("opus", "sonnet", "haiku", "fable")
+    )
+
+
+def _rejects_forced_tool_use(model: str) -> bool:
+    """langchain-anthropic's default ``with_structured_output`` forces ``tool_choice``, which
+    Claude Sonnet 5.5 / Opus 5.5 / Fable 5.1 reject with a 400. ``json_schema`` is not a safe
+    substitute (the SDK closes every object, emptying untyped ``dict`` fields), so these models
+    take the existing text-output fallback instead."""
+    return (
+        model.lower()
+        .strip()
+        .startswith(
+            ("claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1", "claude-mythos-5-1")
+        )
+    )
 
 
 @dataclass(slots=True)
@@ -341,7 +375,9 @@ class _BaseConfigPatchChain(_LLMRuntimeMixin):
                 return None
             if not supports:
                 return None
-        if not hasattr(base_llm, "with_structured_output"):
+        if not hasattr(base_llm, "with_structured_output") or _rejects_forced_tool_use(
+            self._effective_model()
+        ):
             return None
         try:
             structured_llm = base_llm.with_structured_output(schema)

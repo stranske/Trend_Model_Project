@@ -277,3 +277,68 @@ def test_structured_output_invocation_count_three_when_fallback_retries() -> Non
         )
 
     assert llm.invocation_count == 3
+
+
+def test_claude5_family_skips_temperature_and_forced_tool_structured_output() -> None:
+    from trend_analysis.llm import chain as chain_mod
+
+    assert chain_mod._rejects_sampling_params("claude-sonnet-5-5")
+    assert chain_mod._rejects_sampling_params("claude-opus-5-5")
+    assert not chain_mod._rejects_sampling_params("gpt-4o-mini")
+    assert not chain_mod._rejects_sampling_params("claude-haiku-4-5")
+
+    class ChatAnthropic:  # the helper keys on the client class name
+        model = "claude-sonnet-5-5"
+
+    class ChatOpenAI:
+        model = "gpt-4o-mini"
+
+    assert chain_mod._rejects_forced_tool_use("claude-sonnet-5-5")
+    assert not chain_mod._rejects_forced_tool_use("claude-sonnet-5")
+    assert not chain_mod._rejects_forced_tool_use("gpt-4o-mini")
+    assert chain_mod._llm_model_name(ChatOpenAI()) == "gpt-4o-mini"
+    assert chain_mod._llm_model_name(ChatAnthropic()) == "claude-sonnet-5-5"
+
+
+class _NamedStructuredOutputLLM(_StructuredOutputLLM):
+    def __init__(self, *, model: str) -> None:
+        super().__init__(responses=[])
+        self.model = model
+
+
+def _chain_for(model: str, *, override: str | None = None) -> ConfigPatchChain:
+    return ConfigPatchChain(
+        llm=_NamedStructuredOutputLLM(model=model),
+        prompt_builder=build_config_patch_prompt,
+        schema={"type": "object"},
+        model=override,
+    )
+
+
+def test_forced_tool_rejecting_model_skips_structured_output_and_temperature() -> None:
+    chain = _chain_for("claude-sonnet-5-5")
+    assert chain._structured_output_llm_for(ConfigPatch) is None
+    assert chain.llm.structured_requests == 0
+    assert "temperature" not in chain._bind_llm().kwargs
+
+
+def test_structured_wrapper_does_not_reenable_temperature_for_claude5() -> None:
+    # claude-sonnet-5 accepts forced tool use but rejects temperature; the structured
+    # wrapper has no model name, so the check must resolve against the base client.
+    chain = _chain_for("claude-sonnet-5")
+    structured = chain._structured_output_llm_for(ConfigPatch)
+    assert structured is not None and chain.llm.structured_requests == 1
+    assert "temperature" not in structured.kwargs
+
+
+def test_model_override_drives_both_checks() -> None:
+    chain = _chain_for("claude-sonnet-4-6", override="claude-sonnet-5-5")
+    assert chain._structured_output_llm_for(ConfigPatch) is None
+    assert "temperature" not in chain._bind_llm().kwargs
+
+
+def test_non_claude5_model_keeps_temperature_and_structured_output() -> None:
+    chain = _chain_for("gpt-4o-mini")
+    structured = chain._structured_output_llm_for(ConfigPatch)
+    assert structured is not None
+    assert structured.kwargs["temperature"] == chain.temperature
