@@ -23,7 +23,7 @@ anyio==4.13.0
     #   starlette
     #   streamlit
     #   watchfiles
-ast-serialize==0.6.0
+ast-serialize==0.12.1
     # via mypy
 asttokens==3.0.1
     # via stack-data
@@ -32,7 +32,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.5.1
+black==26.10.0
     # via trend-model (pyproject.toml)
 blinker==1.9.0
     # via streamlit
@@ -58,7 +58,7 @@ comm==0.2.3
     # via ipywidgets
 contourpy==1.3.3
     # via matplotlib
-coverage==7.16.1
+coverage==7.16.2
     # via
     #   trend-model (pyproject.toml)
     #   pytest-cov
@@ -111,6 +111,8 @@ gitdb==4.0.12
     # via gitpython
 gitpython==3.1.46
     # via streamlit
+greenlet==3.5.6
+    # via sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -155,7 +157,7 @@ ipywidgets==8.1.8
     # via
     #   trend-model (pyproject.toml)
     #   ipyfilechooser
-isort==9.0.1
+isort==9.0.2
     # via trend-model (pyproject.toml)
 itsdangerous==2.2.0
     # via streamlit
@@ -236,7 +238,7 @@ langsmith==0.10.9
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.13.0
+librt==0.16.0
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -252,11 +254,12 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.3.1
+mypy==2.4.0
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
     #   black
+    #   isort
     #   mypy
     #   typing-inspect
 narwhals==2.20.0
@@ -450,7 +453,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.9
+ruff==0.16.10
     # via trend-model (pyproject.toml)
 scipy==1.18.0
     # via trend-model (pyproject.toml)
@@ -509,10 +512,8 @@ types-requests==2.33.0.20260518
     # via trend-model (pyproject.toml)
 typing-extensions==4.15.0
     # via
-    #   aiosignal
     #   altair
     #   anthropic
-    #   anyio
     #   fastapi
     #   langchain-core
     #   langchain-protocol
@@ -522,9 +523,7 @@ typing-extensions==4.15.0
     #   pandera
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
-    #   starlette
     #   streamlit
     #   typeguard
     #   typing-inspect
@@ -554,6 +553,8 @@ uvloop==0.22.1
     # via uvicorn
 virtualenv==21.2.4
     # via pre-commit
+watchdog==6.0.0
+    # via streamlit
 watchfiles==1.1.1
     # via uvicorn
 wcwidth==0.6.0
