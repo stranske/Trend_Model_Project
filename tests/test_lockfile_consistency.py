@@ -192,3 +192,15 @@ def test_deployment_lock_keeps_marker_free_consumer_format() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert all(";" not in requirement for requirement in requirements)
+
+
+def test_automated_lock_generation_matches_deployment_target() -> None:
+    """Both bot check and write paths must retain the same Linux lock scope."""
+    workflow = Path(".github/workflows/dependabot-auto-lock.yml").read_text()
+    commands = [
+        line.strip().split(" 2>&1", 1)[0]
+        for line in workflow.splitlines()
+        if line.strip().startswith("uv pip compile ")
+    ]
+    expected = " ".join(LOCK_COMPILE_COMMAND) + " --output-file "
+    assert commands == [expected + "requirements.check", expected + "requirements.lock"]

@@ -32,21 +32,27 @@ aware. That expansion is withdrawn instead of changing deployment parsers in
 this dependency repair. `make lock` and the forced check now explicitly target
 Linux, preserving the existing concrete, marker-free lock consumer contract.
 Every original package/version remains unchanged; only the command header and
-resolver provenance comments differ. The final forced check returns 0: six
+resolver provenance comments differ. The final forced check returns 0: seven
 passed, including a marker-free deployment-format regression. That regression
 deliberately failed against reviewed head
 `11f4375afe12a77755e399cb544e304c6a76f04c` before the correction. No skip flag was
-weakened. The Docker image itself has not been built locally.
+weakened. A second reviewer counterexample identified the repository-local
+Dependabot lock writer still using universal output. Both its check and write
+commands now use the same four-extra Linux scope. The new automated-generation
+regression failed against that existing workflow before this correction, then
+passed. This workflow path is absent from the Workflows sync manifest, so the
+change is repo-local, not an ad hoc edit of a centrally managed file.
+The Docker image itself has not been built locally.
 
 ## Reproducible receipt and limits
 
-Raw focused test output and full SHA256/length bindings for the five changed
+Raw focused test output and full SHA256/length bindings for the six changed
 metadata/test files are retained in the owning lane's immutable receipt:
-`20261011-6080-proof-v2.json`, SHA256
-`06f2eda6ed6afa7ef92d31bb9d0773cfcc1d54238e4300f088ed1f7a5ba298a9`.
+`20261011-6080-proof-v3.json`, SHA256
+`6201a5abcdbf59407885115b46fba246f52db76b3e4c1bc65eff476f802c1a78`.
 Its harness reads the original pyproject directly from the full base commit and
 demonstrates the same metadata predicate failing before and passing after,
-plus the reviewed/fixed marker-format RED/GREEN. The original v1 receipt is
+plus the reviewed/fixed marker-format RED/GREEN. The original v1/v2 receipts are
 retained as history, not reused to attest the corrected files.
 
 Tests use the existing Trend Python 3.12 environment, with coverage/pytest-cov
