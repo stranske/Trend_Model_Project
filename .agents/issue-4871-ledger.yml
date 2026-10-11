@@ -1,6 +1,6 @@
 version: 1
 issue: 4871
-base: phase-3
+base: main
 branch: codex/issue-4871
 tasks:
   - id: task-01
