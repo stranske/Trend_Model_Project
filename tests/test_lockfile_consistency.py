@@ -29,7 +29,8 @@ LOCK_COMPILE_COMMAND = [
     "notebooks",
     "--extra",
     "llm",
-    "--universal",
+    "--python-platform",
+    "linux",
 ]
 
 
@@ -96,7 +97,7 @@ def test_lockfile_up_to_date() -> None:
 
     assert compiled == existing, (
         "requirements.lock is out of date. Run "
-        "'make lock' to update it with all extras and universal platform markers."
+        "'make lock' to update it with all extras for the Linux deployment target."
     )
 
 
@@ -180,4 +181,14 @@ def test_lock_compile_command_matches_makefile() -> None:
     command = " ".join(LOCK_COMPILE_COMMAND) + " -o requirements.lock"
     assert "\t" + command in Path("Makefile").read_text()
     assert LOCK_COMPILE_COMMAND.count("--extra") == 4
-    assert "--universal" in LOCK_COMPILE_COMMAND
+    assert LOCK_COMPILE_COMMAND[-2:] == ["--python-platform", "linux"]
+
+
+def test_deployment_lock_keeps_marker_free_consumer_format() -> None:
+    """Docker freeze comparison and trend check require concrete Linux pins."""
+    requirements = [
+        line.strip()
+        for line in Path("requirements.lock").read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert all(";" not in requirement for requirement in requirements)
