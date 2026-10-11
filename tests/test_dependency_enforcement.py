@@ -277,6 +277,15 @@ def test_lockfile_is_present() -> None:
     ), "requirements.lock should be generated via 'make lock'"
 
 
+def test_hypothesis_is_dev_only_at_the_shared_pin() -> None:
+    """Property-based testing must not become an installed runtime requirement."""
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+    runtime = project.get("dependencies", [])
+    dev = project["optional-dependencies"]["dev"]
+    assert not any(_extract_requirement_name(dep) == "hypothesis" for dep in runtime)
+    assert "hypothesis==6.155.7" in dev
+
+
 def test_external_tools_are_documented() -> None:
     """Ensure external CLI tools used in tests are documented."""
     # Import from the module path

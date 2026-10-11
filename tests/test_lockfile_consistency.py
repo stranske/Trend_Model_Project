@@ -16,6 +16,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+LOCK_COMPILE_COMMAND = [
+    "uv",
+    "pip",
+    "compile",
+    "pyproject.toml",
+    "--extra",
+    "app",
+    "--extra",
+    "dev",
+    "--extra",
+    "notebooks",
+    "--extra",
+    "llm",
+    "--python-platform",
+    "linux",
+]
+
 
 def _normalize_lockfile_content(content: str) -> str:
     """Strip unstable comment lines and normalise the compile command.
@@ -67,7 +84,7 @@ def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
 
     result = subprocess.run(
-        ["uv", "pip", "compile", "pyproject.toml"],
+        [*LOCK_COMPILE_COMMAND, "--constraint", "requirements.lock"],
         capture_output=True,
         text=True,
         check=True,
@@ -80,7 +97,7 @@ def test_lockfile_up_to_date() -> None:
 
     assert compiled == existing, (
         "requirements.lock is out of date. Run "
-        "'uv pip compile pyproject.toml -o requirements.lock' to update it."
+        "'make lock' to update it with all extras for the Linux deployment target."
     )
 
 
@@ -152,8 +169,38 @@ pkg==1.0.0
         test_lockfile_up_to_date()
 
         mock_run.assert_called_once_with(
-            ["uv", "pip", "compile", "pyproject.toml"],
+            [*LOCK_COMPILE_COMMAND, "--constraint", "requirements.lock"],
             capture_output=True,
             text=True,
             check=True,
         )
+
+
+def test_lock_compile_command_matches_makefile() -> None:
+    """The forced check must resolve the same extras/platforms as generation."""
+    command = " ".join(LOCK_COMPILE_COMMAND) + " -o requirements.lock"
+    assert "\t" + command in Path("Makefile").read_text()
+    assert LOCK_COMPILE_COMMAND.count("--extra") == 4
+    assert LOCK_COMPILE_COMMAND[-2:] == ["--python-platform", "linux"]
+
+
+def test_deployment_lock_keeps_marker_free_consumer_format() -> None:
+    """Docker freeze comparison and trend check require concrete Linux pins."""
+    requirements = [
+        line.strip()
+        for line in Path("requirements.lock").read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert all(";" not in requirement for requirement in requirements)
+
+
+def test_automated_lock_generation_matches_deployment_target() -> None:
+    """Both bot check and write paths must retain the same Linux lock scope."""
+    workflow = Path(".github/workflows/dependabot-auto-lock.yml").read_text()
+    commands = [
+        line.strip().split(" 2>&1", 1)[0]
+        for line in workflow.splitlines()
+        if line.strip().startswith("uv pip compile ")
+    ]
+    expected = " ".join(LOCK_COMPILE_COMMAND) + " --output-file "
+    assert commands == [expected + "requirements.check", expected + "requirements.lock"]
