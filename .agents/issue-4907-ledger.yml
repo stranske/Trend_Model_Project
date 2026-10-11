@@ -1,6 +1,6 @@
 version: 1
 issue: 4907
-base: phase-3
+base: main
 branch: codex/issue-4907
 tasks:
   - id: task-01
