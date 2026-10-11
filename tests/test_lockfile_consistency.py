@@ -16,6 +16,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+LOCK_COMPILE_COMMAND = [
+    "uv",
+    "pip",
+    "compile",
+    "pyproject.toml",
+    "--extra",
+    "app",
+    "--extra",
+    "dev",
+    "--extra",
+    "notebooks",
+    "--extra",
+    "llm",
+    "--universal",
+]
+
 
 def _normalize_lockfile_content(content: str) -> str:
     """Strip unstable comment lines and normalise the compile command.
@@ -67,7 +83,7 @@ def test_lockfile_up_to_date() -> None:
     """Compare compiled dependencies with the committed lockfile."""
 
     result = subprocess.run(
-        ["uv", "pip", "compile", "pyproject.toml"],
+        [*LOCK_COMPILE_COMMAND, "--constraint", "requirements.lock"],
         capture_output=True,
         text=True,
         check=True,
@@ -80,7 +96,7 @@ def test_lockfile_up_to_date() -> None:
 
     assert compiled == existing, (
         "requirements.lock is out of date. Run "
-        "'uv pip compile pyproject.toml -o requirements.lock' to update it."
+        "'make lock' to update it with all extras and universal platform markers."
     )
 
 
@@ -152,8 +168,16 @@ pkg==1.0.0
         test_lockfile_up_to_date()
 
         mock_run.assert_called_once_with(
-            ["uv", "pip", "compile", "pyproject.toml"],
+            [*LOCK_COMPILE_COMMAND, "--constraint", "requirements.lock"],
             capture_output=True,
             text=True,
             check=True,
         )
+
+
+def test_lock_compile_command_matches_makefile() -> None:
+    """The forced check must resolve the same extras/platforms as generation."""
+    command = " ".join(LOCK_COMPILE_COMMAND) + " -o requirements.lock"
+    assert "\t" + command in Path("Makefile").read_text()
+    assert LOCK_COMPILE_COMMAND.count("--extra") == 4
+    assert "--universal" in LOCK_COMPILE_COMMAND
