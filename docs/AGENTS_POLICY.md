@@ -31,5 +31,24 @@ Health 45 Agents Guard enforces the protected `agents-*.yml` surface. Emergency
 bypasses require a maintainer, a dedicated PR, and restoration of the guard
 immediately after the change.
 
+## Mandatory check identity
+
+The repo-local `.github/config/required-contexts.json` declares `Gate / gate`
+and `guard` for delivery gating. Health 45 Agents Guard's unnamed `guard` job
+emits the latter check name; the workflow title is not a check-name prefix.
+The separate legacy commit status `Health 45 Agents Guard / guard` is not the
+job check. The obsolete `Health 45 Agents Guard / Enforce agents workflow
+protections` context must not be restored by the branch-protection helper's
+fallback defaults. This corrects identity, not the mandatory guard obligation.
+
+Run `python -m pytest --noconftest --no-cov tests/tools/test_required_guard_context.py`
+to check the declaration against the actual workflow job and its fail-on-block
+step. A successful guard satisfies the declared guard context; a failed guard
+must still block delivery even if Gate passes. Shared workflow changes belong
+in Workflows; this repair changes only local configuration and helper defaults.
+The declaration is desired policy, not proof that GitHub repository settings
+currently enforce it; inspect live branch protection and active rulesets
+separately before claiming repository-level enforcement.
+
 See [Repo Ops Facts - Agent Bootstrap](ops/codex-bootstrap-facts.md) for the
 operator entry point and shared-source boundary.
