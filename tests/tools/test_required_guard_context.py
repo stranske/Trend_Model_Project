@@ -15,7 +15,7 @@ def test_required_guard_context_matches_emitted_job_name() -> None:
     emitted_name = job.get("name", "guard")
     declared = load_required_contexts(ROOT / ".github/config/required-contexts.json")
     assert emitted_name == "guard"
-    assert declared == ["Gate / gate", emitted_name]
+    assert declared == ["Gate / gate", emitted_name, "Health 45 Agents Guard / guard"]
     assert list(DEFAULT_CONTEXTS) == declared
 
 
@@ -29,3 +29,19 @@ def test_guard_failure_still_fails_the_producer() -> None:
     assert "steps.evaluate.outputs.blocked == 'true'" in failure_step["if"]
     assert "exit 1" in failure_step["run"]
     assert not failure_step.get("continue-on-error", False)
+
+
+def test_label_change_guard_status_is_bound_to_pr_head() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
+    report = next(
+        step
+        for step in workflow["jobs"]["guard"]["steps"]
+        if step["name"] == "Report agents guard commit status"
+    )
+    script = report["with"]["script"]
+    assert "pullRequest?.head?.sha || context.sha" in script
+    assert "context: 'Health 45 Agents Guard / guard'" in script
+    assert "blocked ? 'failure' : 'success'" in script
+    assert "Health 45 Agents Guard / guard" in load_required_contexts(
+        ROOT / ".github/config/required-contexts.json"
+    )

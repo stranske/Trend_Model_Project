@@ -31,6 +31,7 @@ def resolve_api_root(explicit: str | None = None) -> str:
 DEFAULT_CONTEXTS = (
     "Gate / gate",
     "guard",
+    "Health 45 Agents Guard / guard",
 )
 
 DEFAULT_CONFIG_PATH = Path(".github/config/required-contexts.json")

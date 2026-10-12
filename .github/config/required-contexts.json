@@ -1,6 +1,7 @@
 {
   "required_contexts": [
     "Gate / gate",
-    "guard"
+    "guard",
+    "Health 45 Agents Guard / guard"
   ]
 }

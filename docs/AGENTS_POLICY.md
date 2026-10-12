@@ -34,17 +34,25 @@ immediately after the change.
 ## Mandatory check identity
 
 The repo-local `.github/config/required-contexts.json` declares `Gate / gate`
-and `guard` for delivery gating. Health 45 Agents Guard's unnamed `guard` job
+and both `guard` and `Health 45 Agents Guard / guard` for delivery gating.
+Health 45 Agents Guard's unnamed `guard` job
 emits the latter check name; the workflow title is not a check-name prefix.
-The separate legacy commit status `Health 45 Agents Guard / guard` is not the
-job check. The obsolete `Health 45 Agents Guard / Enforce agents workflow
+The separate legacy commit status `Health 45 Agents Guard / guard` is published
+to the PR head, including label-triggered `pull_request_target` runs whose job
+check belongs to the base SHA. Require both: a stale successful job must not
+override a failed head status, and a successful status must not hide a failed
+job. The obsolete `Health 45 Agents Guard / Enforce agents workflow
 protections` context must not be restored by the branch-protection helper's
 fallback defaults. This corrects identity, not the mandatory guard obligation.
 
 Run `python -m pytest --noconftest --no-cov tests/tools/test_required_guard_context.py`
 to check the declaration against the actual workflow job and its fail-on-block
-step. A successful guard satisfies the declared guard context; a failed guard
-must still block delivery even if Gate passes. Shared workflow changes belong
+step and label-event head-status binding. Both guard results must pass; a failed
+guard result must still block delivery even if Gate passes. A missing head
+status is not success: the current shared workflow emits that status only for
+eligible agent events. A never-started status on an unlabeled delivery must be
+routed through the shared workflow owner, not removed from this declaration or
+replaced with the stale job result. Shared workflow changes belong
 in Workflows; this repair changes only local configuration and helper defaults.
 The declaration is desired policy, not proof that GitHub repository settings
 currently enforce it; inspect live branch protection and active rulesets

@@ -726,6 +726,7 @@ def test_main_apply_with_no_clean_keeps_existing_contexts(
         "contexts": [
             "Gate / gate",
             "guard",
+            "Health 45 Agents Guard / guard",
             "Legacy",
         ],
         "strict": True,
@@ -759,6 +760,7 @@ def test_main_snapshot_records_no_clean_flag(
         assert contexts == [
             "Gate / gate",
             "guard",
+            "Health 45 Agents Guard / guard",
             "Legacy",
         ]
         return StatusCheckState(strict=True, contexts=contexts)
@@ -794,6 +796,7 @@ def test_main_snapshot_records_no_clean_flag(
         "contexts": [
             "Gate / gate",
             "guard",
+            "Health 45 Agents Guard / guard",
             "Legacy",
         ],
     }
