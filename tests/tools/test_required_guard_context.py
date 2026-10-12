@@ -3,10 +3,20 @@
 from pathlib import Path
 
 import yaml
+import pytest
 
-from tools.enforce_gate_branch_protection import DEFAULT_CONTEXTS, load_required_contexts
+from tools.enforce_gate_branch_protection import DEFAULT_CONTEXTS, load_required_contexts, main
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_cli_context_help_matches_required_guard_names(capsys) -> None:
+    with pytest.raises(SystemExit) as stopped:
+        main(["--help"])
+    assert stopped.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "'Gate / gate', 'guard', and 'Health 45 Agents Guard / guard'" in help_text
+    assert "Enforce agents workflow protections" not in help_text
 
 
 def test_required_guard_context_matches_emitted_job_name() -> None:

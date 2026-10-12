@@ -58,5 +58,14 @@ The declaration is desired policy, not proof that GitHub repository settings
 currently enforce it; inspect live branch protection and active rulesets
 separately before claiming repository-level enforcement.
 
+The cross-repository outcome regression is committed here without vendoring
+shared implementation. Run `node tests/tools/required_guard_outcomes.cjs
+/absolute/Workflows/.github/scripts/sync_pr_merge_contract.js` against an
+authenticated immutable Workflows checkout and retain its full commit/hash.
+It fails if that source or the declaration is missing, and exercises nine real
+classifier outcomes (both pass, plus either guard result independently failing,
+cancelled, timed out, or action required). It is an explicit maintenance check,
+not part of this consumer's ordinary Python CI and not a whole-source verdict.
+
 See [Repo Ops Facts - Agent Bootstrap](ops/codex-bootstrap-facts.md) for the
 operator entry point and shared-source boundary.

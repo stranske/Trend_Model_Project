@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the default branch requires the Gate and Health 45 Agents Guard workflows."""
+"""Require Gate, the guard job, and its PR-head status (including label events)."""
 
 from __future__ import annotations
 
@@ -248,7 +248,7 @@ def _fetch_ruleset_status_checks(
 
     Example return values:
         - None: No rulesets found, or no rulesets apply to the branch, or no status checks required.
-        - StatusCheckState(strict=False, contexts=['Gate / gate', 'Health 45 Agents Guard / Enforce agents workflow protections']):
+        - StatusCheckState(strict=False, contexts=['Gate / gate', 'guard', 'Health 45 Agents Guard / guard']):
             Required status checks found for the branch, with strict mode disabled.
         - StatusCheckState(strict=True, contexts=['ci/test', 'lint']):
             Required status checks found for the branch, with strict mode enabled.
@@ -638,7 +638,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate' and 'Health 45 Agents Guard / Enforce agents workflow protections'."
+            " 'Gate / gate', 'guard', and 'Health 45 Agents Guard / guard'."
         ),
     )
     parser.add_argument(
