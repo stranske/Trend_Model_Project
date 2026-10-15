@@ -512,10 +512,8 @@ types-requests==2.33.0.20260518
     # via trend-model (pyproject.toml)
 typing-extensions==4.15.0
     # via
-    #   aiosignal
     #   altair
     #   anthropic
-    #   anyio
     #   fastapi
     #   langchain-core
     #   langchain-protocol
@@ -525,9 +523,7 @@ typing-extensions==4.15.0
     #   pandera
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
-    #   starlette
     #   streamlit
     #   typeguard
     #   typing-inspect
