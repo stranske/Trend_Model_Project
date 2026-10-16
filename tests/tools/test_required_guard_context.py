@@ -49,9 +49,13 @@ def test_label_change_guard_status_is_bound_to_pr_head() -> None:
         if step["name"] == "Report agents guard commit status"
     )
     script = report["with"]["script"]
-    assert "pullRequest?.head?.sha || context.sha" in script
+    assert "const sha = pullRequest?.head?.sha;" in script
+    assert "if (!sha)" in script
+    assert "PR head SHA unavailable; cannot publish authoritative guard result." in script
+    assert "pullRequest?.head?.sha || context.sha" not in script
     assert "context: 'Health 45 Agents Guard / guard'" in script
-    assert "blocked ? 'failure' : 'success'" in script
+    assert "let state = passed ? 'success' : 'failure';" in script
+    assert "(safelySkipped || evaluated) && !blocked" in script
     assert "Health 45 Agents Guard / guard" in load_required_contexts(
         ROOT / ".github/config/required-contexts.json"
     )
