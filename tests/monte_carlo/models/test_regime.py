@@ -81,6 +81,55 @@ def test_regime_labeler_validates_inputs() -> None:
         RegimeLabeler(proxy_column="Proxy", lookback=0)
 
 
+@pytest.mark.parametrize(
+    "index",
+    [pd.date_range("2024-01-01", periods=4), pd.RangeIndex(4)],
+    ids=["dated", "integer"],
+)
+def test_transition_matrix_counts_adjacent_transitions(index: pd.Index) -> None:
+    labeler = RegimeLabeler(proxy_column="Proxy")
+    labeler._labels = pd.Series(["calm", "stress", "calm", "stress"], index=index)
+
+    matrix = labeler.get_transition_matrix()
+
+    assert list(matrix.index) == ["calm", "stress"]
+    assert list(matrix.columns) == ["calm", "stress"]
+    np.testing.assert_array_equal(matrix.to_numpy(), [[0.0, 1.0], [1.0, 0.0]])
+
+
+def test_transition_matrix_terminal_regime_defaults_to_self() -> None:
+    labeler = RegimeLabeler(proxy_column="Proxy")
+    labeler._labels = pd.Series(["calm", "stress"])
+
+    matrix = labeler.get_transition_matrix()
+
+    assert list(matrix.index) == ["calm", "stress"]
+    assert list(matrix.columns) == ["calm", "stress"]
+    np.testing.assert_array_equal(matrix.to_numpy(), [[0.0, 1.0], [0.0, 1.0]])
+
+
+def test_fitted_regime_model_switches_regimes_within_path() -> None:
+    # With lookback=1, alternating magnitudes produce alternating calm/stress labels.
+    proxy_returns = np.concatenate([[0.0], np.tile([0.001, -0.04], 20)])
+    index = pd.date_range("2024-01-01", periods=len(proxy_returns), freq="D")
+    prices = _prices_from_log_returns(proxy_returns[:, None], index, ["Proxy"])
+    model = RegimeConditionedBootstrapModel(
+        mean_block_len=3,
+        frequency="D",
+        regime_proxy_column="Proxy",
+        threshold_percentile=50,
+        lookback=1,
+    ).fit(prices)
+
+    result = model.sample_prices(n_periods=12, n_paths=10, seed=123)
+
+    # Observe sampled returns, so a fallback or an unused fitted matrix cannot pass.
+    sampled_proxy = result.log_returns.xs("Proxy", level=1, axis=1).to_numpy()
+    stress = np.abs(sampled_proxy) > 0.02
+    assert np.any(stress[1:] != stress[:-1]), "no within-path regime switches"
+    np.testing.assert_array_equal(stress[1:], ~stress[:-1])
+
+
 def test_transition_matrix_rows_sum_to_one() -> None:
     rng = np.random.default_rng(4)
     n_obs = 80
@@ -114,6 +163,7 @@ def test_transition_matrix_single_regime_defaults_to_self() -> None:
 
     assert matrix.shape == (1, 1)
     assert float(matrix.iloc[0, 0]) == pytest.approx(1.0)
+    np.testing.assert_array_equal(matrix.to_numpy(), [[1.0]])
 
 
 def test_normalize_transition_matrix_handles_empty_rows() -> None:

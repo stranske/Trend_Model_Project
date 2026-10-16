@@ -248,6 +248,46 @@ def test_runner_two_layer_small_scenario() -> None:
     assert path_hashes.max() == 1
 
 
+@pytest.mark.parametrize("mode", ["two_layer", "mixture"])
+def test_runner_regime_conditioned_paths_switch_regimes(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    scenario = _scenario(mode)
+    # Use the runner's existing schema; return-model schema changes are separate work.
+    scenario.return_model = {
+        "kind": "regime_conditioned",
+        "params": {
+            "regime_proxy_column": "Proxy",
+            "threshold_percentile": 50,
+            "lookback": 1,
+            "mean_block_len": 3,
+        },
+    }
+    dates = pd.date_range("2020-01-31", periods=48, freq="ME")
+    proxy_returns = np.tile([0.001, -0.04], len(dates) // 2)
+    prices = _price_history().assign(Proxy=100.0 * np.exp(np.cumsum(proxy_returns)))
+    runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=prices)
+    seen_regimes: dict[int, np.ndarray] = {}
+    original = runner._evaluate_strategy
+
+    def _record_regimes(
+        strategy: StrategyVariant, context: runner_module._PathContext
+    ) -> StrategyEvaluation:
+        # Inspect real generated prices at the strategy boundary without replacing sampling.
+        proxy = context.prices["Proxy"]
+        sampled_returns = np.log(proxy / proxy.shift(1)).dropna().to_numpy()
+        seen_regimes[context.path_id] = np.abs(sampled_returns) > 0.02
+        return original(strategy, context)
+
+    monkeypatch.setattr(runner, "_evaluate_strategy", _record_regimes)
+
+    results = runner.run(jobs=1)
+
+    assert not results.errors
+    assert len(seen_regimes) == scenario.monte_carlo.n_paths
+    assert all(np.any(stress[1:] != stress[:-1]) for stress in seen_regimes.values())
+
+
 def test_two_layer_strategies_share_path_prices(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

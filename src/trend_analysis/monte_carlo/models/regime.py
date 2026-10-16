@@ -114,8 +114,10 @@ class RegimeLabeler:
         if not regimes:
             regimes = list(unique)
 
-        current = labels.iloc[:-1]
-        nxt = labels.iloc[1:]
+        # Fresh indexes pair adjacent observations rather than aligning their dates.
+        label_values = labels.to_numpy()
+        current = pd.Series(label_values[:-1])
+        nxt = pd.Series(label_values[1:])
         counts = pd.crosstab(current, nxt).reindex(index=regimes, columns=regimes, fill_value=0)
         matrix = counts.astype(float)
         for regime in regimes:
