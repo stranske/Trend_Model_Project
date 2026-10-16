@@ -319,12 +319,7 @@ def test_external_tools_are_documented() -> None:
                 tree = ast.parse(content)
                 for node in ast.walk(tree):
                     # Look for string literals in subprocess calls
-                    if isinstance(node, ast.Str) and isinstance(node.s, str):
-                        # Check if it's a common CLI tool
-                        for tool in ["node", "npm", "uv", "git", "docker"]:
-                            if tool in node.s.lower():
-                                used_commands.add(tool)
-                    elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str):
                         for tool in ["node", "npm", "uv", "git", "docker"]:
                             if tool in node.value.lower():
                                 used_commands.add(tool)

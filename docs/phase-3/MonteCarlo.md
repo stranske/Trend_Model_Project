@@ -235,6 +235,7 @@ Adds a regime process for better drawdown realism.
 **Concept:**
 1. Classify historical periods into regimes (e.g., calm vs stress)
 2. Estimate regime transition probabilities
+   Transitions are counted between adjacent observations.
 3. Simulate a regime path forward
 4. Bootstrap blocks **from matching regime buckets**
 
