@@ -32,7 +32,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.10.0
+black==26.10.1
     # via trend-model (pyproject.toml)
 blinker==1.9.0
     # via streamlit
@@ -453,7 +453,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.10
+ruff==0.17.0
     # via trend-model (pyproject.toml)
 scipy==1.18.0
     # via trend-model (pyproject.toml)
@@ -512,10 +512,8 @@ types-requests==2.33.0.20260518
     # via trend-model (pyproject.toml)
 typing-extensions==4.15.0
     # via
-    #   aiosignal
     #   altair
     #   anthropic
-    #   anyio
     #   fastapi
     #   langchain-core
     #   langchain-protocol
@@ -525,9 +523,7 @@ typing-extensions==4.15.0
     #   pandera
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
-    #   starlette
     #   streamlit
     #   typeguard
     #   typing-inspect
