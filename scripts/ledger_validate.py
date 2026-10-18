@@ -11,30 +11,101 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
+
+try:
+    from scripts.belt_ledger_completion import duplicate_artifact_errors
+except ModuleNotFoundError:  # direct ``python scripts/ledger_validate.py`` execution
+    from belt_ledger_completion import (  # type: ignore[import-not-found, no-redef, unused-ignore]
+        duplicate_artifact_errors,
+    )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():  # ensure local package import works before editable install
     sys.path.insert(0, str(SRC_ROOT))
 
-from trend_analysis.util.paths import proj_path  # noqa: E402
+try:  # pragma: no cover - exercised in worker runtime, mocked in tests
+    from utils.paths import proj_path  # type: ignore[import-not-found, unused-ignore]  # noqa: E402
+except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
 
-VALID_STATUSES = {"todo", "doing", "done"}
+    def proj_path() -> Path:  # type: ignore[no-redef, unused-ignore]
+        return REPO_ROOT
+
+
+VALID_STATUSES = {"todo", "doing", "done", "blocked", "deferred"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_SHALLOW_CACHE: bool | None = None
+
+# Caches to avoid redundant git subprocess calls for the same commit.
+_COMMIT_FILES_CACHE: dict[str, list[str]] = {}
+_COMMIT_SUBJECT_CACHE: dict[str, str] = {}
+_COMMIT_FETCH_CACHE: dict[str, bool] = {}  # SHA -> fetch succeeded
+
+
+def _is_shallow_repo() -> bool:
+    global _SHALLOW_CACHE
+    if _SHALLOW_CACHE is not None:
+        return _SHALLOW_CACHE
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        _SHALLOW_CACHE = False
+        return _SHALLOW_CACHE
+    _SHALLOW_CACHE = output.lower() == "true"
+    return _SHALLOW_CACHE
+
+
+def _allow_missing_commit() -> bool:
+    if os.environ.get("LEDGER_VALIDATE_STRICT") == "1":
+        return False
+    if os.environ.get("LEDGER_VALIDATE_ALLOW_SHALLOW") == "1":
+        return True
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return False
+    if _is_shallow_repo():
+        return True
+    # Allow missing commits on pull_request workflows where the fork/head history
+    # may be incomplete or inaccessible to the runner token.
+    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+    return event_name in {"pull_request", "pull_request_target"}
+
+
+def _strict_completion_evidence() -> bool:
+    """Whether historical task completion evidence is a hard validation gate."""
+    return os.environ.get("LEDGER_VALIDATE_COMPLETION_EVIDENCE") == "1"
+
+
+def _strict_completion_task_id() -> str | None:
+    """Return the task whose current transition requires strict evidence."""
+    value = (os.environ.get("LEDGER_VALIDATE_COMPLETION_TASK_ID") or "").strip()
+    return value or None
+
+
+def _warn_skip_commit(commit: str, reason: str) -> None:
+    print(
+        f"Skipping commit validation for {commit}: {reason}",
+        file=sys.stderr,
+    )
 
 
 class LedgerError(Exception):
     """Collect validation errors for reporting."""
 
-    def __init__(self, message: str, *, context: Optional[str] = None) -> None:
+    def __init__(self, message: str, *, context: str | None = None) -> None:
         super().__init__(message)
         self.context = context
 
@@ -53,8 +124,8 @@ def _ensure_type(value: Any, expected: type, *, allow_none: bool = False) -> boo
     return isinstance(value, expected)
 
 
-def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
-    errors: List[str] = []
+def _validate_timestamp(value: Any, *, field: str, path: str) -> list[str]:
+    errors: list[str] = []
     if value is None:
         return errors
     if not isinstance(value, str):
@@ -70,114 +141,328 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
     return errors
 
 
+def _pull_request_head_repo_url() -> str | None:
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+    try:
+        with open(event_path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    pull_request = payload.get("pull_request")
+    if not isinstance(pull_request, dict):
+        return None
+    head = pull_request.get("head")
+    if not isinstance(head, dict):
+        return None
+    repo = head.get("repo")
+    if not isinstance(repo, dict):
+        return None
+    clone_url = repo.get("clone_url") or repo.get("git_url") or repo.get("ssh_url")
+    if not isinstance(clone_url, str) or not clone_url.strip():
+        full_name = repo.get("full_name")
+        if isinstance(full_name, str) and full_name.strip():
+            server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+            clone_url = f"{server}/{full_name}.git"
+        else:
+            return None
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        clone_url = _with_auth_token(clone_url, token)
+    return clone_url
+
+
+def _git_cat_file_type(commit: str) -> str | None:
+    """Raw git operation: get object type for a commit."""
+    try:
+        return subprocess.check_output(
+            ["git", "cat-file", "-t", commit],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None
+
+
+def _commit_exists_locally(commit: str) -> bool:
+    """Fast check whether *commit* is known to the local object store."""
+    kind = _git_cat_file_type(commit)
+    return kind == "commit"
+
+
+def _git_cat_file_batch_check(shas: list[str]) -> list[str] | None:
+    """Raw git operation: batch check object types."""
+    try:
+        proc = subprocess.run(
+            ["git", "cat-file", "--batch-check"],
+            input="\n".join(shas) + "\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        return proc.stdout.splitlines()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+
+
+def _bulk_check_commits(shas: Iterable[str]) -> dict[str, bool]:
+    """Batch-check which SHAs exist locally using `git cat-file --batch-check`."""
+    unique = sorted(set(shas))
+    if not unique:
+        return {}
+    output_lines = _git_cat_file_batch_check(unique)
+    if output_lines is None:
+        return dict.fromkeys(unique, False)
+    # Map original input SHAs to results (handle abbreviated SHA -> full SHA expansion)
+    # git cat-file --batch-check outputs lines in the same order as input
+    results: dict[str, bool] = {}
+    for original_sha, line in zip(unique, output_lines, strict=False):
+        parts = line.split()
+        if len(parts) >= 2:
+            # Use original_sha as key (not parts[0] which may be expanded)
+            results[original_sha] = parts[1] == "commit"
+        else:
+            results[original_sha] = False
+    # Handle any SHAs that didn't get a response line
+    for sha in unique:
+        results.setdefault(sha, False)
+    return results
+
+
+def _prefetch_commits(ledgers: list[Path]) -> None:
+    """Collect all unique commit SHAs from ledgers and pre-fetch missing ones.
+
+    This avoids O(tasks) individual `git show` + `_fetch_commit` invocations
+    by doing a single bulk existence check followed by one fetch per unique
+    missing commit.
+    """
+    all_shas: set[str] = set()
+    for path in ledgers:
+        try:
+            data = _load_yaml(path)
+        except LedgerError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list):
+            continue
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            commit = task.get("commit", "")
+            if isinstance(commit, str) and HEX_RE.match(commit.lower()):
+                all_shas.add(commit)
+
+    if not all_shas:
+        return
+
+    # Bulk-check which commits are already available locally.
+    presence = _bulk_check_commits(all_shas)
+    missing = [sha for sha, exists in presence.items() if not exists]
+    if not missing:
+        return
+
+    # Fetch all missing commits in as few operations as possible.
+    for sha in missing:
+        _fetch_commit(sha)
+
+
 def _fetch_commit(commit: str) -> bool:
     """Ensure *commit* exists locally, fetching extra history if needed."""
+    if commit in _COMMIT_FETCH_CACHE:
+        return _COMMIT_FETCH_CACHE[commit]
 
-    fetch_attempts = [
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "origin",
-            commit,
-        ],
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "--deepen",
-            "256",
-            "origin",
-        ],
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "--unshallow",
-            "origin",
-        ],
-    ]
-
-    for command in fetch_attempts:
-        try:
-            subprocess.check_call(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            continue
-
-        if command[-1] == commit:
-            return True
-
-        # Success without specifying the SHA just deepened the local clone;
-        # try once more to pull the exact commit while the additional history
-        # is available.
-        try:
-            subprocess.check_call(
-                [
-                    "git",
-                    "fetch",
-                    "--no-tags",
-                    "--filter=blob:none",
-                    "origin",
-                    commit,
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            continue
+    # Quick local check first — avoid network calls entirely.
+    if _commit_exists_locally(commit):
+        _COMMIT_FETCH_CACHE[commit] = True
         return True
 
+    fetch_targets = ["origin"]
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    if repo:
+        server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+        base_url = f"{server}/{repo}.git"
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            base_url = _with_auth_token(base_url, token)
+        if base_url not in fetch_targets:
+            fetch_targets.append(base_url)
+    pr_head_url = _pull_request_head_repo_url()
+    if pr_head_url and pr_head_url not in fetch_targets:
+        fetch_targets.append(pr_head_url)
+
+    for target in fetch_targets:
+        fetch_attempts = [
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                target,
+                commit,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                "--deepen",
+                "256",
+                target,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                "--unshallow",
+                target,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                target,
+                commit,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                target,
+            ],
+        ]
+
+        for command in fetch_attempts:
+            try:
+                subprocess.check_call(
+                    command,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except subprocess.CalledProcessError:
+                continue
+
+            if command[-1] == commit:
+                _COMMIT_FETCH_CACHE[commit] = True
+                return True
+
+            # Success without specifying the SHA just deepened the local clone;
+            # try once more to pull the exact commit while the additional history
+            # is available.
+            try:
+                subprocess.check_call(
+                    [
+                        "git",
+                        "fetch",
+                        "--no-tags",
+                        "--filter=blob:none",
+                        target,
+                        commit,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except subprocess.CalledProcessError:
+                continue
+            _COMMIT_FETCH_CACHE[commit] = True
+            return True
+
+    _COMMIT_FETCH_CACHE[commit] = False
     return False
 
 
-def _commit_files(commit: str) -> List[str]:
+def _with_auth_token(base_url: str, token: str) -> str:
+    """Embed a GitHub token into https URLs without logging it."""
+    split = urlsplit(base_url)
+    if split.scheme not in {"http", "https"} or not split.netloc:
+        return base_url
+    if "@" in split.netloc:
+        return base_url
+    authed_netloc = f"x-access-token:{token}@{split.netloc}"
+    return urlunsplit((split.scheme, authed_netloc, split.path, split.query, split.fragment))
+
+
+def _git_show_files(commit: str) -> list[str]:
+    """Raw git operation: get files changed by a commit."""
     try:
         output = subprocess.check_output(
-            ["git", "show", "--pretty=format:", "--name-only", commit],
-            text=True,
+            [
+                "git",
+                "show",
+                "--pretty=format:",
+                "--name-only",
+                "--diff-merges=first-parent",
+                "-z",
+                commit,
+            ],
         )
     except subprocess.CalledProcessError as exc:
+        raise LedgerError(f"unknown commit {commit}") from exc
+    if isinstance(output, str):
+        # Keep compatibility with text-returning callers and test doubles while
+        # the real command uses NUL-delimited bytes for unusual file names.
+        return [line for line in (line.strip() for line in output.splitlines()) if line]
+    return [path.decode("utf-8", "surrogateescape") for path in output.split(b"\0") if path]
+
+
+def _commit_files(commit: str) -> list[str]:
+    # Check cache first
+    if commit in _COMMIT_FILES_CACHE:
+        return _COMMIT_FILES_CACHE[commit]
+
+    # Try to get files directly
+    try:
+        files = _git_show_files(commit)
+        _COMMIT_FILES_CACHE[commit] = files
+        return files
+    except LedgerError as exc:
+        # Commit not found locally, try to fetch it
         if _fetch_commit(commit):
-            output = subprocess.check_output(
-                ["git", "show", "--pretty=format:", "--name-only", commit],
-                text=True,
-            )
-        else:
-            raise LedgerError(f"unknown commit {commit}") from exc
-
-    stripped_lines = (line.strip() for line in output.splitlines())
-    files = [line for line in stripped_lines if line]
-    return files
+            files = _git_show_files(commit)
+            _COMMIT_FILES_CACHE[commit] = files
+            return files
+        raise LedgerError(f"unknown commit {commit}") from exc
 
 
-def _commit_subject(commit: str) -> str:
+def _git_show_subject(commit: str) -> str:
+    """Raw git operation: get commit subject."""
     try:
         output = subprocess.check_output(
             ["git", "show", "--no-patch", "--pretty=format:%s", commit],
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        if _fetch_commit(commit):
-            output = subprocess.check_output(
-                ["git", "show", "--no-patch", "--pretty=format:%s", commit],
-                text=True,
-            )
-        else:
-            raise LedgerError(f"unknown commit {commit}") from exc
+        raise LedgerError(f"unknown commit {commit}") from exc
     return output.strip()
 
 
+def _commit_subject(commit: str) -> str:
+    # Check cache first
+    if commit in _COMMIT_SUBJECT_CACHE:
+        return _COMMIT_SUBJECT_CACHE[commit]
+
+    # Try to get subject directly
+    try:
+        subject = _git_show_subject(commit)
+        _COMMIT_SUBJECT_CACHE[commit] = subject
+        return subject
+    except LedgerError as exc:
+        # Commit not found locally, try to fetch it
+        if _fetch_commit(commit):
+            subject = _git_show_subject(commit)
+            _COMMIT_SUBJECT_CACHE[commit] = subject
+            return subject
+        raise LedgerError(f"unknown commit {commit}") from exc
+
+
 def _validate_task(
-    task: Dict[str, Any], *, index: int, seen_ids: set[str], ledger_path: Path
-) -> List[str]:
-    errors: List[str] = []
+    task: dict[str, Any], *, index: int, seen_ids: set[str], ledger_path: Path
+) -> list[str]:
+    errors: list[str] = []
     context = f"tasks[{index}]"
 
     task_id = task.get("id")
@@ -222,6 +507,9 @@ def _validate_task(
                 try:
                     files = _commit_files(commit)
                 except LedgerError as exc:
+                    if _allow_missing_commit():
+                        _warn_skip_commit(commit, str(exc))
+                        return errors
                     errors.append(
                         f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
                     )
@@ -247,13 +535,21 @@ def _validate_task(
                             try:
                                 subject = _commit_subject(commit)
                             except LedgerError as exc:
+                                if _allow_missing_commit():
+                                    _warn_skip_commit(commit, str(exc))
+                                    return errors
                                 errors.append(
                                     f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
                                 )
                                 subject = ""
 
+                            strict_task_id = _strict_completion_task_id()
+                            strict_for_task = _strict_completion_evidence() and (
+                                strict_task_id is None or task_id == strict_task_id
+                            )
                             if (
-                                extra_files
+                                strict_for_task
+                                or extra_files
                                 or ledger_relative not in files
                                 or not subject.lower().startswith("chore(ledger):")
                             ):
@@ -266,14 +562,14 @@ def _validate_task(
 
     if status != "done" and task.get("finished_at"):
         errors.append(f"{context}.finished_at must be null unless status is done")
-    if status == "todo" and task.get("started_at"):
-        errors.append(f"{context}.started_at must be null when status is todo")
+    if status in ("todo", "deferred") and task.get("started_at"):
+        errors.append(f"{context}.started_at must be null when status is {status}")
 
     return errors
 
 
-def validate_ledger(path: Path) -> List[str]:
-    problems: List[str] = []
+def validate_ledger(path: Path) -> list[str]:
+    problems: list[str] = []
     data = _load_yaml(path)
     if not isinstance(data, dict):
         return [f"{path}: top-level document must be a mapping"]
@@ -312,10 +608,19 @@ def validate_ledger(path: Path) -> List[str]:
     if doing_count > 1:
         problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
 
+    if _strict_completion_evidence():
+        problems.extend(
+            duplicate_artifact_errors(
+                tasks,
+                repo_root=Path.cwd(),
+                target_task_id=_strict_completion_task_id(),
+            )
+        )
+
     return problems
 
 
-def find_ledgers(explicit: Iterable[str]) -> List[Path]:
+def find_ledgers(explicit: Iterable[str]) -> list[Path]:
     if explicit:
         return [Path(item) for item in explicit]
     root = proj_path()
@@ -325,7 +630,7 @@ def find_ledgers(explicit: Iterable[str]) -> List[Path]:
     return sorted(agents_dir.glob("issue-*-ledger.yml"))
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Codex ledger files")
     parser.add_argument(
         "paths",
@@ -341,7 +646,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     ledgers = find_ledgers(args.paths)
-    results: Dict[str, List[str]] = {}
+
+    # Pre-fetch all unique commits in bulk when commit reachability is a hard
+    # requirement. PR/manual Gate runs can tolerate unreachable historical
+    # commits, so fetching every stale SHA only slows the job and adds noise.
+    if not _allow_missing_commit():
+        _prefetch_commits(ledgers)
+
+    results: dict[str, list[str]] = {}
     for path in ledgers:
         problems = validate_ledger(path)
         if problems:
@@ -352,7 +664,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         if not ledgers:
             print("No ledger files found.")
-        for ledger_key, problems in results.items():
+        for ledger_key, problems in results.items():  # noqa: B007
             for problem in problems:
                 print(problem, file=sys.stderr)
         if not results and ledgers:
@@ -362,8 +674,5 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 1 if results else 0
 
 
-if __name__ == "__main__":
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__)
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     raise SystemExit(main())
