@@ -334,7 +334,9 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
     if kind == "fixed":
         unexpected = set(spec) - {"kind", "value", "clip_min", "clip_max"}
         if unexpected:
-            raise ValueError(f"fixed distribution has unsupported key(s): {sorted(unexpected)}")
+            raise ValueError(
+                f"fixed distribution has unsupported key(s): {sorted(str(key) for key in unexpected)}"
+            )
         if "value" not in spec:
             raise ValueError("fixed distribution must define value")
         value = _coerce_float(spec["value"], "value")
@@ -343,7 +345,9 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
     if kind == "normal":
         unexpected = set(spec) - {"kind", "mean", "std", "clip_min", "clip_max"}
         if unexpected:
-            raise ValueError(f"normal distribution has unsupported key(s): {sorted(unexpected)}")
+            raise ValueError(
+                f"normal distribution has unsupported key(s): {sorted(str(key) for key in unexpected)}"
+            )
         mean = _coerce_float(spec.get("mean", 0.0), "mean")
         std = _coerce_float(spec.get("std", 0.0), "std", minimum=0.0)
         return NormalCostDistribution(
@@ -364,7 +368,9 @@ def _parse_distribution(spec: Any, *, regime: str) -> CostDistribution:
             "clip_max",
         }
         if unexpected:
-            raise ValueError(f"lognormal distribution has unsupported key(s): {sorted(unexpected)}")
+            raise ValueError(
+                f"lognormal distribution has unsupported key(s): {sorted(str(key) for key in unexpected)}"
+            )
         mean = _coerce_float(spec.get("mean", 0.0), "mean", minimum=0.0)
         sigma = _coerce_float(spec.get("sigma", 1.0), "sigma", minimum=0.0)
         if "log_mean" in spec:

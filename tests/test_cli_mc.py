@@ -572,6 +572,15 @@ def test_mc_run_dry_run_applies_overrides_before_validation(
             "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: fixed, value: 1}\n    slippage_multiplier: .nan",
             "slippage_multiplier must be finite",
         ),
+        *[
+            pytest.param(
+                "kind: regime_stochastic\n  calm:\n    trade_cost_bps: "
+                f"{{kind: {kind}, 7: 1, other: 2}}",
+                f"{kind} distribution has unsupported key(s)",
+                id=f"mixed-keys-{kind}",
+            )
+            for kind in ("fixed", "normal", "lognormal")
+        ],
     ],
 )
 @pytest.mark.parametrize("command", [("validate",), ("run", "--dry-run")])
