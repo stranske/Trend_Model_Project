@@ -64,6 +64,7 @@ from trend_analysis.pipeline_helpers import (
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
+from trend_analysis.stages.portfolio import _compute_stats
 from trend_analysis.stages.selection import single_period_run
 
 from .aggregator import aggregate_monte_carlo_results
@@ -672,11 +673,48 @@ class MonteCarloRunner:
         strategy_seed = self._strategy_seed(context.path_id, strategy.name)
         config = self._build_strategy_config(strategy, strategy_seed, context)
         self._apply_regime_turnover_caps(config, context)
+        if self._get_cost_process() is not None:
+            # Scenario trading costs replace the engine's base trading-cost debit.
+            # Sample against actual turnover, then debit the portfolio once below.
+            config.portfolio["cost_model"] = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
+            config.run["monthly_cost"] = 0.0
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_portfolio_metrics(run_result)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
+        gross_returns = self._resolve_nav_return_series(run_result)
+        net_returns = None
         if cost_payload is not None:
-            metrics = dict(metrics)
+            if isinstance(gross_returns, pd.Series) and not gross_returns.empty:
+                # The engine portfolio also includes calibration/in-sample returns.
+                # Evaluate costs and performance on the sampled out-of-sample dates.
+                debits = cost_payload.transaction_costs
+                gross_returns = gross_returns.reindex(debits.index)
+                if gross_returns.isna().any() or debits.isna().any():
+                    raise ValueError("Scenario cost dates do not match portfolio returns")
+                net_returns = gross_returns.astype(float) - debits
+                details = run_result.details
+                risk_free = details.get("risk_free_out_sample")
+                if not isinstance(risk_free, pd.Series):
+                    path_returns = context.returns
+                    if "Date" in path_returns.columns:
+                        path_returns = path_returns.set_index("Date")
+                    risk_free = resolve_risk_free_source(path_returns, config).risk_free
+                if isinstance(risk_free, pd.Series):
+                    risk_free = risk_free.reindex(net_returns.index)
+                else:
+                    risk_free = pd.Series(float(risk_free), index=net_returns.index)
+                net_stats = _compute_stats(
+                    net_returns.to_frame("net"),
+                    risk_free,
+                    periods_per_year=float(
+                        details.get("periods_per_year")
+                        or periods_per_year_from_code(config.data.get("frequency"))
+                    ),
+                )["net"]
+                metrics = self._stats_to_metrics(net_stats)
+                source = "scenario_cost_net"
+            else:
+                metrics = dict(metrics)
             metrics["total_cost_drag"] = float(cost_payload.total_cost_drag)
         if (
             not metrics
@@ -720,10 +758,13 @@ class MonteCarloRunner:
         if cost_payload is not None:
             if diagnostic is None:
                 diagnostic = {}
-            diagnostic["costs"] = self._cost_payload_dict(cost_payload)
+            diagnostic["costs"] = dict(self._cost_payload_dict(cost_payload))
+            if net_returns is not None:
+                diagnostic["costs"]["gross_returns"] = gross_returns
+                diagnostic["costs"]["net_returns"] = net_returns
         nav_series = None
         try:
-            nav_series = self._extract_nav_series(run_result, context)
+            nav_series = self._extract_nav_series(run_result, context, returns=net_returns)
         except Exception as exc:
             self._logger.debug(
                 "Failed to extract NAV series for path %s (%s): %s",
@@ -1744,8 +1785,11 @@ class MonteCarloRunner:
         self,
         run_result: Any,
         context: _PathContext,
+        *,
+        returns: pd.Series | None = None,
     ) -> pd.Series | None:
-        returns = self._resolve_nav_return_series(run_result)
+        if returns is None:
+            returns = self._resolve_nav_return_series(run_result)
         if not isinstance(returns, pd.Series) or returns.empty:
             return None
         returns = returns.astype(float)

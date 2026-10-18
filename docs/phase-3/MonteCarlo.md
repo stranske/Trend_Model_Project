@@ -403,6 +403,17 @@ costs:
 - Optional slippage multiplier
 - Applied to portfolio turnover
 
+Scenario costs replace `portfolio.cost_model` and `run.monthly_cost` trading
+costs for Monte Carlo evaluations; the engine receives zero base trading costs.
+The sampled per-date debit (`turnover * cost_bps / 10000 * slippage_multiplier`)
+is subtracted once from the actual portfolio return series on the evaluated
+out-of-sample dates (excluding calibration returns). Canonical portfolio
+statistics (including CAGR, Sharpe and drawdown) and exported NAV both use that
+net series. NAV keeps its established first-value-1.0 normalization. The cost
+diagnostics retain gross returns, net returns, per-date debits and
+`total_cost_drag` (the sum of the applied debits) for reconciliation. With no
+scenario cost process, base trading-cost behavior is unchanged.
+
 ## Rejected legacy cost shapes
 
 The parser rejects nested `costs.regimes`, `distribution` and `dist` aliases,
