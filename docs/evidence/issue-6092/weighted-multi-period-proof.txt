@@ -1,0 +1,157 @@
+Real run_simulation, unequal weights, single-period and 3-month out-sample multi-period windows. Every run requires two nonempty evaluations and no path errors.
+Restored source SHA256 a840b2001631c8e89fa351d7040d710b6257db8fc6d43ce352393aca7f480c40
+
+user-weight actual disconnect RED exit1
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+___ test_net_nav_preserves_actual_weighted_returns_between_rebalances[False] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122db9b20>
+multi_period = False
+
+    @pytest.mark.parametrize("multi_period", [False, True])
+    def test_net_nav_preserves_actual_weighted_returns_between_rebalances(monkeypatch, multi_period):
+        actual_runs = []
+        real_run = runner_module.run_simulation
+    
+        def capture_real_run(*args, **kwargs):
+            result = real_run(*args, **kwargs)
+            actual_runs.append(result)
+            return result
+    
+        monkeypatch.setattr(runner_module, "run_simulation", capture_real_run)
+        result = _real_net_cost_run(100.0, multi_period=multi_period, custom_weights=True)
+        assert len(actual_runs) == 2
+        for evaluation, actual in zip(result.evaluations, actual_runs, strict=True):
+            expected_gross = (
+                actual.portfolio if multi_period else actual.details["portfolio_user_weight"]
+            )
+            costs = evaluation.diagnostic["costs"]
+>           pd.testing.assert_series_equal(costs["gross_returns"], expected_gross)
+E           AssertionError: Series are different
+E           
+E           Series length are different
+E           [left]:  24, DatetimeIndex(['2022-01-31', '2022-02-28', '2022-03-31', '2022-04-30',
+E                          '2022-05-31', '2022-06-30', '2022-07-31', '2022-08-31',
+E                          '2022-09-30', '2022-10-31', '2022-11-30', '2022-12-31',
+E                          '2023-01-31', '2023-02-28', '2023-03-31', '2023-04-30',
+E                          '2023-05-31', '2023-06-30', '2023-07-31', '2023-08-31',
+E                          '2023-09-30', '2023-10-31', '2023-11-30', '2023-12-31'],
+E                         dtype='datetime64[us]', freq='ME')
+E           [right]: 10, DatetimeIndex(['2023-03-31', '2023-04-30', '2023-05-31', '2023-06-30',
+E                          '2023-07-31', '2023-08-31', '2023-09-30', '2023-10-31',
+E                          '2023-11-30', '2023-12-31'],
+E                         dtype='datetime64[us]', freq='ME')
+
+tests/monte_carlo/test_costs.py:610: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  trend_analysis.monte_carlo:runner.py:1525 CASH injection skipped: gate=false (metrics.rf_override_enabled=False)
+=============================== warnings summary ===============================
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:880: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "User": out_user.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:881: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "Equal-Weight": out_ew.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/analysis/results.py:86: UserWarning: data file missing: /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/data/Trend Universe Data.csv
+    warnings.warn(message, UserWarning)
+
+tests/monte_carlo/test_costs.py: 14 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/multi_period/engine.py:766: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    prepared = df.astype(float, copy=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/monte_carlo/test_costs.py::test_net_nav_preserves_actual_weighted_returns_between_rebalances[False]
+1 failed, 1 passed, 27 deselected, 62 warnings in 1.15s
+
+between-rebalances actual disconnect RED exit1
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+___ test_net_nav_preserves_actual_weighted_returns_between_rebalances[True] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x123c40470>
+multi_period = True
+
+    @pytest.mark.parametrize("multi_period", [False, True])
+    def test_net_nav_preserves_actual_weighted_returns_between_rebalances(monkeypatch, multi_period):
+        actual_runs = []
+        real_run = runner_module.run_simulation
+    
+        def capture_real_run(*args, **kwargs):
+            result = real_run(*args, **kwargs)
+            actual_runs.append(result)
+            return result
+    
+        monkeypatch.setattr(runner_module, "run_simulation", capture_real_run)
+        result = _real_net_cost_run(100.0, multi_period=multi_period, custom_weights=True)
+        assert len(actual_runs) == 2
+        for evaluation, actual in zip(result.evaluations, actual_runs, strict=True):
+            expected_gross = (
+                actual.portfolio if multi_period else actual.details["portfolio_user_weight"]
+            )
+            costs = evaluation.diagnostic["costs"]
+>           pd.testing.assert_series_equal(costs["gross_returns"], expected_gross)
+E           AssertionError: Series are different
+E           
+E           Series length are different
+E           [left]:  7, DatetimeIndex(['2022-04-30', '2022-07-31', '2022-10-31', '2023-01-31',
+E                          '2023-04-30', '2023-07-31', '2023-10-31'],
+E                         dtype='datetime64[us]', name='period', freq=None)
+E           [right]: 21, DatetimeIndex(['2022-04-30', '2022-05-31', '2022-06-30', '2022-07-31',
+E                          '2022-08-31', '2022-09-30', '2022-10-31', '2022-11-30',
+E                          '2022-12-31', '2023-01-31', '2023-02-28', '2023-03-31',
+E                          '2023-04-30', '2023-05-31', '2023-06-30', '2023-07-31',
+E                          '2023-08-31', '2023-09-30', '2023-10-31', '2023-11-30',
+E                          '2023-12-31'],
+E                         dtype='datetime64[us]', freq='ME')
+
+tests/monte_carlo/test_costs.py:610: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  trend_analysis.monte_carlo:runner.py:1526 CASH injection skipped: gate=false (metrics.rf_override_enabled=False)
+=============================== warnings summary ===============================
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:880: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "User": out_user.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:881: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "Equal-Weight": out_ew.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/analysis/results.py:86: UserWarning: data file missing: /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/data/Trend Universe Data.csv
+    warnings.warn(message, UserWarning)
+
+tests/monte_carlo/test_costs.py: 14 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/multi_period/engine.py:766: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    prepared = df.astype(float, copy=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/monte_carlo/test_costs.py::test_net_nav_preserves_actual_weighted_returns_between_rebalances[True]
+1 failed, 1 passed, 27 deselected, 62 warnings in 1.04s
+
+Exact-byte restore GREEN exit0
+..                                                                       [100%]
+=============================== warnings summary ===============================
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:880: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "User": out_user.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/stages/portfolio.py:881: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "Equal-Weight": out_ew.astype(float, copy=False),
+
+tests/monte_carlo/test_costs.py: 16 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/analysis/results.py:86: UserWarning: data file missing: /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/data/Trend Universe Data.csv
+    warnings.warn(message, UserWarning)
+
+tests/monte_carlo/test_costs.py: 14 warnings
+  /Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Trend_Model_Project-6092/src/trend_analysis/multi_period/engine.py:766: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    prepared = df.astype(float, copy=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 27 deselected, 62 warnings in 0.97s

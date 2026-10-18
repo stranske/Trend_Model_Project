@@ -64,6 +64,7 @@ from trend_analysis.pipeline_helpers import (
 from trend_analysis.regime_utils import alias_regime_key, normalize_regime_key
 from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
+from trend_analysis.stages.portfolio import _compute_stats
 from trend_analysis.stages.selection import single_period_run
 
 from .aggregator import aggregate_monte_carlo_results
@@ -672,11 +673,67 @@ class MonteCarloRunner:
         strategy_seed = self._strategy_seed(context.path_id, strategy.name)
         config = self._build_strategy_config(strategy, strategy_seed, context)
         self._apply_regime_turnover_caps(config, context)
+        if self._get_cost_process() is not None:
+            # Scenario trading costs replace the engine's base trading-cost debit.
+            # Sample against actual turnover, then debit the portfolio once below.
+            config.portfolio["cost_model"] = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
+            config.run["monthly_cost"] = 0.0
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_portfolio_metrics(run_result)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
+        gross_returns = self._resolve_nav_return_series(run_result, prefer_user=True)
+        net_returns = None
         if cost_payload is not None:
-            metrics = dict(metrics)
+            if isinstance(gross_returns, pd.Series) and not gross_returns.empty:
+                # Multi-period costs are sparse rebalance debits. Preserve every
+                # evaluated user-weighted return, charging zero on other dates.
+                sampled_debits = cost_payload.transaction_costs.copy()
+                if isinstance(gross_returns.index, pd.DatetimeIndex):
+                    sampled_debits.index = pd.DatetimeIndex(pd.to_datetime(sampled_debits.index))
+                if not sampled_debits.index.isin(gross_returns.index).all():
+                    raise ValueError("Scenario cost dates do not match portfolio returns")
+                debits = sampled_debits.reindex(gross_returns.index, fill_value=0.0)
+                if gross_returns.isna().any() or debits.isna().any():
+                    raise ValueError("Scenario costs or portfolio returns contain missing values")
+                net_returns = gross_returns.astype(float) - debits
+                details = run_result.details
+                risk_free = details.get("risk_free_out_sample")
+                if not isinstance(risk_free, pd.Series):
+                    periods = details.get("period_results") or []
+                    period_rf = [
+                        entry["risk_free_out_sample"]
+                        for entry in periods
+                        if isinstance(entry, Mapping)
+                        and isinstance(entry.get("risk_free_out_sample"), pd.Series)
+                    ]
+                    if period_rf:
+                        risk_free = pd.concat(period_rf)
+                        risk_free = risk_free[~risk_free.index.duplicated(keep="last")]
+                    else:
+                        path_returns = context.returns
+                        dates = path_returns.index
+                        if "Date" in path_returns.columns:
+                            dates = pd.DatetimeIndex(path_returns["Date"])
+                            path_returns = path_returns.reset_index(drop=True)
+                        risk_free = resolve_risk_free_source(path_returns, config).risk_free
+                        if isinstance(risk_free, pd.Series):
+                            risk_free = pd.Series(risk_free.to_numpy(), index=dates)
+                if isinstance(risk_free, pd.Series):
+                    risk_free = risk_free.reindex(net_returns.index)
+                else:
+                    risk_free = pd.Series(float(risk_free), index=net_returns.index)
+                net_stats = _compute_stats(
+                    net_returns.to_frame("net"),
+                    risk_free,
+                    periods_per_year=float(
+                        details.get("periods_per_year")
+                        or periods_per_year_from_code(config.data.get("frequency"))
+                    ),
+                )["net"]
+                metrics = self._stats_to_metrics(net_stats)
+                source = "scenario_cost_net"
+            else:
+                metrics = dict(metrics)
             metrics["total_cost_drag"] = float(cost_payload.total_cost_drag)
         if (
             not metrics
@@ -720,10 +777,14 @@ class MonteCarloRunner:
         if cost_payload is not None:
             if diagnostic is None:
                 diagnostic = {}
-            diagnostic["costs"] = self._cost_payload_dict(cost_payload)
+            diagnostic["costs"] = dict(self._cost_payload_dict(cost_payload))
+            if net_returns is not None:
+                diagnostic["costs"]["gross_returns"] = gross_returns
+                diagnostic["costs"]["net_returns"] = net_returns
+                diagnostic["costs"]["applied_debits"] = debits
         nav_series = None
         try:
-            nav_series = self._extract_nav_series(run_result, context)
+            nav_series = self._extract_nav_series(run_result, context, returns=net_returns)
         except Exception as exc:
             self._logger.debug(
                 "Failed to extract NAV series for path %s (%s): %s",
@@ -1690,7 +1751,17 @@ class MonteCarloRunner:
             return float(turnover_value)
         return None
 
-    def _resolve_nav_return_series(self, run_result: Any) -> pd.Series | None:
+    def _resolve_nav_return_series(
+        self, run_result: Any, *, prefer_user: bool = False
+    ) -> pd.Series | None:
+        details = getattr(run_result, "details", None)
+        if prefer_user and isinstance(details, Mapping):
+            # Structured single-period Results.portfolio may be equal-weighted.
+            # Its explicit out-of-sample user stream owns scenario accounting.
+            for key in ("portfolio_user_weight", "portfolio_user_weight_combined"):
+                candidate = details.get(key)
+                if isinstance(candidate, pd.Series) and not candidate.empty:
+                    return candidate
         portfolio_attr = getattr(run_result, "portfolio", None)
         if isinstance(portfolio_attr, pd.Series):
             return portfolio_attr
@@ -1744,8 +1815,11 @@ class MonteCarloRunner:
         self,
         run_result: Any,
         context: _PathContext,
+        *,
+        returns: pd.Series | None = None,
     ) -> pd.Series | None:
-        returns = self._resolve_nav_return_series(run_result)
+        if returns is None:
+            returns = self._resolve_nav_return_series(run_result)
         if not isinstance(returns, pd.Series) or returns.empty:
             return None
         returns = returns.astype(float)
