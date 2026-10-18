@@ -12,7 +12,7 @@ import numbers
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, cast
 
 from trend.mc.viz import TrendCLIError
 from trend_analysis.config import format_validation_messages, validate_config
@@ -348,7 +348,8 @@ def _apply_overrides(scenario: MonteCarloScenario, args: argparse.Namespace) -> 
 def validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
     errors: list[str] = []
     try:
-        CostProcess.from_config(scenario.costs)
+        # Scenario normalization removes its construction-only missing sentinel.
+        CostProcess.from_config(cast(Mapping[str, Any] | None, scenario.costs))
     except ValueError as exc:
         errors.append(f"costs: {exc}")
     try:
