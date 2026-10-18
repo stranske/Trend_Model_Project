@@ -483,7 +483,13 @@ def test_scenario_data_and_metrics_overrides_merge_into_base_config() -> None:
 
 
 def _real_net_cost_run(
-    bps: float, *, jobs: int = 1, base_bps: float = 0.0, monthly_cost: float = 0.0
+    bps: float,
+    *,
+    jobs: int = 1,
+    base_bps: float = 0.0,
+    monthly_cost: float = 0.0,
+    multi_period: bool = False,
+    custom_weights: bool = False,
 ):
     scenario = MonteCarloScenario(
         name="net_cost_accounting",
@@ -507,9 +513,17 @@ def _real_net_cost_run(
     config = _base_config()
     config["portfolio"]["cost_model"] = {"per_trade_bps": base_bps, "half_spread_bps": base_bps}
     config["run"]["monthly_cost"] = monthly_cost
-    result = MonteCarloRunner(scenario, base_config=config, price_history=_price_history()).run(
-        jobs=jobs
-    )
+    history = _price_history()
+    if multi_period:
+        config["multi_period"] = {"frequency": "M", "in_sample_len": 3, "out_sample_len": 3}
+    if custom_weights:
+        config["portfolio"]["custom_weights"] = {"AssetA": 80.0, "AssetB": 20.0}
+        config["data"]["risk_free_column"] = "RF"
+        history["RF"] = 100.0
+        history["AssetB"] = 100.0 * np.cumprod(
+            1.0 + np.resize([0.03, -0.01, 0.02, -0.02], len(history))
+        )
+    result = MonteCarloRunner(scenario, base_config=config, price_history=history).run(jobs=jobs)
     assert not result.errors, result.errors
     assert len(result.evaluations) == 2
     assert len(result.results_frame) == 2
@@ -573,3 +587,43 @@ def test_net_nav_costs_are_identical_in_serial_and_parallel() -> None:
         serial.metadata["nav_paths"].sort_index(axis=1),
         parallel.metadata["nav_paths"].sort_index(axis=1),
     )
+
+
+@pytest.mark.parametrize("multi_period", [False, True])
+def test_net_nav_preserves_actual_weighted_returns_between_rebalances(monkeypatch, multi_period):
+    actual_runs = []
+    real_run = runner_module.run_simulation
+
+    def capture_real_run(*args, **kwargs):
+        result = real_run(*args, **kwargs)
+        actual_runs.append(result)
+        return result
+
+    monkeypatch.setattr(runner_module, "run_simulation", capture_real_run)
+    result = _real_net_cost_run(100.0, multi_period=multi_period, custom_weights=True)
+    assert len(actual_runs) == 2
+    for evaluation, actual in zip(result.evaluations, actual_runs, strict=True):
+        expected_gross = (
+            actual.portfolio if multi_period else actual.details["portfolio_user_weight"]
+        )
+        costs = evaluation.diagnostic["costs"]
+        pd.testing.assert_series_equal(costs["gross_returns"], expected_gross)
+        debits = costs["applied_debits"]
+        assert debits.index.equals(expected_gross.index)
+        assert debits.sum() == pytest.approx(evaluation.metrics["total_cost_drag"])
+        if multi_period:
+            assert len(expected_gross) > len(costs["transaction_costs"])
+            assert (debits == 0).any()
+            pd.testing.assert_series_equal(
+                costs["net_returns"][debits == 0], expected_gross[debits == 0]
+            )
+        else:
+            assert not np.allclose(expected_gross, actual.portfolio.reindex(expected_gross.index))
+        net = expected_gross - debits
+        pd.testing.assert_series_equal(costs["net_returns"], net)
+        expected_nav = (1.0 + net).cumprod()
+        expected_nav = expected_nav / expected_nav.iloc[0]
+        pd.testing.assert_series_equal(evaluation.nav_series, expected_nav.rename("NAV"))
+        assert evaluation.metrics["cagr"] == pytest.approx(
+            float((1 + net).prod() ** (12 / len(net)) - 1)
+        )

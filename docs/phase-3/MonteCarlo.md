@@ -411,7 +411,10 @@ out-of-sample dates (excluding calibration returns). Canonical portfolio
 statistics (including CAGR, Sharpe and drawdown) and exported NAV both use that
 net series. NAV keeps its established first-value-1.0 normalization. The cost
 diagnostics retain gross returns, net returns, per-date debits and
-`total_cost_drag` (the sum of the applied debits) for reconciliation. With no
+`applied_debits` aligned to every portfolio date, and `total_cost_drag` (the
+sum of the applied debits) for reconciliation. Multi-period observations between
+rebalance dates keep their returns and receive a zero debit. Explicit user
+weights own the evaluated return stream, including unequal allocations. With no
 scenario cost process, base trading-cost behavior is unchanged.
 
 ## Rejected legacy cost shapes

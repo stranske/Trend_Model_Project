@@ -681,24 +681,43 @@ class MonteCarloRunner:
         run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_portfolio_metrics(run_result)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
-        gross_returns = self._resolve_nav_return_series(run_result)
+        gross_returns = self._resolve_nav_return_series(run_result, prefer_user=True)
         net_returns = None
         if cost_payload is not None:
             if isinstance(gross_returns, pd.Series) and not gross_returns.empty:
-                # The engine portfolio also includes calibration/in-sample returns.
-                # Evaluate costs and performance on the sampled out-of-sample dates.
-                debits = cost_payload.transaction_costs
-                gross_returns = gross_returns.reindex(debits.index)
-                if gross_returns.isna().any() or debits.isna().any():
+                # Multi-period costs are sparse rebalance debits. Preserve every
+                # evaluated user-weighted return, charging zero on other dates.
+                sampled_debits = cost_payload.transaction_costs.copy()
+                if isinstance(gross_returns.index, pd.DatetimeIndex):
+                    sampled_debits.index = pd.DatetimeIndex(pd.to_datetime(sampled_debits.index))
+                if not sampled_debits.index.isin(gross_returns.index).all():
                     raise ValueError("Scenario cost dates do not match portfolio returns")
+                debits = sampled_debits.reindex(gross_returns.index, fill_value=0.0)
+                if gross_returns.isna().any() or debits.isna().any():
+                    raise ValueError("Scenario costs or portfolio returns contain missing values")
                 net_returns = gross_returns.astype(float) - debits
                 details = run_result.details
                 risk_free = details.get("risk_free_out_sample")
                 if not isinstance(risk_free, pd.Series):
-                    path_returns = context.returns
-                    if "Date" in path_returns.columns:
-                        path_returns = path_returns.set_index("Date")
-                    risk_free = resolve_risk_free_source(path_returns, config).risk_free
+                    periods = details.get("period_results") or []
+                    period_rf = [
+                        entry["risk_free_out_sample"]
+                        for entry in periods
+                        if isinstance(entry, Mapping)
+                        and isinstance(entry.get("risk_free_out_sample"), pd.Series)
+                    ]
+                    if period_rf:
+                        risk_free = pd.concat(period_rf)
+                        risk_free = risk_free[~risk_free.index.duplicated(keep="last")]
+                    else:
+                        path_returns = context.returns
+                        dates = path_returns.index
+                        if "Date" in path_returns.columns:
+                            dates = pd.DatetimeIndex(path_returns["Date"])
+                            path_returns = path_returns.reset_index(drop=True)
+                        risk_free = resolve_risk_free_source(path_returns, config).risk_free
+                        if isinstance(risk_free, pd.Series):
+                            risk_free = pd.Series(risk_free.to_numpy(), index=dates)
                 if isinstance(risk_free, pd.Series):
                     risk_free = risk_free.reindex(net_returns.index)
                 else:
@@ -762,6 +781,7 @@ class MonteCarloRunner:
             if net_returns is not None:
                 diagnostic["costs"]["gross_returns"] = gross_returns
                 diagnostic["costs"]["net_returns"] = net_returns
+                diagnostic["costs"]["applied_debits"] = debits
         nav_series = None
         try:
             nav_series = self._extract_nav_series(run_result, context, returns=net_returns)
@@ -1731,7 +1751,17 @@ class MonteCarloRunner:
             return float(turnover_value)
         return None
 
-    def _resolve_nav_return_series(self, run_result: Any) -> pd.Series | None:
+    def _resolve_nav_return_series(
+        self, run_result: Any, *, prefer_user: bool = False
+    ) -> pd.Series | None:
+        details = getattr(run_result, "details", None)
+        if prefer_user and isinstance(details, Mapping):
+            # Structured single-period Results.portfolio may be equal-weighted.
+            # Its explicit out-of-sample user stream owns scenario accounting.
+            for key in ("portfolio_user_weight", "portfolio_user_weight_combined"):
+                candidate = details.get(key)
+                if isinstance(candidate, pd.Series) and not candidate.empty:
+                    return candidate
         portfolio_attr = getattr(run_result, "portfolio", None)
         if isinstance(portfolio_attr, pd.Series):
             return portfolio_attr
