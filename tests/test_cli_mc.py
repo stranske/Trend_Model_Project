@@ -581,6 +581,13 @@ def test_mc_run_dry_run_applies_overrides_before_validation(
             )
             for kind in ("fixed", "normal", "lognormal")
         ],
+        pytest.param(
+            "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: fixed, value: "
+            + "9" * 400
+            + "}",
+            "value must be a number",
+            id="numeric-overflow",
+        ),
     ],
 )
 @pytest.mark.parametrize("command", [("validate",), ("run", "--dry-run")])

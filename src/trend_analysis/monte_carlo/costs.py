@@ -41,7 +41,7 @@ def _coerce_float(value: Any, field: str, *, minimum: float | None = None) -> fl
         raise ValueError(f"{field} must be a number")
     try:
         number = float(value)
-    except (TypeError, ValueError) as exc:
+    except (OverflowError, TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be a number") from exc
     if not np.isfinite(number):
         raise ValueError(f"{field} must be finite")
