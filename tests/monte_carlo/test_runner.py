@@ -2391,3 +2391,49 @@ def test_evaluate_strategy_uses_score_frame_mean_when_metrics_empty(
     assert evaluation.metric_source == "score_frame_mean"
     assert evaluation.metrics["metric_a"] == pytest.approx(2.0)
     assert evaluation.metrics["metric_b"] == pytest.approx(3.0)
+
+
+def test_audit_shared_scores_and_sampled_costs_reach_real_strategy_outputs(monkeypatch):
+    """The audit joins the production cache and net-output boundaries on one path."""
+    from unittest.mock import Mock
+
+    from tests.monte_carlo.test_cache import _real_runner
+    from trend_analysis.core import rank_selection
+
+    spy = Mock(wraps=rank_selection._compute_metric_series)
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", spy)
+
+    def execute(count):
+        runner = _real_runner(count)
+        runner.scenario.costs = {
+            "kind": "regime_stochastic",
+            "calm": {"trade_cost_bps": {"kind": "fixed", "value": 100.0}},
+        }
+        result = runner.run(jobs=1)
+        assert not result.errors, result.errors
+        assert len(result.evaluations) == count
+        return result
+
+    one = execute(1)
+    calls = spy.call_count
+    spy.reset_mock()
+    three = execute(3)
+    assert calls > 0 and spy.call_count == calls
+    assert one.evaluations[0].path_hash == three.evaluations[0].path_hash
+    # The public bundle deliberately exports one canonical NAV per path.
+    assert three.metadata["nav_paths"].shape[1] == 1
+    for evaluation in three.evaluations:
+        costs = evaluation.diagnostic["costs"]
+        assert costs["transaction_costs"].sum() > 0
+        net = costs["gross_returns"] - costs["applied_debits"]
+        pd.testing.assert_series_equal(costs["net_returns"], net)
+        expected_nav = (1.0 + net).cumprod()
+        expected_nav /= expected_nav.iloc[0]
+        expected_nav.name = "NAV"
+        pd.testing.assert_series_equal(evaluation.nav_series, expected_nav)
+        pd.testing.assert_series_equal(
+            three.metadata["nav_paths"].iloc[:, 0], expected_nav, check_names=False
+        )
+        assert evaluation.metrics["cagr"] == pytest.approx(
+            float((1.0 + net).prod() ** (12.0 / len(net)) - 1.0)
+        )

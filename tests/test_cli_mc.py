@@ -1173,3 +1173,36 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
     for chart in ("fan", "risk_return"):
         for ext in ("html", "json", "png"):
             assert (plots_dir / f"{chart}.{ext}").exists()
+
+
+@pytest.mark.parametrize("invalid", [False, True])
+def test_audit_documented_cost_fragment_reaches_cli_preflight(tmp_path, capsys, invalid):
+    import textwrap
+
+    import yaml
+
+    from tests.monte_carlo.test_monte_carlo_docs_schema import DOC_PATH, _yaml_blocks
+
+    fragments = [yaml.safe_load(block) for block in _yaml_blocks(DOC_PATH.read_text())]
+    costs = [
+        block["costs"]
+        for block in fragments
+        if isinstance(block, dict)
+        and isinstance(block.get("costs"), dict)
+        and block["costs"].get("kind") == "regime_stochastic"
+    ]
+    assert len(costs) == 1
+    payload = costs[0]
+    if invalid:
+        payload["calm"]["trade_cost_bps"]["sigma"] = -1
+    path = tmp_path / "doc-fragment.yml"
+    _write_scenario(path, extra="costs:\n" + textwrap.indent(yaml.safe_dump(payload), "  "))
+    before = set(tmp_path.rglob("*"))
+    result = cli.main(["mc", "validate", str(path)])
+    captured = capsys.readouterr()
+    assert result == (1 if invalid else 0)
+    if invalid:
+        assert "costs:" in captured.err and "sigma must be >= 0.0" in captured.err
+    else:
+        assert "OK" in captured.out
+    assert set(tmp_path.rglob("*")) == before
