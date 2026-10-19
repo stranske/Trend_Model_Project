@@ -118,3 +118,39 @@ def test_current_guides_use_canonical_signal_shape() -> None:
     ]
 
     assert not offenders, "Current guides use removed signal shapes:\n" + "\n".join(offenders)
+
+
+def test_api_md_python_snippets_execute(tmp_path, monkeypatch) -> None:
+    """Execute the published examples, including actual pipeline and exporters."""
+    import shutil
+
+    import numpy as np
+    import pandas as pd
+
+    root = Path(__file__).resolve().parents[1]
+    doc = root / "docs/api.md"
+    assert doc.relative_to(root) in {path for path, _ in _active_doc_texts()}
+    blocks = re.findall(r"```python\n(.*?)```", doc.read_text(encoding="utf-8"), re.DOTALL)
+    assert len(blocks) == 4, "Every Python API example must be exercised"
+    for relative in ("config/demo.yml", "demo/demo_returns.csv"):
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / relative, destination)
+    monkeypatch.chdir(tmp_path)
+    namespace = {"__name__": "__api_docs_example__"}
+    for index, block in enumerate(blocks):
+        exec(compile(block, f"{doc}:python-block-{index + 1}", "exec"), namespace)
+    results = namespace["results"]
+    assert isinstance(results, pd.DataFrame) and not results.empty
+    numeric = results.select_dtypes(include="number")
+    assert {"cagr", "vol", "sharpe", "max_drawdown"} <= set(numeric.columns)
+    # Average correlations are undefined when not requested by this demo config.
+    required = numeric.drop(columns=["is_avg_corr", "os_avg_corr"], errors="ignore")
+    assert np.isfinite(required.to_numpy()).all()
+    for name in ("sharpe", "max_dd", "annualized"):
+        assert np.isfinite(namespace[name]), name
+    for name in ("output.xlsx", "output_metrics.csv", "output_metrics.json"):
+        artifact = tmp_path / name
+        assert artifact.is_file() and artifact.stat().st_size > 0
+    assert not pd.read_csv(tmp_path / "output_metrics.csv").empty
+    assert not pd.read_json(tmp_path / "output_metrics.json").empty
