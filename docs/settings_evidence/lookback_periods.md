@@ -1,3 +1,6 @@
+> **Historical snapshot (2025-12-21). Source revision: UNKNOWN.**
+> Original results below are preserved; see [provenance and scoped reconciliation](README.md).
+
 # Setting: `lookback_periods`
 
 **Test Date:** 2025-12-21T12:12:13.608373

@@ -1,3 +1,6 @@
+> **Historical snapshot (2025-12-21). Source revision: UNKNOWN.**
+> Original results below are preserved; see [provenance and scoped reconciliation](README.md).
+
 # Setting: `min_weight`
 
 **Test Date:** 2025-12-21T12:56:39.295083
