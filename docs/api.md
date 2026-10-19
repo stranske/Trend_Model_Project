@@ -6,56 +6,56 @@ This document provides an overview of the Trend Model Project's programmatic int
 
 ### Core Pipeline
 
+Run these examples from the repository root with the package and export extras
+installed. `run(cfg)` returns a pandas DataFrame of out-of-sample metrics;
+`run_full(cfg)` is the separate API for detailed diagnostics.
+
 ```python
+from trend_analysis.config import load
 from trend_analysis.pipeline import run
 
-# Run analysis with config file
-results = run(config_path="config/demo.yml")
-
-# Run with config object
-from trend_analysis.config import load
 config = load("config/demo.yml")
-results = run(config=config)
+results = run(config)
 ```
 
 ### Configuration
 
+Configuration sections expose dictionary values. The demo configuration resolves
+its input CSV relative to the configuration file.
+
 ```python
-from trend_analysis.config import load, Config
-
-# Load from file
-config = load("config/defaults.yml")
-
-# Access configuration values
-print(config.data.csv_path)
-print(config.portfolio.top_n)
+print(config.data["csv_path"])
+print(config.portfolio["selection_mode"])
 ```
 
 ### Metrics
 
-```python
-from trend_analysis.metrics import (
-    calculate_returns,
-    calculate_sharpe_ratio,
-    calculate_max_drawdown,
-    calculate_cagr,
-)
+The demo file contains periodic returns, so no price-to-return conversion is
+needed. The risk-free argument below is a per-period return, not an annual rate.
 
-# Calculate metrics on return series
-sharpe = calculate_sharpe_ratio(returns, risk_free_rate=0.02)
-max_dd = calculate_max_drawdown(returns)
-cagr = calculate_cagr(returns, periods_per_year=12)
+```python
+import pandas as pd
+from trend_analysis.metrics import annual_return, max_drawdown, sharpe_ratio
+
+returns = pd.read_csv("demo/demo_returns.csv")["Mgr_01"]
+sharpe = sharpe_ratio(returns, risk_free=0.0, periods_per_year=12)
+max_dd = max_drawdown(returns)
+annualized = annual_return(returns, periods_per_year=12)
 ```
 
 ### Export
 
-```python
-from trend_analysis.export import export_to_excel, export_to_csv, export_to_json
+Exporters accept a mapping of sheet/dataset names to DataFrames. CSV and JSON
+exporters append each dataset name to the output prefix: these calls produce
+`output.xlsx`, `output_metrics.csv` and `output_metrics.json`.
 
-# Export results to various formats
-export_to_excel(results, "output.xlsx")
-export_to_csv(results, "output")
-export_to_json(results, "output.json")
+```python
+from trend_analysis.export import export_to_csv, export_to_excel, export_to_json
+
+frames = {"metrics": results}
+export_to_excel(frames, "output.xlsx")
+export_to_csv(frames, "output")
+export_to_json(frames, "output")
 ```
 
 ## REST API
