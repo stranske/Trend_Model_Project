@@ -123,6 +123,8 @@ def test_published_return_model_yaml_constructs_real_models(tmp_path):
             assert isinstance(model, RegimeConditionedBootstrapModel)
             assert model.regime_proxy_column == spec["regime"]["proxy_column"]
             assert model.threshold_percentile == spec["regime"]["threshold_percentile"]
+            assert model._labels is not None and model._transition is not None
+            assert model._regime_buckets is not None
         else:
             assert isinstance(model, StationaryBootstrapModel)
 
@@ -147,6 +149,8 @@ def test_nondefault_return_model_parameters_survive_loading(kind, nested, tmp_pa
     if kind == "regime_conditioned_bootstrap":
         assert model.regime_proxy_column == "SPX"
         assert model.lookback == 7
+        assert model._labels is not None and model._transition is not None
+        assert model._regime_buckets is not None
 
 
 @pytest.mark.parametrize(
@@ -168,3 +172,30 @@ def test_nondefault_return_model_parameters_survive_loading(kind, nested, tmp_pa
 def test_return_model_rejects_unknown_or_conflicting_settings(spec, tmp_path):
     with pytest.raises(ValueError, match="return_model"):
         _loaded_model(spec, tmp_path)
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_disabled_regime_preserves_dormant_settings_as_a_toggle(tmp_path, nested):
+    from trend_analysis.monte_carlo.models import (
+        StationaryBootstrapModel,
+        RegimeConditionedBootstrapModel,
+    )
+
+    spec = {
+        "kind": "stationary_bootstrap",
+        "mean_block_len": 12,
+        "regime": {
+            "enabled": False,
+            "kind": "proxy_vol_threshold",
+            "proxy_column": "SPX",
+            "threshold_percentile": 75,
+            "lookback": 7,
+        },
+    }
+    scenario, model = _loaded_model(spec, tmp_path, nested=nested)
+    assert isinstance(model, StationaryBootstrapModel)
+    assert not isinstance(model, RegimeConditionedBootstrapModel)
+    assert scenario.return_model == {
+        "kind": "stationary_bootstrap",
+        "params": {"mean_block_len": 12},
+    }

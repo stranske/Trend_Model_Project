@@ -417,6 +417,11 @@ rebalance dates keep their returns and receive a zero debit. Explicit user
 weights own the evaluated return stream, including unequal allocations. With no
 scenario cost process, base trading-cost behavior is unchanged.
 
+
+A stationary model may keep a dormant proxy configuration under `regime` with
+`enabled: false`; its regime parameters are ignored until the regime model is
+enabled. A regime model with an explicitly disabled regime remains a conflict.
+
 ## Rejected legacy cost shapes
 
 The parser rejects nested `costs.regimes`, `distribution` and `dist` aliases,

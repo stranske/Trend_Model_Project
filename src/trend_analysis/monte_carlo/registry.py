@@ -102,9 +102,10 @@ def normalize_return_model(value: object) -> dict[str, Any]:
             raise ValueError("return_model.regime.kind must be proxy_vol_threshold")
         if regime.get("enabled", True) is not (kind == "regime_bootstrap"):
             raise ValueError("return_model.kind conflicts with regime.enabled")
-        for key in ("proxy_column", "threshold_percentile", "lookback"):
-            if key in regime:
-                add("regime_proxy_column" if key == "proxy_column" else key, regime[key])
+        if regime.get("enabled", True):
+            for key in ("proxy_column", "threshold_percentile", "lookback"):
+                if key in regime:
+                    add("regime_proxy_column" if key == "proxy_column" else key, regime[key])
     if kind == "stationary_bootstrap" and regime_fields.intersection(params):
         raise ValueError("return_model stationary_bootstrap does not accept regime parameters")
     return {"kind": kind, "params": params}
