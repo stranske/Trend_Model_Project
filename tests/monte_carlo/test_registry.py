@@ -776,7 +776,7 @@ def test_load_scenario_accepts_return_model_mapping(tmp_path: Path) -> None:
     scenario = load_scenario("return_model", registry_path=registry)
     assert scenario.return_model == {
         "kind": "stationary_bootstrap",
-        "params": {"block_size": 4},
+        "params": {"mean_block_len": 4},
     }
 
 

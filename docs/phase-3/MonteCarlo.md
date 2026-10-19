@@ -417,6 +417,11 @@ rebalance dates keep their returns and receive a zero debit. Explicit user
 weights own the evaluated return stream, including unequal allocations. With no
 scenario cost process, base trading-cost behavior is unchanged.
 
+
+A stationary model may keep a dormant proxy configuration under `regime` with
+`enabled: false`; its regime parameters are ignored until the regime model is
+enabled. A regime model with an explicitly disabled regime remains a conflict.
+
 ## Rejected legacy cost shapes
 
 The parser rejects nested `costs.regimes`, `distribution` and `dist` aliases,
@@ -560,7 +565,7 @@ scenario:
     fold_starts: []
     calibration_lookback_years: 10
   return_model:
-    kind: stationary_bootstrap  # stationary_bootstrap | regime_conditioned_bootstrap
+    kind: regime_conditioned_bootstrap  # Explicitly enables the proxy regime block below
     mean_block_len: 6
     regime:
       enabled: true
@@ -840,3 +845,19 @@ For feasible runtimes:
 See GitHub Issues labeled `phase:monte-carlo` for implementation tickets.
 
 Epic: [Monte Carlo Framework](#) (link to be added after issue creation)
+
+
+## Return-model compatibility
+
+The internal shape is `return_model: {kind: ..., params: {...}}`.
+Published top-level `mean_block_len` / `calibration_window` and nested `params`
+remain supported; `block_size` normalizes to `mean_block_len`. Duplicate locations
+or aliases are rejected, including equal duplicates, so precedence is never implicit.
+`bootstrap` aliases `stationary_bootstrap`; `regime_conditioned` and
+`regime_conditioned_bootstrap` alias `regime_bootstrap`. Published `regime` blocks
+map `proxy_column`, `threshold_percentile` and `lookback` to canonical parameters.
+Only `proxy_vol_threshold` is implemented; HMM and explicit-label choices remain
+unimplemented and are rejected. Unknown keys and conflicting model/enabled values
+fail validation before path generation. A stationary model with an enabled regime
+block is a conflict; the complete example above now selects the regime model
+explicitly. Bootstrap sampling/statistics are unchanged.

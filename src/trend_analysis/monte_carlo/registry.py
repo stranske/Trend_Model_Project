@@ -41,6 +41,76 @@ def _ensure_mapping(value: object, *, label: str) -> Mapping[str, object]:
     raise ValueError(f"{label} must be a mapping")
 
 
+def normalize_return_model(value: object) -> dict[str, Any]:
+    """Normalize published return-model forms without silently dropping settings."""
+    if value is None:
+        value = {}
+    if not isinstance(value, Mapping):
+        raise ValueError("return_model must be a mapping")
+    aliases = {
+        "bootstrap": "stationary_bootstrap",
+        "stationary_bootstrap": "stationary_bootstrap",
+        "regime_bootstrap": "regime_bootstrap",
+        "regime_conditioned": "regime_bootstrap",
+        "regime_conditioned_bootstrap": "regime_bootstrap",
+    }
+    raw_kind = value.get("kind", "stationary_bootstrap")
+    if not isinstance(raw_kind, str) or raw_kind.strip().lower() not in aliases:
+        raise ValueError(f"return_model.kind unsupported: {raw_kind!r}")
+    kind = aliases[raw_kind.strip().lower()]
+    common = {"mean_block_len", "block_size", "calibration_window"}
+    regime_fields = {"regime_proxy_column", "threshold_percentile", "lookback"}
+    parameters = common | regime_fields
+    unknown = set(value) - parameters - {"kind", "params", "regime"}
+    if unknown:
+        raise ValueError(f"return_model has unknown settings: {sorted(map(str, unknown))}")
+    nested = value.get("params", {})
+    if not isinstance(nested, Mapping):
+        raise ValueError("return_model.params must be a mapping")
+    unknown = set(nested) - parameters
+    if unknown:
+        raise ValueError(f"return_model.params has unknown settings: {sorted(map(str, unknown))}")
+    params: dict[str, Any] = {}
+
+    def add(key: str, item: Any) -> None:
+        key = "mean_block_len" if key == "block_size" else key
+        if key in params:
+            raise ValueError(f"return_model.{key} specified in multiple locations or aliases")
+        params[key] = item
+
+    for source in (nested, {k: v for k, v in value.items() if k in parameters}):
+        for key, item in source.items():
+            add(key, item)
+    if "regime" in value:
+        regime = value["regime"]
+        if not isinstance(regime, Mapping):
+            raise ValueError("return_model.regime must be a mapping")
+        unknown = set(regime) - {
+            "enabled",
+            "kind",
+            "proxy_column",
+            "threshold_percentile",
+            "lookback",
+        }
+        if unknown:
+            raise ValueError(
+                f"return_model.regime has unknown settings: {sorted(map(str, unknown))}"
+            )
+        if not isinstance(regime.get("enabled", True), bool):
+            raise ValueError("return_model.regime.enabled must be boolean")
+        if regime.get("kind", "proxy_vol_threshold") != "proxy_vol_threshold":
+            raise ValueError("return_model.regime.kind must be proxy_vol_threshold")
+        if regime.get("enabled", True) is not (kind == "regime_bootstrap"):
+            raise ValueError("return_model.kind conflicts with regime.enabled")
+        if regime.get("enabled", True):
+            for key in ("proxy_column", "threshold_percentile", "lookback"):
+                if key in regime:
+                    add("regime_proxy_column" if key == "proxy_column" else key, regime[key])
+    if kind == "stationary_bootstrap" and regime_fields.intersection(params):
+        raise ValueError("return_model stationary_bootstrap does not accept regime parameters")
+    return {"kind": kind, "params": params}
+
+
 def _resolve_registry_path(registry_path: Path | None) -> Path:
     resolved = registry_path or (
         _REGISTRY_PATH if _REGISTRY_PATH.exists() else _PACKAGED_REGISTRY_PATH
@@ -475,7 +545,7 @@ def _parse_scenario(
         return_model_raw, key="return_model", scenario_name=scenario_name
     )
     if return_model_value is not None:
-        scenario_kwargs["return_model"] = return_model_value
+        scenario_kwargs["return_model"] = normalize_return_model(return_model_value)
 
     return MonteCarloScenario(**scenario_kwargs)
 
