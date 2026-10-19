@@ -1,0 +1,220 @@
+{
+  "snapshot_kind": "historical",
+  "snapshot_date": "2025-12-21",
+  "source_revision": null,
+  "source_revision_status": "unknown",
+  "summary_generation_timestamp": null,
+  "summary_generation_revision": null,
+  "original_aggregate": {
+    "PASS": 8,
+    "FAIL": 7,
+    "WARN": 0,
+    "ERROR": 0
+  },
+  "report_banner": "> **Historical snapshot (2025-12-21). Source revision: UNKNOWN.**\n> Original results below are preserved; see [provenance and scoped reconciliation](README.md).\n\n",
+  "reports": {
+    "inclusion_approach.md": {
+      "sha256_original_body": "7e878fd6e1c40dd106f19b644513057b15955f1ebd3ecff84377788731fa0172",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:51:59.265284"
+    },
+    "inclusion_inclusion_approach.md": {
+      "sha256_original_body": "ca50b704365b2fe208152d77ce985b380fdd1c129791bf102a58d93cb094a25f",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:34.331857"
+    },
+    "leverage_cap.md": {
+      "sha256_original_body": "f3928d11c1689075da344bbce32ffeae6ed91ac6e4494165896bcbc5321b37ea",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:57:22.231435"
+    },
+    "lookback_periods.md": {
+      "sha256_original_body": "b262d915159d0988ea8bcc2421939bf3df74849d8091cdc79ddebd2dc45907fa",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:12:13.608373"
+    },
+    "max_weight.md": {
+      "sha256_original_body": "a4c437832956cbb7ffb24530c48980cc009cc05d1b502d716981da12e1d16204",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:55:56.099559"
+    },
+    "min_weight.md": {
+      "sha256_original_body": "c666bf4824d674e56b008cfcd53d5f8a8676fb4355b5ec5d294b32593a2aed0d",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:56:39.295083"
+    },
+    "mp_max_funds.md": {
+      "sha256_original_body": "4ada9c046d728cb240611902c3f8436a4eaf9f71bc3b57590e917ac770f488e8",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:37:41.731791"
+    },
+    "multi_period_multi_period_enabled.md": {
+      "sha256_original_body": "76f1aed6703c7588236913855842a05643a3d5d40e641130337261e7f1e9795b",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:34.151806"
+    },
+    "rank_pct.md": {
+      "sha256_original_body": "a7f2a3940d44496047c34618d7be8f948c3d6d815fcb8a2d352781d41ed28f92",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:52:35.180127"
+    },
+    "risk_target.md": {
+      "sha256_original_body": "83aafe304dc5d5772fd740a17e3a10eba1c76f46e256ff2cffd6545de7581ab5",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:54:29.967746"
+    },
+    "risk_vol_target.md": {
+      "sha256_original_body": "42b411ef33ab26e7cb7dc8092c0db15c3806a472eea448ea94addce1ebba8997",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:34.032616"
+    },
+    "scoring_score_metric.md": {
+      "sha256_original_body": "246d1291cc88b7ea52e5a8109fb5d41296fc9bb7ba19d8b2cdf5794bc9c1b1d9",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:34.523392"
+    },
+    "selection_count.md": {
+      "sha256_original_body": "b05af85b487f9b3834954121dc1992c2c8e369d2387a9c5f55347fa9ac15d887",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:49:58.020727"
+    },
+    "selection_selection_count.md": {
+      "sha256_original_body": "0f2c24acd674a4890dc95e45199ea87a2495b48c702e8d849628ee0902a09f8b",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:33.598387"
+    },
+    "signals_trend_window.md": {
+      "sha256_original_body": "a18691995e0fa3a858558b7de5a96acfdb527ead003437f6039018d3e7569449",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:34.429137"
+    },
+    "transaction_cost_bps.md": {
+      "sha256_original_body": "bd88badfa475df37b81d8109109983dd9c1529c7041d04162c0d1ad68a9b9bd8",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:38:17.971709"
+    },
+    "trend_window.md": {
+      "sha256_original_body": "83a8cee5ebabdc834de7dfb54dea63765839996f7221068adc35a097dde81295",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:35:40.758359"
+    },
+    "vol_floor.md": {
+      "sha256_original_body": "0b30293486922eaae0d2c0e6280e460204db8dedc2442b263bc6f8a0fc92d537",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:55:12.992770"
+    },
+    "weighting_max_weight.md": {
+      "sha256_original_body": "5e524669997f8e96c24cfe4bbc12b9a608b037873b718dfeaf350c766e380703",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T11:25:33.937793"
+    },
+    "weighting_scheme.md": {
+      "sha256_original_body": "6d11e94a01777dc741c3a863dd41a9d3f21166feb31a9bcf1061cab036c10072",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:53:49.690607"
+    },
+    "z_entry_soft.md": {
+      "sha256_original_body": "c4effc7b1d4c1938fd103aa174e61acce6fd922349f94b2499d5471d589bab48",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:58:05.335708"
+    },
+    "z_exit_soft.md": {
+      "sha256_original_body": "c088274a81779f7e2bb05ecec3979d8dc7ce7958f2a0fdda1c0bd33e3b0f77f8",
+      "source_revision": null,
+      "recorded_timestamp": "2025-12-21T12:58:40.881955"
+    }
+  },
+  "reconciliation_revision": "95fc7f1c",
+  "historical_entry_point": "Original source revision UNKNOWN; documented generator calls run_analysis_with_state -> replicated _build_config_from_state -> api.run_simulation, not an actual Streamlit interaction.",
+  "historical_fixture": "Reports identify Trend Universe data and values, but complete frozen state, CSV content hash and original executable environment are unavailable.",
+  "historical_execution_mode": "UNKNOWN: original resolved single/multi-period configuration is not archived. Current get_baseline_state returns multi_period_enabled=True despite its stale single-period docstring; do not project it backward.",
+  "regenerated": false,
+  "dispositions": {
+    "leverage_cap": {
+      "historical_report": "leverage_cap.md",
+      "historical_values": "2.0 -> 1.0",
+      "historical_metric": "gross_exposure (8066ee3f hash, not a numeric exposure)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "Synthetic 3x long/short book; pure invariant evaluation, no UI or engine run.",
+      "current_validation": "tests/baseline/test_invariants.py::test_over_leveraged_book_fails_only_the_leverage_invariant",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Pure exposure invariant checks a constructed book. No matching end-to-end leverage-slider experiment was run; old UI-path result remains unresolved."
+    },
+    "max_weight": {
+      "historical_report": "max_weight.md",
+      "historical_values": "0.20 -> 0.10",
+      "historical_metric": "max_position_weight (1.3741 -> 1.3741)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "config/demo.yml; direct config constraints.max_weight .25 -> .05 with vol_adjust enabled; metric max_weight.",
+      "current_validation": "tests/baseline/test_directional.py::test_directional[max_weight_down]",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Different cap values and binding fixture; current direct-config direction does not establish old UI translation or historical normalization."
+    },
+    "weighting_scheme": {
+      "historical_report": "weighting_scheme.md",
+      "historical_values": "equal -> hrp",
+      "historical_metric": "weight_dispersion (0.3031 -> 0.3031)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "config/demo.yml; direct portfolio.weighting.name equal -> risk_parity, custom_weights cleared; metric max_weight.",
+      "current_validation": "tests/baseline/test_directional.py::test_directional[weighting_risk_parity]",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Different weighting names, metric and fixture. The catalog explicitly clears custom_weights, which otherwise masks the engine; no equivalence to old hrp/UI path."
+    },
+    "transaction_cost_bps": {
+      "historical_report": "transaction_cost_bps.md",
+      "historical_values": "0 -> 50",
+      "historical_metric": "total_costs (0 -> 0)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "config/demo.yml; direct portfolio.cost_model.per_trade_bps 0 -> 50; metric ann_return, decrease_or_equal.",
+      "current_validation": "tests/baseline/test_directional.py::test_directional[cost_up]",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Cost key, metric and mode differ. A non-increase in direct-config net return is weaker than proving an increase in UI-path total_costs; old result retained."
+    },
+    "trend_window": {
+      "historical_report": "trend_window.md",
+      "historical_values": "63 -> 21",
+      "historical_metric": "signal_responsiveness (8066ee3f hash, not a numeric responsiveness)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "Synthetic 120-month/three-fund returns; direct api.run_simulation config signals.window 20 -> 60; compares signal frames and spec.window.",
+      "current_validation": "tests/test_api_signal_settings.py::test_run_simulation_trend_window_changes_output",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Signal-frame sensitivity is observed in a different direct-config single-period experiment; neither a UI-slider claim nor an equivalent hash metric. The earlier signals_trend_window.md is a separate errored 12 -> 6 snapshot."
+    },
+    "rank_pct": {
+      "historical_report": "rank_pct.md",
+      "historical_values": ".10 -> .30",
+      "historical_metric": "num_funds_selected (68 -> 68)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "config/demo.yml; direct top_pct pct=.5/n=5, threshold_hold and max_funds=50; selected_funds count must exceed 5.",
+      "current_validation": "tests/baseline/test_rank_fund_count_limits.py::test_top_pct_rank_n_does_not_cap_percentage_selection",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Fixed-fraction control proves n does not cap top_pct in that fixture. It does not compare .10/.30 or exercise the old UI-state translation; no equivalent percentage-sensitivity claim."
+    },
+    "selection_count": {
+      "historical_report": "selection_count.md",
+      "historical_values": "10 -> 5",
+      "historical_metric": "num_funds_selected (68 -> 68)",
+      "historical_status": "FAIL",
+      "entry_point": "Direct config computational boundary (or pure invariant), not UI interaction.",
+      "fixture_and_mode": "config/demo.yml; direct portfolio.rank.n 10 -> 5; metric num_selected (declared_selected_count when available).",
+      "current_validation": "tests/baseline/test_directional.py::test_directional[rank_n_down]",
+      "observation": "See issue-6099 evidence receipt for exact executed test set; no historical regeneration.",
+      "equivalence": "not_established",
+      "disposition": "Direct rank-n scenario and historical positive-weight-count extraction differ; count movement is not proof of UI selection_count wiring or of realised holdings in every mode."
+    }
+  },
+  "summary_banner": "> **Snapshot kind: historical. Snapshot date: 2025-12-21 (linked reports). Source revision: UNKNOWN.**\n> Summary generation timestamp/revision: UNKNOWN. Original counts and results below are preserved.\n> See [provenance and all seven scoped dispositions](README.md); this is not current UI validation.\n\n",
+  "summary_original_body_sha256": "8662d375004fbb8b021e9270c609f6650733c517abf7293b168c23bf921ed268"
+}

@@ -1,3 +1,7 @@
+> **Snapshot kind: historical. Snapshot date: 2025-12-21 (linked reports). Source revision: UNKNOWN.**
+> Summary generation timestamp/revision: UNKNOWN. Original counts and results below are preserved.
+> See [provenance and all seven scoped dispositions](README.md); this is not current UI validation.
+
 # Settings Wiring Evidence Summary
 
 **Generated from 15 tests using real Trend Universe data**

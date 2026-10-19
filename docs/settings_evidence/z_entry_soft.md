@@ -1,3 +1,6 @@
+> **Historical snapshot (2025-12-21). Source revision: UNKNOWN.**
+> Original results below are preserved; see [provenance and scoped reconciliation](README.md).
+
 # Setting: `z_entry_soft`
 
 **Test Date:** 2025-12-21T12:58:05.335708

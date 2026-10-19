@@ -1,0 +1,35 @@
+{
+  "source_revision": "95fc7f1c6bfbe56ddc313388f60b03605cf73642",
+  "historical_regeneration": false,
+  "runtime": "repository-selected .venv/bin/python -> Anaconda CPython3.12.2; functional -o addopts=, no whole-repo coverage claim",
+  "observed_tests": {
+    "directional": {
+      "passed": 4,
+      "deselected": 4,
+      "cases": [
+        "max_weight_down",
+        "rank_n_down",
+        "cost_up",
+        "weighting_risk_parity"
+      ]
+    },
+    "boundary": {
+      "passed": 4,
+      "cases": [
+        "two test_api_signal_settings cases",
+        "top_pct_rank_n_does_not_cap_percentage_selection",
+        "over_leveraged_book_fails_only_the_leverage_invariant"
+      ]
+    }
+  },
+  "demo_csv_sha256": "0f9b09c37b9ef19f9c525157e66f5abb5208d57b17f4408732ba567262d2bea8",
+  "demo_config_sha256": "d3481c9a3438704e1d90ae20eeee6680e2ea5ff1e64dbbf296282edbf9d42f3a",
+  "dependency": "Read-only existing Workflows packages/app-baseline-kit on PYTHONPATH; not installed or edited.",
+  "limitations": [
+    "No old generator run or real UI interaction",
+    "Historical mode, source revision and complete fixture UNKNOWN",
+    "Baseline leverage validation is a pure synthetic invariant, not an engine sensitivity experiment",
+    "Direct cost direction is decrease_or_equal; not equivalent to historical total_costs increase",
+    "Warnings include missing historical Trend Universe metadata CSV and existing Pandas4 deprecations; demo fixture is the committed demo/demo_returns.csv"
+  ]
+}
