@@ -199,3 +199,94 @@ def test_disabled_regime_preserves_dormant_settings_as_a_toggle(tmp_path, nested
         "kind": "stationary_bootstrap",
         "params": {"mean_block_len": 12},
     }
+
+
+@pytest.mark.parametrize("section", ["curated", "sampled", "folds"])
+def test_published_configuration_fragments_reach_their_consumers(tmp_path, section):
+    from tests.monte_carlo.test_runner import _base_config, _price_history
+    from trend_analysis.monte_carlo.folds import FoldGenerator
+    from trend_analysis.monte_carlo.registry import load_scenario_from_path
+    from trend_analysis.monte_carlo.runner import MonteCarloRunner
+
+    blocks = [yaml.safe_load(block) for block in _yaml_blocks(DOC_PATH.read_text())]
+    matching = [block for block in blocks if isinstance(block, dict) and section in block]
+    assert len(matching) == 1, f"Inventory the published {section} fragments explicitly"
+    fragment = matching[0][section]
+    payload = {
+        "scenario": {"name": f"audit-{section}"},
+        "base_config": str(Path("config/defaults.yml").resolve()),
+        "monte_carlo": {
+            "mode": "two_layer",
+            "n_paths": 1,
+            "horizon_years": 1,
+            "frequency": "M",
+            "seed": 7,
+        },
+    }
+    payload["folds" if section == "folds" else "strategy_set"] = (
+        fragment if section == "folds" else {section: fragment}
+    )
+    path = tmp_path / "published-fragment.yml"
+    path.write_text(yaml.safe_dump(payload))
+    scenario = load_scenario_from_path(path)
+    if section == "folds":
+        assert scenario.folds == fragment
+        assert FoldGenerator.from_config(scenario.folds) is not None
+    else:
+        runner = MonteCarloRunner(
+            scenario, base_config=_base_config(), price_history=_price_history()
+        )
+        strategies = runner._resolve_strategies()
+        if section == "curated":
+            assert [strategy.name for strategy in strategies] == [item["name"] for item in fragment]
+            for strategy, item in zip(strategies, fragment, strict=True):
+                assert strategy.overrides == item["overrides"]
+        else:
+            assert len(strategies) == fragment["n_strategies"]
+            assert all(
+                strategy.overrides["portfolio"]["rank"]["n"] in [8, 12, 16, 20]
+                for strategy in strategies
+            )
+
+
+def test_complete_published_scenario_reaches_actual_model_strategy_and_cost_consumers(tmp_path):
+    from tests.monte_carlo.test_runner import _base_config, _price_history
+    from trend_analysis.monte_carlo.models import RegimeConditionedBootstrapModel
+    from trend_analysis.monte_carlo.registry import load_scenario_from_path
+    from trend_analysis.monte_carlo.runner import MonteCarloRunner
+
+    blocks = [yaml.safe_load(block) for block in _yaml_blocks(DOC_PATH.read_text())]
+    complete = [block for block in blocks if isinstance(block, dict) and "scenario" in block]
+    assert len(complete) == 1
+    payload = complete[0]
+    payload["base_config"] = str(Path("config/defaults.yml").resolve())
+    path = tmp_path / "published-complete.yml"
+    path.write_text(yaml.safe_dump(payload))
+    scenario = load_scenario_from_path(path)
+    history = _price_history()
+    history["SPX"] = history["AssetA"]
+    runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=history)
+    assert isinstance(runner._build_price_model(), RegimeConditionedBootstrapModel)
+    strategies = runner._resolve_strategies()
+    curated = payload["strategy_set"]["curated"]
+    assert [item.name for item in strategies[: len(curated)]] == [item["name"] for item in curated]
+    assert len(strategies) == len(curated) + payload["strategy_set"]["sampled"]["n_strategies"]
+    process = runner._get_cost_process()
+    assert process is not None
+    import numpy as np
+    import pandas as pd
+
+    sample = process.sample(
+        regimes=["calm", "stress"],
+        turnover=0.1,
+        index=pd.RangeIndex(2),
+        rng=np.random.default_rng(7),
+    )
+    assert sample.slippage_multiplier.tolist() == [1.0, 1.5]
+    assert (sample.cost_bps > 0).all()
+    np.testing.assert_allclose(
+        sample.transaction_costs, 0.1 * sample.cost_bps / 10000 * sample.slippage_multiplier
+    )
+    assert scenario.folds == payload["scenario"]["folds"]
+    assert runner._resolve_folds(history) == []
+    assert scenario.outputs == payload["outputs"]
