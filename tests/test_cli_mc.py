@@ -1180,7 +1180,10 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
     [pytest.param(False, id="documented-fragment"), pytest.param(True, id="negative-sigma")],
 )
 def test_audit_documented_cost_fragment_reaches_cli_preflight(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], invalid: bool
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    invalid: bool,
 ) -> None:
     import copy
     import textwrap
@@ -1210,6 +1213,7 @@ def test_audit_documented_cost_fragment_reaches_cli_preflight(
         payload["calm"]["trade_cost_bps"]["sigma"] = -1
     path = tmp_path / "doc-fragment.yml"
     _write_scenario(path, extra="costs:\n" + textwrap.indent(yaml.safe_dump(payload), "  "))
+    monkeypatch.chdir(tmp_path)
     before = set(tmp_path.rglob("*"))
     result = cli.main(["mc", "validate", str(path)])
     captured = capsys.readouterr()
