@@ -12,7 +12,7 @@ import numbers
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, cast
 
 from trend.mc.viz import TrendCLIError
 from trend_analysis.config import format_validation_messages, validate_config
@@ -25,6 +25,7 @@ from trend_analysis.monte_carlo import (
     load_scenario,
 )
 from trend_analysis.monte_carlo.history import load_price_history
+from trend_analysis.monte_carlo.costs import CostProcess
 from trend_analysis.monte_carlo.registry import load_scenario_from_path
 from trend_analysis.monte_carlo.results import MonteCarloResults, export_results
 
@@ -345,10 +346,16 @@ def _apply_overrides(scenario: MonteCarloScenario, args: argparse.Namespace) -> 
 
 
 def validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
+    errors: list[str] = []
+    try:
+        # Scenario normalization removes its construction-only missing sentinel.
+        CostProcess.from_config(cast(Mapping[str, Any] | None, scenario.costs))
+    except ValueError as exc:
+        errors.append(f"costs: {exc}")
     try:
         runner = MonteCarloRunner(scenario)
     except Exception as exc:
-        return [f"base_config: {exc}"]
+        return [*errors, f"base_config: {exc}"]
     result = validate_config(
         dict(runner.base_config),
         base_path=Path(str(scenario.base_config)).parent,
@@ -358,13 +365,13 @@ def validate_mc_scenario(scenario: MonteCarloScenario) -> list[str]:
         issue for issue in result.errors if issue.message.startswith("Unexpected field")
     ]
     if schema_errors:
-        return [
+        errors.extend(
             f"base_config: {message}"
             for message in format_validation_messages(
                 result.model_copy(update={"errors": schema_errors}), include_warnings=False
             )
-        ]
-    return []
+        )
+    return errors
 
 
 def write_mc_manifest(

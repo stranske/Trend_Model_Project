@@ -556,6 +556,97 @@ def test_mc_run_dry_run_applies_overrides_before_validation(
     assert "Dry run complete" in out
 
 
+@pytest.mark.parametrize(
+    "costs, field",
+    [
+        ("kind: regime_stochastic\n  regimes: {}", "unsupported legacy costs key"),
+        (
+            "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: normal, mean: 1, std: -1}",
+            "std must be >= 0.0",
+        ),
+        (
+            "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: fixed, value: 1}\n    slippage_multiplier: -1",
+            "slippage_multiplier must be >= 0.0",
+        ),
+        (
+            "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: fixed, value: 1}\n    slippage_multiplier: .nan",
+            "slippage_multiplier must be finite",
+        ),
+        *[
+            pytest.param(
+                "kind: regime_stochastic\n  calm:\n    trade_cost_bps: "
+                f"{{kind: {kind}, 7: 1, other: 2}}",
+                f"{kind} distribution has unsupported key(s)",
+                id=f"mixed-keys-{kind}",
+            )
+            for kind in ("fixed", "normal", "lognormal")
+        ],
+        pytest.param(
+            "kind: regime_stochastic\n  calm:\n    trade_cost_bps: {kind: fixed, value: "
+            + "9" * 400
+            + "}",
+            "value must be a number",
+            id="numeric-overflow",
+        ),
+    ],
+)
+@pytest.mark.parametrize("command", [("validate",), ("run", "--dry-run")])
+def test_mc_cost_preflight_rejects_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    costs: str,
+    field: str,
+    command: tuple[str, ...],
+) -> None:
+    scenario_path = tmp_path / "invalid-costs.yml"
+    _write_scenario(scenario_path, extra=f"costs:\n  {costs}")
+    before = set(tmp_path.rglob("*"))
+
+    def _unexpected(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("execution/output must not occur after failed cost preflight")
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", _unexpected)
+    monkeypatch.setattr("trend.mc.commands.export_results", _unexpected)
+    rc = cli.main(
+        ["mc", *command, *(["--scenario"] if command[0] == "run" else []), str(scenario_path)]
+    )
+    assert rc == 1
+    stderr = capsys.readouterr().err
+    assert "costs:" in stderr and field in stderr
+    assert set(tmp_path.rglob("*")) == before
+
+
+@pytest.mark.parametrize("costs", ["", "costs: null", "costs:\n  enabled: false"])
+def test_mc_cost_preflight_accepts_omitted_null_and_disabled_costs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], costs: str
+) -> None:
+    scenario_path = tmp_path / "valid-costs.yml"
+    _write_scenario(scenario_path, extra=costs)
+    assert cli.main(["mc", "validate", str(scenario_path)]) == 0
+    assert "OK" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("command", [("validate",), ("run", "--dry-run")])
+def test_mc_cost_preflight_accepts_documented_example_without_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: tuple[str, ...]
+) -> None:
+    def unexpected(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("preflight must not execute prices or output writers")
+
+    monkeypatch.setattr(runner_module.MonteCarloRunner, "run", unexpected)
+    monkeypatch.setattr("trend.mc.commands.export_results", unexpected)
+    monkeypatch.setattr("trend.mc.commands.write_mc_manifest", unexpected)
+    args = ["mc", *command]
+    if command[0] == "run":
+        args += ["--scenario"]
+    args += ["config/scenarios/monte_carlo/cost_regime_example.yml"]
+    if command[0] == "run":
+        args += ["--out", str(tmp_path / "forbidden-output")]
+    assert cli.main(args) == 0
+    assert not list(tmp_path.iterdir())
+
+
 def test_mc_list_registry_and_tags(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry_path = tmp_path / "index.yml"
     _write_registry(registry_path)

@@ -307,6 +307,20 @@ def test_validate_mc_scenario_reports_misspelled_rf_override(tmp_path: Path) -> 
     assert not any("Strategy 'base' config invalid" in error for error in errors)
 
 
+def test_validate_mc_scenario_reports_invalid_costs(tmp_path: Path) -> None:
+    base_path = tmp_path / "base.yml"
+    base_path.write_text("version: '1'\n", encoding="utf-8")
+    scenario = MonteCarloScenario(
+        name="invalid_costs",
+        base_config=base_path,
+        monte_carlo={"mode": "mixture", "n_paths": 1, "horizon_years": 1.0, "frequency": "M"},
+        costs={"kind": "regime_stochastic", "regimes": {}},
+    )
+    assert any(
+        "costs: unsupported legacy costs key" in error for error in validate_mc_scenario(scenario)
+    )
+
+
 def test_monte_carlo_scenario_coerces_curated_variants() -> None:
     scenario = MonteCarloScenario(
         name="curated_demo",
