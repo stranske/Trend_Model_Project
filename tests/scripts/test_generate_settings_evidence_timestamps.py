@@ -40,9 +40,9 @@ def test_committed_snapshot_provenance_and_scoped_links() -> None:
 
     root = Path(__file__).resolve().parents[2]
     folder = root / "docs/settings_evidence"
-    data = json.loads((folder / "provenance.json").read_text())
+    data = json.loads((folder / "provenance.json").read_text(encoding="utf-8"))
     for name in ("README.md", "SUMMARY.md"):
-        text = (folder / name).read_text()
+        text = (folder / name).read_text(encoding="utf-8")
         assert "Snapshot kind: historical" in text
         assert "2025-12-21" in text
         assert "Source revision: UNKNOWN" in text
@@ -61,14 +61,18 @@ def test_committed_snapshot_provenance_and_scoped_links() -> None:
         "selection_count",
     }
     for name, report in data["reports"].items():
-        payload = (folder / name).read_bytes()
+        report_path = folder / name
+        assert report_path.is_file(), f"Missing historical report: {report_path}"
+        payload = report_path.read_bytes()
         assert payload.startswith(data["report_banner"].encode())
         original = payload.removeprefix(data["report_banner"].encode())
         assert hashlib.sha256(original).hexdigest() == report["sha256_original_body"]
         assert report["source_revision"] is None
-    summary = (folder / "SUMMARY.md").read_bytes().removeprefix(data["summary_banner"].encode())
+    summary_path = folder / "SUMMARY.md"
+    assert summary_path.is_file(), f"Missing historical summary: {summary_path}"
+    summary = summary_path.read_bytes().removeprefix(data["summary_banner"].encode())
     assert hashlib.sha256(summary).hexdigest() == data["summary_original_body_sha256"]
-    readme = (folder / "README.md").read_text()
+    readme = (folder / "README.md").read_text(encoding="utf-8")
     for setting, row in data["dispositions"].items():
         assert row["historical_status"] == "FAIL"
         assert row["equivalence"] == "not_established"
@@ -77,4 +81,4 @@ def test_committed_snapshot_provenance_and_scoped_links() -> None:
         assert (folder / row["historical_report"]).is_file()
         assert (root / row["current_validation"].split("::")[0]).is_file()
         assert f"[`{setting}`]" in readme
-        assert row["disposition"] in readme
+        assert row["current_validation"] in readme
