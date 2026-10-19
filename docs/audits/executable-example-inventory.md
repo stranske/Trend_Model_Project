@@ -40,7 +40,7 @@ success does not certify an entire Monte Carlo run.
 | MC YAML 2, line 243, regime bootstrap | Proxy regime parameters → same loader → fitted regime model. | Confirmed by the same test, including labels, transition and buckets. The comment listing other regime kinds is not an executed alternative. |
 | MC YAML 3, line 284, curated strategies | Literal curated list → scenario coercion → actual `MonteCarloRunner._resolve_strategies`. | Confirmed by new `test_published_configuration_fragments_reach_their_consumers[curated]`; names and complete overrides retained. |
 | MC YAML 4, line 315, sampled strategies | Literal distribution map → scenario → actual strategy sampler. | Confirmed by the `[sampled]` case; 100 actual variants and documented rank choices. No claim about full portfolio profitability. |
-| MC YAML 5, line 384, stochastic costs | Direct regime blocks → `CostProcess.from_config` via the runner. | Canonical shape checked by existing cost test; the identical nested cost values in the complete scenario reach an actual process and sample. Positive costs, stress slippage 1.5 and the debit relation are asserted there. Standalone cost fragment is not itself a complete scenario. |
+| MC YAML 5, line 384, stochastic costs | Direct regime blocks → `CostProcess.from_config` via the runner. | Canonical shape checked by existing cost test; the identical nested cost values in the complete scenario reach an actual process and sample. Calm/stress lognormal means 6/18 and sigmas 0.25/0.35, positive costs, stress slippage 1.5 and the debit relation are asserted there. Standalone cost fragment is not itself a complete scenario. |
 | MC YAML 6, line 441, regime-conditional turnover | Regime-keyed `portfolio.max_turnover` fragment needs a strategy/base configuration and active regime context. | **Needs investigation**: source trace reaches the runner's turnover/config handling, but this audit does not execute a complete regime-dependent cap path. Neither presumed valid nor labeled broken. |
 | MC Python 7, line 470, multi-period loop | Explicit `# Pseudocode`, undefined strategy/path context and ellipsis. | **Intentional illustration**, not runnable public API. No execution claim. |
 | MC YAML 8, line 499, folds | Literal explicit dates/lookback → scenario loader → real `FoldGenerator.from_config`. | Confirmed configuration construction by new `[folds]` case. Producing those historical folds requires appropriate ten-year price history; generation/execution is unproved here. |
@@ -70,9 +70,9 @@ names/population no longer reach the runner. Restore the exact bytes and rerun
 the named gate: **26 passed**. Registry SHA-256 before and after restoration:
 `b8727ae6f0c54f2526032a85afbbf4e5ce6e4be99abc262eaf4cd66ac63d460c`.
 
-Raw inventory, README probes, RED/GREEN output and restoration proof are retained
-in `~/.codex/automations/pd-workloop-resume/run-20261019T1100/` under
-`trend6098-*`. Ruff and shared Black validate the changed test; the repository
+Raw inventory, README probes, RED/GREEN output and restoration proof are committed
+in [evidence/executable-examples-6098](evidence/executable-examples-6098/).
+The transcript paths use `$CHECKOUT` and `$REPO_VENV` for portable provenance. Ruff and shared Black validate the changed test; the repository
 venv has no Black module, so no formatter installation or dependency edit was
 made. The deliverable is only this inventory and tests; registry source is
 unchanged. CI, post-push review and post-merge verification remain separate.
@@ -84,3 +84,13 @@ for review, not confirmed defects or acceptance waivers. No additional productio
 mismatch is claimed from a parse-only result, an incomplete fragment, an input
 mistake or an unexecuted snippet. Preserve the two known source owners above;
 do not automatically file follow-ups or bundle engine changes into this audit.
+
+## Review recurrence proof
+
+The complete-scenario test also requires the fitted SPX labels, transition and
+regime buckets, and the exact published calm/stress means and sigmas. Disconnecting
+the actual runner proxy argument makes that test fail; independently replacing
+the actual cost-parser sigma with 0.99 also makes it fail. Both production files
+were restored byte-identically, and the full named gate then passed 26 tests.
+The two RED transcripts, restored GREEN and source hashes are in the same
+committed evidence directory. No production change is included.

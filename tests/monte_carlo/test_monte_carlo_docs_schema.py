@@ -266,13 +266,29 @@ def test_complete_published_scenario_reaches_actual_model_strategy_and_cost_cons
     history = _price_history()
     history["SPX"] = history["AssetA"]
     runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=history)
-    assert isinstance(runner._build_price_model(), RegimeConditionedBootstrapModel)
+    model = runner._build_price_model()
+    assert isinstance(model, RegimeConditionedBootstrapModel)
+    assert (
+        model.regime_proxy_column
+        == payload["scenario"]["return_model"]["regime"]["proxy_column"]
+        == "SPX"
+    )
+    assert model._labels is not None and not model._labels.empty
+    assert model._transition is not None and not model._transition.empty
+    assert model._regime_buckets is not None
     strategies = runner._resolve_strategies()
     curated = payload["strategy_set"]["curated"]
     assert [item.name for item in strategies[: len(curated)]] == [item["name"] for item in curated]
     assert len(strategies) == len(curated) + payload["strategy_set"]["sampled"]["n_strategies"]
     process = runner._get_cost_process()
     assert process is not None
+    from trend_analysis.monte_carlo.costs import LognormalCostDistribution
+
+    for label, mean, sigma in [("calm", 6.0, 0.25), ("stress", 18.0, 0.35)]:
+        distribution = process._regimes[label].distribution
+        assert isinstance(distribution, LognormalCostDistribution)
+        assert distribution.mean == mean
+        assert distribution.sigma == sigma
     import numpy as np
     import pandas as pd
 
