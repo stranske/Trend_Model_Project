@@ -121,7 +121,8 @@ def test_issue_intake_docs_match_permissive_label_filter() -> None:
     system_docs = (ROOT / "docs/ci/WORKFLOW_SYSTEM.md").read_text(encoding="utf-8")
     normalized_docs = " ".join(system_docs.split())
 
-    assert "l.match(/^agents?:([a-z-]+)$/i)" in intake
+    # The shared intake accepts digits in provider names as well as letters and hyphens.
+    assert "l.match(/^agents?:([a-z0-9-]+)$/i)" in intake
     assert "!metadataLabels.has(suffix)" in intake
     assert "does not validate the suffix against the local agent registry" in normalized_docs
     assert "registered `agent:*`" not in system_docs
