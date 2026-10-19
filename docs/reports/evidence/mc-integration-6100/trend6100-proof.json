@@ -1,0 +1,20 @@
+[
+  {
+    "control": "net",
+    "exit": 1,
+    "restored_exactly": true,
+    "source_sha256": "a24bce07c8e449641ef72e7b33fcb58abaa2b70130c36ef0a649454043dacae6"
+  },
+  {
+    "control": "cache",
+    "exit": 1,
+    "restored_exactly": true,
+    "source_sha256": "a24bce07c8e449641ef72e7b33fcb58abaa2b70130c36ef0a649454043dacae6"
+  },
+  {
+    "control": "preflight",
+    "exit": 1,
+    "restored_exactly": true,
+    "source_sha256": "63dee6c74fc35b3ef0e99fa78b63a60729fc8bc816a4fcab8f7119b74a214e37"
+  }
+]

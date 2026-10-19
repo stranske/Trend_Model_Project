@@ -1,0 +1,39 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_audit_documented_cost_fragment_reaches_cli_preflight[True] ________
+
+tmp_path = PosixPath('<TMP>/doc-fragment.yml')
+capsys = <_pytest.capture.CaptureFixture object at 0x127648aa0>, invalid = True
+
+    @pytest.mark.parametrize("invalid", [False, True])
+    def test_audit_documented_cost_fragment_reaches_cli_preflight(tmp_path, capsys, invalid):
+        import textwrap
+    
+        import yaml
+    
+        from tests.monte_carlo.test_monte_carlo_docs_schema import DOC_PATH, _yaml_blocks
+    
+        fragments = [yaml.safe_load(block) for block in _yaml_blocks(DOC_PATH.read_text())]
+        costs = [
+            block["costs"]
+            for block in fragments
+            if isinstance(block, dict)
+            and isinstance(block.get("costs"), dict)
+            and block["costs"].get("kind") == "regime_stochastic"
+        ]
+        assert len(costs) == 1
+        payload = costs[0]
+        if invalid:
+            payload["calm"]["trade_cost_bps"]["sigma"] = -1
+        path = tmp_path / "doc-fragment.yml"
+        _write_scenario(path, extra="costs:\n" + textwrap.indent(yaml.safe_dump(payload), "  "))
+        before = set(tmp_path.rglob("*"))
+        result = cli.main(["mc", "validate", str(path)])
+        captured = capsys.readouterr()
+>       assert result == (1 if invalid else 0)
+E       assert 0 == 1
+
+tests/test_cli_mc.py:1203: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_cli_mc.py::test_audit_documented_cost_fragment_reaches_cli_preflight[True]
+1 failed in 0.59s
