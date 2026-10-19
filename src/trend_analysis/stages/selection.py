@@ -260,7 +260,8 @@ def single_period_run(
         and carries ``insample_len`` and ``period`` metadata so callers
         can reason about the analysed window.
     """
-    from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
+    from ..core.path_metrics import compute_metric_series as _compute_metric_series
+    from ..core.rank_selection import RiskStatsConfig
 
     if stats_cfg is None:
         stats_cfg = RiskStatsConfig()

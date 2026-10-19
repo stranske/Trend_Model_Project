@@ -28,6 +28,7 @@ import pandas as pd
 
 from .. import metrics as _metrics
 from ..util.json_compat import JSON_UNSUPPORTED, json_primitive
+from .path_metrics import compute_metric_series as _path_metric_series
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..perf.cache import CovCache, CovPayload
@@ -198,7 +199,7 @@ class WindowMetricBundle:
                 universe_cols=tuple(self.in_sample_df.columns.astype(str)),
                 metric_name=canonical,
                 cfg_hash=self.stats_cfg_hash,
-                compute=lambda: _compute_metric_series(self.in_sample_df, canonical, stats_cfg),
+                compute=lambda: _path_metric_series(self.in_sample_df, canonical, stats_cfg),
                 enable=use_metric_cache,
                 cache=None,
             )
@@ -551,7 +552,7 @@ def rank_select_funds(
                 incremental_cov=incremental_cov,
             ).copy()
         else:
-            scores = _compute_metric_series(
+            scores = _path_metric_series(
                 df,
                 metric_name,
                 cfg,
@@ -981,7 +982,7 @@ def compute_metric_series_with_cache(
     path without altering existing registry semantics.
     """
     if metric_name not in {"__COV_VAR__", "AvgCorr"}:
-        return _compute_metric_series(
+        return _path_metric_series(
             in_sample_df,
             metric_name,
             stats_cfg,
@@ -1069,7 +1070,7 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
-            raw = _compute_metric_series(
+            raw = _path_metric_series(
                 in_sample_df,
                 metric,
                 stats_cfg,

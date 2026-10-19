@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence, SupportsFloat, cast
@@ -41,6 +41,7 @@ import pandas as pd
 from trend_analysis.api import run_simulation
 from trend_analysis.config.models import Config, ConfigType
 from trend_analysis.constants import NUMERICAL_TOLERANCE_LOW
+from trend_analysis.core.path_metrics import MetricCache, use_metric_cache
 from trend_analysis.core.rank_selection import RiskStatsConfig, canonical_metric_list
 from trend_analysis.monte_carlo.config import resolve_risk_free_source
 from trend_analysis.monte_carlo.costs import CostProcess, CostProcessOutput
@@ -151,6 +152,7 @@ class _PathContext:
     seed: int | None
     fold_id: int | None = None
     fold_label: str | None = None
+    metric_cache: MetricCache = field(default_factory=dict)
 
 
 def evaluate_strategies_for_path(
@@ -465,27 +467,30 @@ class MonteCarloRunner:
 
             path_evals: list[StrategyEvaluation] = []
             path_errors: list[MonteCarloPathError] = []
-            for strategy in strategies:
-                try:
-                    evaluation = self._evaluate_strategy(strategy, context)
-                    path_evals.append(evaluation)
-                except Exception as exc:
-                    self._log_path_error(
-                        path_id,
-                        strategy.name,
-                        exc,
-                        fold_id=fold_id,
-                        fold_label=fold_label,
-                    )
-                    path_errors.append(
-                        self._error_record(
+            try:
+                for strategy in strategies:
+                    try:
+                        evaluation = self._evaluate_strategy(strategy, context)
+                        path_evals.append(evaluation)
+                    except Exception as exc:
+                        self._log_path_error(
                             path_id,
                             strategy.name,
                             exc,
                             fold_id=fold_id,
                             fold_label=fold_label,
                         )
-                    )
+                        path_errors.append(
+                            self._error_record(
+                                path_id,
+                                strategy.name,
+                                exc,
+                                fold_id=fold_id,
+                                fold_label=fold_label,
+                            )
+                        )
+            finally:
+                context.metric_cache.clear()
             return path_evals, path_errors
 
         completed = 0
@@ -602,6 +607,8 @@ class MonteCarloRunner:
                         fold_label=fold_label,
                     )
                 ]
+            finally:
+                context.metric_cache.clear()
 
         completed = 0
         for path_id, path_eval, path_err in self._execute_paths(path_seeds, _evaluate_path, jobs):
@@ -650,10 +657,11 @@ class MonteCarloRunner:
             path_hash=path_hash,
             seed=seed,
         )
-        score_frame = self._compute_score_frame(
-            returns_df,
-            config_data=self._path_aligned_base_config(score_context),
-        )
+        with use_metric_cache(score_context.metric_cache):
+            score_frame = self._compute_score_frame(
+                returns_df,
+                config_data=self._path_aligned_base_config(score_context),
+            )
         return _PathContext(
             fold_id=fold_id,
             fold_label=fold_label,
@@ -661,6 +669,7 @@ class MonteCarloRunner:
             prices=prices,
             returns=returns_df,
             score_frame=score_frame,
+            metric_cache=score_context.metric_cache,
             path_hash=path_hash,
             seed=seed,
         )
@@ -678,7 +687,8 @@ class MonteCarloRunner:
             # Sample against actual turnover, then debit the portfolio once below.
             config.portfolio["cost_model"] = {"per_trade_bps": 0.0, "half_spread_bps": 0.0}
             config.run["monthly_cost"] = 0.0
-        run_result = run_simulation(config, context.returns)
+        with use_metric_cache(context.metric_cache):
+            run_result = run_simulation(config, context.returns)
         metrics, source = self._extract_portfolio_metrics(run_result)
         cost_payload = self._maybe_sample_costs(run_result, context, strategy)
         gross_returns = self._resolve_nav_return_series(run_result, prefer_user=True)
