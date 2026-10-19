@@ -142,7 +142,11 @@ def test_api_md_python_snippets_execute(tmp_path, monkeypatch) -> None:
         exec(compile(block, f"{doc}:python-block-{index + 1}", "exec"), namespace)
     results = namespace["results"]
     assert isinstance(results, pd.DataFrame) and not results.empty
-    assert np.isfinite(results.select_dtypes(include="number").to_numpy()).any()
+    numeric = results.select_dtypes(include="number")
+    assert {"cagr", "vol", "sharpe", "max_drawdown"} <= set(numeric.columns)
+    # Average correlations are undefined when not requested by this demo config.
+    required = numeric.drop(columns=["is_avg_corr", "os_avg_corr"], errors="ignore")
+    assert np.isfinite(required.to_numpy()).all()
     for name in ("sharpe", "max_dd", "annualized"):
         assert np.isfinite(namespace[name]), name
     for name in ("output.xlsx", "output_metrics.csv", "output_metrics.json"):
