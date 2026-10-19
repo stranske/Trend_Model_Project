@@ -334,3 +334,255 @@ def test_cached_strategies_are_materially_faster() -> None:
     assert cached_calls == rebalance_dates
     assert len(naive_calls) == len(rebalance_dates) * len(strategies)
     assert cached_time * 2 < naive_time
+
+
+def _real_runner(strategy_count=1, *, multi_period=False):
+    from tests.monte_carlo.test_runner import _base_config, _price_history, _scenario
+    from trend_analysis.monte_carlo.runner import MonteCarloRunner
+    from trend_analysis.monte_carlo.strategy import StrategyVariant
+
+    scenario = _scenario("two_layer")
+    scenario.monte_carlo.n_paths = 1
+    scenario.strategy_set["curated"] = [
+        StrategyVariant(name=f"same-{number}") for number in range(strategy_count)
+    ]
+    config = _base_config()
+    if multi_period:
+        config["multi_period"] = {
+            "frequency": "M",
+            "in_sample_len": 6,
+            "out_sample_len": 1,
+            "start": "2023-01",
+            "end": "2023-12",
+        }
+    return MonteCarloRunner(scenario, base_config=config, price_history=_price_history())
+
+
+@pytest.mark.parametrize("multi_period", [False, True])
+def test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_period):
+    from unittest.mock import Mock
+    from trend_analysis.core import rank_selection
+
+    spy = Mock(wraps=rank_selection._compute_metric_series)
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", spy)
+    one = _real_runner(1, multi_period=multi_period).run(jobs=1)
+    first = spy.call_count
+    spy.reset_mock()
+    three = _real_runner(3, multi_period=multi_period).run(jobs=1)
+    assert not one.errors and not three.errors
+    assert len(three.results_frame) == 3
+    assert first > 0
+    assert spy.call_count == first
+
+
+@pytest.mark.parametrize("multi_period", [False, True])
+def test_cached_and_uncached_runs_match(monkeypatch, multi_period):
+    from contextlib import nullcontext
+    import trend_analysis.monte_carlo.runner as runner_module
+
+    captured = []
+    original = runner_module.run_simulation
+
+    def capture(config, returns):
+        result = original(config, returns)
+        captured.append(result)
+        return result
+
+    monkeypatch.setattr(runner_module, "run_simulation", capture)
+    cached = _real_runner(3, multi_period=multi_period).run(jobs=1)
+    cached_runs = captured[:]
+    captured.clear()
+    monkeypatch.setattr(runner_module, "use_metric_cache", lambda cache: nullcontext())
+    uncached = _real_runner(3, multi_period=multi_period).run(jobs=1)
+    assert not cached.errors and not uncached.errors
+    assert len(cached_runs) == len(captured) == 3
+    pd.testing.assert_frame_equal(cached.results_frame, uncached.results_frame)
+    for left, right in zip(cached_runs, captured, strict=True):
+        pd.testing.assert_frame_equal(left.metrics, right.metrics)
+        left_periods = left.details.get("period_results") or [left.details]
+        right_periods = right.details.get("period_results") or [right.details]
+        assert len(left_periods) == len(right_periods) > 0
+        for a_period, b_period in zip(left_periods, right_periods, strict=True):
+            assert a_period["selected_funds"]
+            assert a_period["fund_weights"]
+            for key in [
+                "selected_funds",
+                "fund_weights",
+                "portfolio_equal_weight",
+                "portfolio_user_weight",
+            ]:
+                a, b = a_period[key], b_period[key]
+                if isinstance(a, pd.Series):
+                    pd.testing.assert_series_equal(a, b)
+                else:
+                    assert a == b
+
+
+def test_incompatible_windows_do_not_share_cache():
+    from trend_analysis.core.path_metrics import use_metric_cache
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+    from trend_analysis.stages.selection import single_period_run
+
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-31", periods=4, freq="ME"), "A": [0.01, -0.02, 0.03, 0.04]}
+    )
+    cache = {}
+    cfg = RiskStatsConfig(metrics_to_run=["Sharpe"])
+    with use_metric_cache(cache):
+        first = single_period_run(frame, "2024-01", "2024-03", stats_cfg=cfg, risk_free=0.0)
+        assert len(cache) == 1
+        first.iloc[0, 0] = -999.0
+        repeated = single_period_run(frame, "2024-01", "2024-03", stats_cfg=cfg, risk_free=0.0)
+        assert repeated.iloc[0, 0] != -999.0
+        assert len(cache) == 1
+        single_period_run(frame, "2024-02", "2024-04", stats_cfg=cfg, risk_free=0.0)
+        single_period_run(frame, "2024-01", "2024-03", stats_cfg=cfg, risk_free=0.01)
+        changed = frame.copy()
+        changed.loc[0, "A"] = 0.5
+        single_period_run(changed, "2024-01", "2024-03", stats_cfg=cfg, risk_free=0.0)
+        assert len(cache) == 4
+
+
+def test_runner_releases_path_entries(monkeypatch):
+    runner = _real_runner(3)
+    contexts = []
+    generate = runner._generate_path_context
+
+    def record(**kwargs):
+        context = generate(**kwargs)
+        contexts.append(context)
+        return context
+
+    monkeypatch.setattr(runner, "_generate_path_context", record)
+    result = runner.run(jobs=1)
+    assert not result.errors
+    assert contexts and all(not context.metric_cache for context in contexts)
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_distinct_paths_and_folds_have_separate_released_caches(monkeypatch, fail):
+    from tests.monte_carlo.test_runner import _base_config, _price_history, _scenario_with_folds
+    from trend_analysis.monte_carlo.runner import MonteCarloRunner
+
+    scenario = _scenario_with_folds(
+        mode="two_layer",
+        folds={
+            "mode": "rolling",
+            "start": "2021-03-15",
+            "end": "2021-09-30",
+            "step_months": 3,
+            "calibration_lookback_years": 1.0,
+        },
+        enable_fold_runs=True,
+    )
+    runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=_price_history())
+    contexts = []
+    generate = runner._generate_path_context
+
+    def record(**kwargs):
+        context = generate(**kwargs)
+        contexts.append(context)
+        return context
+
+    monkeypatch.setattr(runner, "_generate_path_context", record)
+    if fail:
+
+        def fail_strategy(*args, **kwargs):
+            raise ValueError("synthetic evaluation failure")
+
+        monkeypatch.setattr(runner, "_evaluate_strategy", fail_strategy)
+    result = runner.run(jobs=1)
+    assert bool(result.errors) == fail
+    assert len(contexts) > 2
+    assert len({context.fold_id for context in contexts}) > 1
+    assert len({id(context.metric_cache) for context in contexts}) == len(contexts)
+    assert all(not context.metric_cache for context in contexts)
+
+
+def test_metric_union_and_effective_inputs_are_keyed(monkeypatch):
+    from unittest.mock import Mock
+    from trend_analysis.core import rank_selection
+    from trend_analysis.core.path_metrics import compute_metric_series, use_metric_cache
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    frame = pd.DataFrame(
+        {"A": [0.01, -0.02, 0.03, 0.04]}, index=pd.date_range("2024-01-31", periods=4, freq="ME")
+    )
+    spy = Mock(wraps=rank_selection._compute_metric_series)
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", spy)
+    cache = {}
+    with use_metric_cache(cache):
+        for metrics in [["Sharpe"], ["Sharpe", "Volatility"]]:
+            cfg = RiskStatsConfig(metrics_to_run=metrics)
+            for metric in metrics:
+                compute_metric_series(frame, metric, cfg, risk_free_override=0.0)
+        assert spy.call_count == 2
+        compute_metric_series(
+            frame, "Sharpe", RiskStatsConfig(periods_per_year=4), risk_free_override=0.0
+        )
+        compute_metric_series(
+            frame, "Sharpe", cfg, risk_free_override=pd.Series(0.0, index=frame.index)
+        )
+        compute_metric_series(frame, "InformationRatio", cfg, benchmark=frame["A"])
+        compute_metric_series(frame, "InformationRatio", cfg, benchmark=frame["A"] * 0.5)
+        assert spy.call_count == 6
+    # Scope restoration means normal API calls do not reuse path-owned values.
+    compute_metric_series(frame, "Sharpe", cfg, risk_free_override=0.0)
+    assert spy.call_count == 7
+
+
+def test_single_period_fingerprints_once_per_unchanged_metric_batch(monkeypatch):
+    from unittest.mock import Mock
+    from trend_analysis.core import path_metrics
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+    from trend_analysis.stages.selection import single_period_run
+
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-31", periods=4, freq="ME"), "A": [0.01, -0.02, 0.03, 0.04]}
+    )
+    cfg = RiskStatsConfig(metrics_to_run=["AnnualReturn", "Volatility", "Sharpe"])
+    spy = Mock(wraps=path_metrics._frame_key)
+    monkeypatch.setattr(path_metrics, "_frame_key", spy)
+    cache = {}
+    with path_metrics.use_metric_cache(cache):
+        first = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert spy.call_count == 1
+        assert len(cache) == 3
+        spy.reset_mock()
+        repeat = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert spy.call_count == 1
+        pd.testing.assert_frame_equal(first, repeat)
+        frame.loc[0, "A"] = 0.5
+        changed = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert len(cache) == 6
+        assert not first.equals(changed)
+
+
+def test_batch_fingerprints_effective_series_once_and_preserves_invalidation(monkeypatch):
+    from unittest.mock import Mock
+    from trend_analysis.core import path_metrics
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    frame = pd.DataFrame({"A": [0.01, -0.02, 0.03, 0.04]})
+    risk_free = pd.Series(0.0, index=frame.index)
+    benchmark = frame["A"].copy()
+    cfg = RiskStatsConfig(benchmark=benchmark)
+    spy = Mock(wraps=path_metrics._frame_key)
+    monkeypatch.setattr(path_metrics, "_frame_key", spy)
+    cache = {}
+    metrics = ["Sharpe", "InformationRatio"]
+    with path_metrics.use_metric_cache(cache):
+        first = path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert spy.call_count == 3  # frame, risk-free series and benchmark, once each
+        assert len(cache) == 2
+        first[0].iloc[0] = -999.0
+        repeat = path_metrics.compute_metric_batch(
+            frame, metrics, cfg, risk_free_override=risk_free
+        )
+        assert repeat[0].iloc[0] != -999.0
+        risk_free.iloc[0] = 0.1
+        path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert len(cache) == 4
+        cfg.benchmark.iloc[0] = 0.2
+        path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert len(cache) == 6

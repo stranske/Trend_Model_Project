@@ -2241,7 +2241,8 @@ def _run_threshold_hold_multi_periods(
         periods_per_year: int,
     ) -> pd.DataFrame:
         # Compute metrics frame for the in-sample window (vectorised)
-        from ..core.rank_selection import RiskStatsConfig, _compute_metric_series
+        from ..core.path_metrics import compute_metric_series as _compute_metric_series
+        from ..core.rank_selection import RiskStatsConfig
 
         # IMPORTANT: Do not silently compute RF-sensitive metrics (Sharpe,
         # Sortino, IR) against a 0.0 risk-free unless the caller explicitly
