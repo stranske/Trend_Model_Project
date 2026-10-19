@@ -260,7 +260,7 @@ def single_period_run(
         and carries ``insample_len`` and ``period`` metadata so callers
         can reason about the analysed window.
     """
-    from ..core.path_metrics import compute_metric_series as _compute_metric_series
+    from ..core.path_metrics import compute_metric_batch
     from ..core.rank_selection import RiskStatsConfig
 
     if stats_cfg is None:
@@ -300,10 +300,9 @@ def single_period_run(
     if not metrics:
         raise ValueError("stats_cfg.metrics_to_run must not be empty")
 
-    parts = [
-        _compute_metric_series(window_no_all_nan, m, stats_cfg, risk_free_override=risk_free)
-        for m in metrics
-    ]
+    parts = compute_metric_batch(
+        window_no_all_nan, metrics, stats_cfg, risk_free_override=risk_free
+    )
     score_frame = pd.concat(parts, axis=1)
     score_frame.columns = metrics
     score_frame.attrs["insample_len"] = len(window)

@@ -529,3 +529,60 @@ def test_metric_union_and_effective_inputs_are_keyed(monkeypatch):
     # Scope restoration means normal API calls do not reuse path-owned values.
     compute_metric_series(frame, "Sharpe", cfg, risk_free_override=0.0)
     assert spy.call_count == 7
+
+
+def test_single_period_fingerprints_once_per_unchanged_metric_batch(monkeypatch):
+    from unittest.mock import Mock
+    from trend_analysis.core import path_metrics
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+    from trend_analysis.stages.selection import single_period_run
+
+    frame = pd.DataFrame(
+        {"Date": pd.date_range("2024-01-31", periods=4, freq="ME"), "A": [0.01, -0.02, 0.03, 0.04]}
+    )
+    cfg = RiskStatsConfig(metrics_to_run=["AnnualReturn", "Volatility", "Sharpe"])
+    spy = Mock(wraps=path_metrics._frame_key)
+    monkeypatch.setattr(path_metrics, "_frame_key", spy)
+    cache = {}
+    with path_metrics.use_metric_cache(cache):
+        first = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert spy.call_count == 1
+        assert len(cache) == 3
+        spy.reset_mock()
+        repeat = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert spy.call_count == 1
+        pd.testing.assert_frame_equal(first, repeat)
+        frame.loc[0, "A"] = 0.5
+        changed = single_period_run(frame, "2024-01", "2024-04", stats_cfg=cfg)
+        assert len(cache) == 6
+        assert not first.equals(changed)
+
+
+def test_batch_fingerprints_effective_series_once_and_preserves_invalidation(monkeypatch):
+    from unittest.mock import Mock
+    from trend_analysis.core import path_metrics
+    from trend_analysis.core.rank_selection import RiskStatsConfig
+
+    frame = pd.DataFrame({"A": [0.01, -0.02, 0.03, 0.04]})
+    risk_free = pd.Series(0.0, index=frame.index)
+    benchmark = frame["A"].copy()
+    cfg = RiskStatsConfig(benchmark=benchmark)
+    spy = Mock(wraps=path_metrics._frame_key)
+    monkeypatch.setattr(path_metrics, "_frame_key", spy)
+    cache = {}
+    metrics = ["Sharpe", "InformationRatio"]
+    with path_metrics.use_metric_cache(cache):
+        first = path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert spy.call_count == 3  # frame, risk-free series and benchmark, once each
+        assert len(cache) == 2
+        first[0].iloc[0] = -999.0
+        repeat = path_metrics.compute_metric_batch(
+            frame, metrics, cfg, risk_free_override=risk_free
+        )
+        assert repeat[0].iloc[0] != -999.0
+        risk_free.iloc[0] = 0.1
+        path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert len(cache) == 4
+        cfg.benchmark.iloc[0] = 0.2
+        path_metrics.compute_metric_batch(frame, metrics, cfg, risk_free_override=risk_free)
+        assert len(cache) == 6

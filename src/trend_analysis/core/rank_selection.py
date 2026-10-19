@@ -28,6 +28,7 @@ import pandas as pd
 
 from .. import metrics as _metrics
 from ..util.json_compat import JSON_UNSUPPORTED, json_primitive
+from .path_metrics import compute_metric_batch
 from .path_metrics import compute_metric_series as _path_metric_series
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
@@ -1059,6 +1060,19 @@ def blended_score(
         raise ValueError("Sum of weights must not be zero")
     w_norm = {k: v / total for k, v in canonical_weights.items()}
 
+    batch = (
+        dict(
+            zip(
+                w_norm,
+                compute_metric_batch(
+                    in_sample_df, w_norm, stats_cfg, risk_free_override=risk_free_override
+                ),
+                strict=True,
+            )
+        )
+        if bundle is None
+        else {}
+    )
     combo = pd.Series(0.0, index=in_sample_df.columns)
     for metric, w in w_norm.items():
         if bundle is not None:
@@ -1070,12 +1084,7 @@ def blended_score(
                 incremental_cov=incremental_cov,
             )
         else:
-            raw = _path_metric_series(
-                in_sample_df,
-                metric,
-                stats_cfg,
-                risk_free_override=risk_free_override,
-            )
+            raw = batch[metric]
         raw = normalize_metric_scores(raw, metric)
         z = _zscore(raw)
         # If metric is "smaller‑is‑better", *invert* before z‑score

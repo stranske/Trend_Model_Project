@@ -8,7 +8,7 @@ path owns its mapping; context tokens are always restored, including on errors.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
@@ -43,11 +43,22 @@ def compute_metric_series(
     frame: pd.DataFrame, metric: str, stats_cfg: Any, **kwargs: Any
 ) -> pd.Series:
     """Reuse only identical effective metric inputs, returning independent values."""
+    return compute_metric_batch(frame, [metric], stats_cfg, **kwargs)[0]
+
+
+def compute_metric_batch(
+    frame: pd.DataFrame, metrics: Iterable[str], stats_cfg: Any, **kwargs: Any
+) -> list[pd.Series]:
+    """Fingerprint one unchanged frame once for a synchronous metric batch.
+
+    Fingerprints stay local to this call: callers may mutate a frame or its
+    configuration between batches without accidentally reusing stale keys.
+    """
     from .rank_selection import METRIC_REGISTRY, _compute_metric_series
 
     cache = _ACTIVE_CACHE.get()
     if cache is None:
-        return _compute_metric_series(frame, metric, stats_cfg, **kwargs)
+        return [_compute_metric_series(frame, metric, stats_cfg, **kwargs) for metric in metrics]
     # These are the effective arguments consumed by the metric kernel. Registry
     # lists do not affect an individual metric: lazy population therefore builds
     # the union required by compatible strategies without recomputing overlaps.
@@ -61,7 +72,11 @@ def compute_metric_series(
         _frame_key(value) if isinstance(value, (pd.DataFrame, pd.Series)) else repr(value)
         for value in (risk_free, benchmark, stats_cfg.periods_per_year)
     )
-    key = (_frame_key(frame), metric, id(METRIC_REGISTRY.get(metric)), inputs)
-    if key not in cache:
-        cache[key] = _compute_metric_series(frame, metric, stats_cfg, **kwargs).copy()
-    return cache[key].copy()
+    frame_key = _frame_key(frame)
+    values = []
+    for metric in metrics:
+        key = (frame_key, metric, id(METRIC_REGISTRY.get(metric)), inputs)
+        if key not in cache:
+            cache[key] = _compute_metric_series(frame, metric, stats_cfg, **kwargs).copy()
+        values.append(cache[key].copy())
+    return values
