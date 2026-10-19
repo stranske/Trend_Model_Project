@@ -2425,6 +2425,8 @@ def test_audit_shared_scores_and_sampled_costs_reach_real_strategy_outputs(monke
     for evaluation in three.evaluations:
         costs = evaluation.diagnostic["costs"]
         assert costs["transaction_costs"].sum() > 0
+        assert costs["applied_debits"].sum() > 0
+        assert (costs["net_returns"] < costs["gross_returns"]).any()
         net = costs["gross_returns"] - costs["applied_debits"]
         pd.testing.assert_series_equal(costs["net_returns"], net)
         expected_nav = (1.0 + net).cumprod()

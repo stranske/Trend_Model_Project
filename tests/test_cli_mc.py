@@ -1175,15 +1175,26 @@ def test_mc_viz_acceptance_command_writes_plots_artifacts(
             assert (plots_dir / f"{chart}.{ext}").exists()
 
 
-@pytest.mark.parametrize("invalid", [False, True])
-def test_audit_documented_cost_fragment_reaches_cli_preflight(tmp_path, capsys, invalid):
+@pytest.mark.parametrize(
+    "invalid",
+    [pytest.param(False, id="documented-fragment"), pytest.param(True, id="negative-sigma")],
+)
+def test_audit_documented_cost_fragment_reaches_cli_preflight(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], invalid: bool
+) -> None:
+    import copy
     import textwrap
 
     import yaml
 
     from tests.monte_carlo.test_monte_carlo_docs_schema import DOC_PATH, _yaml_blocks
 
-    fragments = [yaml.safe_load(block) for block in _yaml_blocks(DOC_PATH.read_text())]
+    fragments = []
+    for index, block in enumerate(_yaml_blocks(DOC_PATH.read_text()), start=1):
+        try:
+            fragments.append(yaml.safe_load(block))
+        except yaml.YAMLError as exc:
+            pytest.fail(f"{DOC_PATH}: YAML block {index} failed to parse: {exc}")
     costs = [
         block["costs"]
         for block in fragments
@@ -1191,8 +1202,10 @@ def test_audit_documented_cost_fragment_reaches_cli_preflight(tmp_path, capsys, 
         and isinstance(block.get("costs"), dict)
         and block["costs"].get("kind") == "regime_stochastic"
     ]
-    assert len(costs) == 1
-    payload = costs[0]
+    assert len(costs) == 1, f"{DOC_PATH}: expected one costs fragment, found {len(costs)}"
+    payload = copy.deepcopy(costs[0])
+    assert isinstance(payload.get("calm"), dict), f"{DOC_PATH}: costs.calm must be a mapping"
+    assert "trade_cost_bps" in payload["calm"], f"{DOC_PATH}: missing calm.trade_cost_bps"
     if invalid:
         payload["calm"]["trade_cost_bps"]["sigma"] = -1
     path = tmp_path / "doc-fragment.yml"
@@ -1203,6 +1216,9 @@ def test_audit_documented_cost_fragment_reaches_cli_preflight(tmp_path, capsys, 
     assert result == (1 if invalid else 0)
     if invalid:
         assert "costs:" in captured.err and "sigma must be >= 0.0" in captured.err
+        assert "base_config:" not in captured.err
+        assert captured.out == ""
     else:
-        assert "OK" in captured.out
+        assert captured.out == "Scenario 'mc_test': OK\n"
+        assert captured.err == ""
     assert set(tmp_path.rglob("*")) == before

@@ -2,7 +2,7 @@ F                                                                        [100%]
 =================================== FAILURES ===================================
 _______ test_audit_documented_cost_fragment_reaches_cli_preflight[True] ________
 
-tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-7544/test_audit_documented_cost_fra0')
+tmp_path = PosixPath('<TMP>/doc-fragment.yml')
 capsys = <_pytest.capture.CaptureFixture object at 0x127648aa0>, invalid = True
 
     @pytest.mark.parametrize("invalid", [False, True])
