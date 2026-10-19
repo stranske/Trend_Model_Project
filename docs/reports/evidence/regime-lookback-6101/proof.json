@@ -1,0 +1,10 @@
+{
+  "run_at": "2026-10-19T13:59:45.160534+00:00",
+  "base": "22d68fcbcb5ece04fa30bf80d93bb17aaea76fcd",
+  "source_sha256_before_and_after": "b7befa41c74f4da2b8713671117f1129fd275ff2d91126644d3a068cc713f82b",
+  "mutation": "Replace window = max(int(settings.lookback), 1) with window = 2",
+  "red_command": "python -m pytest tests/test_multi_period_regime_wiring.py::test_multi_period_lookback_reaches_labels_selection_and_regime_report -q",
+  "red_exit": 1,
+  "restored_command": "python -m pytest tests/test_multi_period_regime_wiring.py tests/test_multi_period_regime_exports.py -q",
+  "restored_exit": 0
+}

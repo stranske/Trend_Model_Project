@@ -127,11 +127,12 @@ toggles:
     enforce: true
   - id: regime_toggle
     flag: regime.enabled
-    # FINDING TRACKED (2026-06-11): scalar max_turnover only bypasses
-    # regime-specific cap lookup for the turnover cap. This fixture does not
-    # yet exercise a regime-conditional turnover-cap mapping, so this remains
-    # report-only until such a scenario is added.
-    description: Toggling regime detection is a no-op for the current scalar-turnover demo fixture.
+    # This demo comparator observes weights/aggregate performance only, not
+    # labels or regime tables; report-only is not a global inert-control claim.
+    # Scalar turnover does not bypass the Risk-Off selection multiplier.
+    # Enforced sensitive label/selection/report probe:
+    # tests/test_multi_period_regime_wiring.py::test_multi_period_lookback_reaches_labels_selection_and_regime_report
+    description: Portfolio-only demo comparison; dedicated real-engine tests enforce regime label and report sensitivity.
     enforce: false
   - id: shrinkage_toggle
     flag: portfolio.robustness.shrinkage.enabled
