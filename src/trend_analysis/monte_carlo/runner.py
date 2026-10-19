@@ -1108,12 +1108,11 @@ class MonteCarloRunner:
         calibration_start: pd.Timestamp | None = None,
         calibration_end: pd.Timestamp | None = None,
     ) -> Any:
-        model_spec_raw = self.scenario.return_model
-        model_spec: Mapping[str, Any] = (
-            model_spec_raw if isinstance(model_spec_raw, Mapping) else {}
-        )
-        kind = str(model_spec.get("kind") or "stationary_bootstrap").lower()
-        params = model_spec.get("params") or {}
+        from .registry import normalize_return_model
+
+        model_spec = normalize_return_model(self.scenario.return_model)
+        kind = model_spec["kind"]
+        params = model_spec["params"]
         frequency = self.scenario.simulation_frequency()
         model: Any
         if kind in {"stationary_bootstrap", "bootstrap"}:

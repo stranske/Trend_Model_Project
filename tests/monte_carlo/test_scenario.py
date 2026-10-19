@@ -265,7 +265,7 @@ def test_complete_schema_markdown_example_loads_through_registry(tmp_path: Path)
     assert scenario.folds is not None
     assert scenario.folds["enabled"] is False
     assert scenario.return_model is not None
-    assert scenario.return_model["kind"] == "stationary_bootstrap"
+    assert scenario.return_model["kind"] == "regime_bootstrap"
     assert scenario.costs is not None
     assert scenario.costs["kind"] == "regime_stochastic"
     assert scenario.outputs is not None
