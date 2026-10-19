@@ -1,0 +1,24 @@
+......                                                                   [100%]
+=============================== warnings summary ===============================
+tests/test_multi_period_regime_wiring.py: 8 warnings
+tests/test_multi_period_regime_exports.py: 4 warnings
+  <worktree>/src/trend_analysis/stages/portfolio.py:880: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "User": out_user.astype(float, copy=False),
+
+tests/test_multi_period_regime_wiring.py: 8 warnings
+tests/test_multi_period_regime_exports.py: 4 warnings
+  <worktree>/src/trend_analysis/stages/portfolio.py:881: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    "Equal-Weight": out_ew.astype(float, copy=False),
+
+tests/test_multi_period_regime_wiring.py: 8 warnings
+tests/test_multi_period_regime_exports.py: 4 warnings
+  <worktree>/analysis/results.py:86: UserWarning: data file missing: <worktree>/data/Trend Universe Data.csv
+    warnings.warn(message, UserWarning)
+
+tests/test_multi_period_regime_wiring.py: 8 warnings
+tests/test_multi_period_regime_exports.py: 4 warnings
+  <worktree>/src/trend_analysis/multi_period/engine.py:766: Pandas4Warning: The copy keyword is deprecated and will be removed in a future version. Copy-on-Write is active in pandas since 3.0 which utilizes a lazy copy mechanism that defers copies until necessary. Use .copy() to make an eager copy if necessary.
+    prepared = df.astype(float, copy=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6 passed, 48 warnings in 1.26s

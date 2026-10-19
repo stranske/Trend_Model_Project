@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from trend_analysis.config import load_config
@@ -105,3 +107,43 @@ def test_multi_period_regime_proxy_changes_selection_count() -> None:
 
     assert spx and acwi
     assert len(spx[0]["selected_funds"]) != len(acwi[0]["selected_funds"])
+
+
+def test_multi_period_lookback_reaches_labels_selection_and_regime_report() -> None:
+    """Two unclamped windows see different signals in the same real engine run."""
+    frame = pd.read_csv(
+        Path(__file__).parent / "fixtures" / "regime_lookback_sensitive.csv",
+        parse_dates=["Date"],
+    )
+    configs = []
+    for lookback in (2, 5):
+        settings = _regime_settings(True, "SPX")
+        settings["lookback"] = lookback
+        config = _make_config(settings)
+        config.multi_period.update(in_sample_len=6, end="2020-08")
+        assert config.multi_period["in_sample_len"] > lookback
+        configs.append(config)
+    short_config, long_config = (config.model_dump() for config in configs)
+    assert short_config["regime"].pop("lookback") == 2
+    assert long_config["regime"].pop("lookback") == 5
+    assert short_config == long_config
+
+    short = run_multi_period(configs[0], df=frame.copy())
+    long = run_multi_period(configs[1], df=frame.copy())
+    assert len(short) == len(long) == 2
+    # The six-month in-sample window ends in two negative proxy returns:
+    # their compounded return is negative, while the five-month return is positive.
+    in_end = pd.Timestamp("2020-06-30")
+    assert short[0]["regime_labels"].loc[in_end] == "Risk-Off"
+    assert long[0]["regime_labels"].loc[in_end] == "Risk-On"
+    assert len(short[0]["selected_funds"]) == 2
+    assert len(long[0]["selected_funds"]) == 3
+    # The first actual out-of-sample report also receives the changed label.
+    out_date = pd.Timestamp("2020-07-31")
+    assert short[0]["regime_labels_out"].loc[out_date] == "Risk-Off"
+    assert long[0]["regime_labels_out"].loc[out_date] == "Risk-On"
+    for result, label in ((short[0], "Risk-Off"), (long[0], "Risk-On")):
+        table = result["performance_by_regime"]
+        other = "Risk-On" if label == "Risk-Off" else "Risk-Off"
+        assert table.loc["Observations", ("User", label)] == 1
+        assert table.loc["Observations", ("User", other)] == 0

@@ -277,3 +277,30 @@ Where:
 - [Preset Strategies](PresetStrategies.md) – Details on Conservative, Balanced, and Aggressive presets
 - [Weighting Options](UserGuide.md#6-weighting-options) – Full reference for weighting engines
 - [Risk Controls](UserGuide.md#7-risk-controls) – Advanced volatility and constraint settings
+
+
+## Regime lookback and observable effects
+
+`regime.lookback` sets the proxy observations used by regime classification;
+it is separate from the trend-signal lookback discussed above. The classifier
+clamps the requested window to the available history. With regimes enabled and
+a proxy that crosses a threshold between two windows, labels can change and
+reach both portfolio selection and performance-by-regime reporting. The
+Risk-Off selection multiplier can change fund count even with a scalar turnover
+cap; a regime-specific turnover mapping is not required for that selection path.
+
+The deterministic real-engine regression in
+`tests/test_multi_period_regime_wiring.py` changes only lookback 2 versus 5,
+using six in-sample monthly observations and an eight-month CSV fixture. It
+checks Risk-Off versus Risk-On, two versus three selected funds, and changed
+out-of-sample report observations. It complements the existing enabled/proxy
+selection and export tests. An ignored-lookback mutation must fail this probe.
+See [the measured evidence](reports/regime-lookback-sensitivity.md).
+
+Do not expect every lookback change to alter weights or aggregate returns:
+insufficient history can clamp both windows, a stable proxy can preserve the
+label, disabled regimes can bypass classification, and portfolio constraints
+can preserve weights. Inspect labels and regime reports as well as portfolio
+outputs. The baseline demo toggle's comparator checks weights and aggregate
+performance only; its report-only setting makes no claim about label/report
+invariance.
