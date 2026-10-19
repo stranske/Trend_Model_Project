@@ -1,0 +1,14 @@
+[
+  {
+    "control": "proxy",
+    "exit": 1,
+    "restored_exactly": true,
+    "source_sha256": "a24bce07c8e449641ef72e7b33fcb58abaa2b70130c36ef0a649454043dacae6"
+  },
+  {
+    "control": "cost",
+    "exit": 1,
+    "restored_exactly": true,
+    "source_sha256": "499951c70e2d557231f94f45dd6c5512311f71a02ef900b61b04f467c583c445"
+  }
+]

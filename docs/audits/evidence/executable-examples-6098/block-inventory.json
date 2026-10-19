@@ -1,0 +1,146 @@
+[
+  {
+    "file": "docs/api.md",
+    "index": 1,
+    "language": "python",
+    "line": 13,
+    "section": "Core Pipeline",
+    "first_line": "from trend_analysis.config import load"
+  },
+  {
+    "file": "docs/api.md",
+    "index": 2,
+    "language": "python",
+    "line": 26,
+    "section": "Configuration",
+    "first_line": "print(config.data[\"csv_path\"])"
+  },
+  {
+    "file": "docs/api.md",
+    "index": 3,
+    "language": "python",
+    "line": 36,
+    "section": "Metrics",
+    "first_line": "import pandas as pd"
+  },
+  {
+    "file": "docs/api.md",
+    "index": 4,
+    "language": "python",
+    "line": 52,
+    "section": "Export",
+    "first_line": "from trend_analysis.export import export_to_csv, export_to_excel, export_to_json"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 1,
+    "language": "yaml",
+    "line": 218,
+    "section": "Model 1: Multivariate Stationary Bootstrap (Primary)",
+    "first_line": "return_model:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 2,
+    "language": "yaml",
+    "line": 243,
+    "section": "Model 2: Regime-Conditioned Bootstrap (Enhanced)",
+    "first_line": "return_model:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 3,
+    "language": "yaml",
+    "line": 284,
+    "section": "Tier 1: Curated Strategies",
+    "first_line": "curated:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 4,
+    "language": "yaml",
+    "line": 315,
+    "section": "Tier 2: Sampled Variants",
+    "first_line": "sampled:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 5,
+    "language": "yaml",
+    "line": 384,
+    "section": "Stochastic Transaction Costs",
+    "first_line": "costs:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 6,
+    "language": "yaml",
+    "line": 441,
+    "section": "Turnover Constraints Under MC",
+    "first_line": "# Regime-conditional example"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 7,
+    "language": "python",
+    "line": 470,
+    "section": "What Needs Adaptation",
+    "first_line": "# Pseudocode"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 8,
+    "language": "yaml",
+    "line": 499,
+    "section": "Implementation",
+    "first_line": "folds:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 9,
+    "language": "yaml",
+    "line": 543,
+    "section": "Registry Format (index.yml)",
+    "first_line": "scenarios:"
+  },
+  {
+    "file": "docs/phase-3/MonteCarlo.md",
+    "index": 10,
+    "language": "yaml",
+    "line": 558,
+    "section": "Complete Scenario Schema",
+    "first_line": "scenario:"
+  },
+  {
+    "file": "README.md",
+    "index": 1,
+    "language": "yaml",
+    "line": 151,
+    "section": "Single-period analysis",
+    "first_line": "sample_split:"
+  },
+  {
+    "file": "README.md",
+    "index": 2,
+    "language": "python",
+    "line": 169,
+    "section": "Single-period analysis",
+    "first_line": "from trend_analysis import api"
+  },
+  {
+    "file": "README.md",
+    "index": 3,
+    "language": "python",
+    "line": 211,
+    "section": "NAV-Path Utilities and `mc viz` Contracts",
+    "first_line": "from trend.mc.io import ("
+  },
+  {
+    "file": "README.md",
+    "index": 4,
+    "language": "yaml",
+    "line": 270,
+    "section": "Configuration",
+    "first_line": "data:"
+  }
+]
