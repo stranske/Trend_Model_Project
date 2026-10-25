@@ -106,20 +106,37 @@ def test_cli_manifest_records_effective_scenario_sections(
                 str(data),
                 "--out",
                 str(output),
+                "--n-paths",
+                "2",
+                "--jobs",
+                "1",
+                "--seed",
+                "99",
                 "--no-progress",
             ]
         )
         == 0
     )
-    manifest = json.loads((output / "manifest.json").read_text())
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     effective = manifest["effective_config_sections"]
     assert effective["multi_period"] == runner.base_config["multi_period"]
+    assert effective["multi_period"]["min_funds"] == 2
+    assert effective["multi_period"]["max_funds"] == 25
     assert effective["signals"] == runner.base_config["signals"]
+    assert effective["signals"]["window"] == 27
+    assert effective["metrics"] == runner.base_config["metrics"]
     assert effective["metrics"]["rf_override_enabled"] is True
     assert effective["performance"]["enable_cache"] is False
     assert "monte_carlo" not in effective
-    assert manifest["overrides"] == {}
-    assert used_configs
+    assert manifest["overrides"] == {"n_paths": 2, "jobs": 1, "seed": 99}
+    assert manifest["settings"]["n_paths"] == 2
+    assert manifest["settings"]["jobs"] == 1
+    assert manifest["settings"]["seed"] == 99
+    assert manifest["results"]["errors"] == 0
+    assert len(used_configs) == 2
+    for config in used_configs:
+        assert config.metrics == effective["metrics"]
+        assert config.performance == effective["performance"]
 
 
 def test_cli_manifest_serialises_unquoted_yaml_dates(
