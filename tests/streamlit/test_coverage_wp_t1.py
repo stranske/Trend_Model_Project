@@ -7,6 +7,7 @@ import io
 import sys
 import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock
 from types import SimpleNamespace
 from typing import Any
 
@@ -17,6 +18,13 @@ from tests.support.dummy_streamlit import DummyStreamlit
 
 def _page() -> Any:
     return importlib.import_module("streamlit_app.pages.3_Results")
+
+
+class _MappingShapedNonDict:
+    """Not a dict, but supports .get so the loop can skip it without raising."""
+
+    def get(self, _key: str, default: Any = None) -> Any:
+        return default
 
 
 def test_fmt_pct_and_ratio_non_finite() -> None:
@@ -96,7 +104,7 @@ def test_portfolio_series_from_details_multi_period() -> None:
     page = _page()
     details = {
         "period_results": [
-            "invalid_non_dict_entry",
+            _MappingShapedNonDict(),
             {"out_sample_scaled": pd.DataFrame()},
             {
                 "out_sample_scaled": pd.DataFrame(
@@ -172,6 +180,18 @@ def test_get_portfolio_funds_by_period_weights_and_selected() -> None:
             ]
         }
     )
+    res_eps = SimpleNamespace(
+        details={
+            "period_results": [
+                {
+                    "period": ("2019-10-01", "2019-12-31", "2020-01-01", "2020-03-31"),
+                    "fund_weights": {"Tiny": 1e-13, "Barely": 1.1e-12, "Real": 0.5},
+                }
+            ]
+        }
+    )
+    assert page._get_portfolio_funds_by_period(res_eps)["2020-01-01"] == {"Barely", "Real"}
+
     by_period = page._get_portfolio_funds_by_period(res)
     assert by_period["2020-04-01"] == {"FundA"}
     assert by_period["2020-07-01"] == {"FundB", "FundC"}
@@ -237,6 +257,12 @@ def test_extract_manager_changes_initial_and_transitions() -> None:
                         {
                             "manager": "FundC",
                             "action": "added",
+                            "reason": "ignored",
+                            "detail": "stale detail",
+                        },
+                        {
+                            "manager": "FundC",
+                            "action": "added",
                             "reason": "z_entry",
                             "detail": "zscore=2.10",
                         },
@@ -260,6 +286,9 @@ def test_extract_manager_changes_initial_and_transitions() -> None:
     )
     changes = page._extract_manager_changes(res)
     assert len(changes) == 6
+    initial_rows = changes[changes["Action"] == "Initial"]
+    assert len(initial_rows) == 2
+    assert initial_rows["Manager"].tolist() == ["FundA", "FundB"]
     # Initial records
     assert changes.iloc[0]["Action"] == "Initial"
     assert changes.iloc[0]["Manager"] == "FundA"
@@ -271,6 +300,7 @@ def test_extract_manager_changes_initial_and_transitions() -> None:
     hired = changes[changes["Action"] == "Hired"].iloc[0]
     assert hired["Manager"] == "FundC"
     assert hired["Reason"] == "Performance above threshold (z=2.10)"
+    assert "stale" not in hired["Reason"]
 
     terminated = changes[changes["Action"] == "Terminated"].iloc[0]
     assert terminated["Manager"] == "FundA"
@@ -280,6 +310,20 @@ def test_extract_manager_changes_initial_and_transitions() -> None:
     hired_d = changes[changes["Manager"] == "FundD"].iloc[0]
     assert hired_d["Action"] == "Hired"
     assert hired_d["Reason"] == ""
+
+    no_holdings = SimpleNamespace(
+        details={
+            "period_results": [
+                {
+                    "period": ("2019-10-01", "2019-12-31", "2020-01-01", "2020-03-31"),
+                    "fund_weights": {},
+                    "selected_funds": [],
+                    "manager_changes": [],
+                }
+            ]
+        }
+    )
+    assert page._extract_manager_changes(no_holdings).empty
 
 
 def test_extract_manager_decisions_all_actions() -> None:
@@ -397,11 +441,14 @@ def test_compute_fund_holding_periods_seed_and_transitions(monkeypatch: pytest.M
     )
     summary_df, risk_df = page._compute_fund_holding_periods(res)
     assert len(summary_df) == 2
+    assert summary_df["Entry"].tolist() == ["2020-01-01", "2020-04-01"]
+    assert risk_df["Years"].tolist() == [0.5, 0.25]
     # FundA was seed: entry is simulation start date 2020-01-01, exit 2020-04-01, 2 quarters = 0.5 years
     row_a = summary_df[summary_df["Manager"] == "FundA"].iloc[0]
     assert row_a["Entry"] == "2020-01-01"
     assert row_a["Exit"] == "2020-04-01"
     assert row_a["Years Held"] == 0.5
+    assert row_a["Years Held"] == pytest.approx((2 * 3) / 12)
 
     # FundB entered 2020-04-01, exit Current, 1 quarter = 0.25 years
     row_b = summary_df[summary_df["Manager"] == "FundB"].iloc[0]
@@ -409,26 +456,60 @@ def test_compute_fund_holding_periods_seed_and_transitions(monkeypatch: pytest.M
     assert row_b["Exit"] == "Current"
     assert row_b["Years Held"] == 0.25
 
+    fund_b_risk = risk_df[risk_df["Manager"] == "FundB"].iloc[0]
+    assert fund_b_risk["Vol"] == pytest.approx(0.073485, abs=1e-5)
+    assert fund_b_risk["CAGR"] == pytest.approx(0.509165, abs=1e-5)
+
     # Risk stats computed from accumulated returns
     assert len(risk_df) == 2
     assert "CAGR" in risk_df.columns
     assert "Vol" in risk_df.columns
+    fund_a_risk = risk_df[risk_df["Manager"] == "FundA"].iloc[0]
+    assert fund_a_risk["CAGR"] == pytest.approx(0.057113, abs=1e-5)
+    assert fund_a_risk["Vol"] == pytest.approx(0.107703, abs=1e-5)
+
+    res_reordered = SimpleNamespace(
+        details={
+            "period_results": [
+                {
+                    "period": ("2020-01-01", "2020-03-31", "2020-04-01", "2020-06-30"),
+                    "manager_changes": [
+                        {"manager": "FundA", "action": "added", "reason": "z_entry"},
+                    ],
+                    "out_sample_scaled": pd.DataFrame({"FundA": [0.01]}),
+                },
+                {
+                    "period": ("2019-10-01", "2019-12-31", "2020-01-01", "2020-03-31"),
+                    "manager_changes": [
+                        {"manager": "FundB", "action": "added", "reason": "z_entry"},
+                    ],
+                    "out_sample_scaled": pd.DataFrame({"FundB": [0.02]}),
+                },
+            ]
+        }
+    )
+    reordered_summary, _ = page._compute_fund_holding_periods(res_reordered)
+    assert reordered_summary["Manager"].tolist() == ["FundB", "FundA"]
+    assert reordered_summary["Entry"].tolist() == ["2020-01-01", "2020-04-01"]
 
 
 def test_build_period_detail_defaults_and_explicit() -> None:
     page = _page()
+    score = pd.DataFrame({"Fund": ["FundA"], "z": [1.1]})
+    oos = pd.DataFrame({"FundA": [0.03]}, index=["2020-01-31"])
+    changes = [{"manager": "FundA", "action": "added", "reason": "seed"}]
     raw = {
         "period": ("2019-01-01", "2019-12-31", "2020-01-01", "2020-12-31"),
-        "score_frame": None,
+        "score_frame": score,
         "selected_funds": ["FundA"],
         "fund_weights": {"FundA": 1.0},
         "ew_weights": {"FundA": 1.0},
         "in_sample_stats": {"CAGR": 0.10},
         "out_sample_stats": {"CAGR": 0.08},
-        "manager_changes": [],
-        "out_sample_scaled": None,
+        "manager_changes": changes,
+        "out_sample_scaled": oos,
         "out_user_stats": {"Sharpe": 1.2},
-        "out_ew_stats": {"Sharpe": 1.0},
+        "out_ew_stats": {"Sharpe": 1.0, "Sortino": 1.5},
     }
     detail = page._build_period_detail(raw, period_num=5)
     assert detail["period_num"] == 5
@@ -436,11 +517,25 @@ def test_build_period_detail_defaults_and_explicit() -> None:
     assert detail["in_end"] == "2019-12-31"
     assert detail["out_start"] == "2020-01-01"
     assert detail["out_end"] == "2020-12-31"
-    assert isinstance(detail["score_frame"], pd.DataFrame)
-    assert detail["score_frame"].empty
-    assert isinstance(detail["out_sample_scaled"], pd.DataFrame)
-    assert detail["out_sample_scaled"].empty
+    assert detail["score_frame"].equals(score)
+    assert detail["out_sample_scaled"].equals(oos)
+    assert detail["changes"] == changes
+    assert detail["out_ew_stats"] == {"Sharpe": 1.0, "Sortino": 1.5}
     assert detail["selected_funds"] == ["FundA"]
+
+    none_defaults = page._build_period_detail(
+        {
+            "period": ("", "", "", ""),
+            "score_frame": None,
+            "out_sample_scaled": None,
+            "manager_changes": [],
+        },
+        period_num=1,
+    )
+    assert none_defaults["score_frame"].empty
+    assert none_defaults["out_sample_scaled"].empty
+    assert none_defaults["changes"] == []
+    assert none_defaults.get("out_ew_stats") is None
 
 
 def test_build_period_weights_df_with_rebalance_weights() -> None:
@@ -543,16 +638,22 @@ def test_format_returns_for_csv() -> None:
     df = pd.DataFrame(
         {
             "Period Start": ["2020-01-01"],
+            "Period End": ["2020-03-31"],
+            "index": [0],
             "Date": ["2020-01-31"],
             "FundA": [0.0125],
             "FundB": [float("inf")],
+            "AlsoReturn": [0.05],
         }
     )
     formatted = page._format_returns_for_csv(df)
     assert formatted["Period Start"].iloc[0] == "2020-01-01"
+    assert formatted["Period End"].iloc[0] == "2020-03-31"
+    assert formatted["index"].iloc[0] == 0
     assert formatted["Date"].iloc[0] == "2020-01-31"
     assert formatted["FundA"].iloc[0] == "1.25%"
     assert formatted["FundB"].iloc[0] == ""
+    assert formatted["AlsoReturn"].iloc[0] == "5.00%"
 
 
 def test_format_holdings_for_csv() -> None:
@@ -618,15 +719,8 @@ def test_render_download_section_xlsx_export_and_cleanup_error(
     # Mock flat_frames_from_results to return empty dict to test line 1901
     monkeypatch.setattr("trend_analysis.export.flat_frames_from_results", lambda res: {})
 
-    # Trigger Path.unlink failure to cover cleanup exception handler
-    orig_unlink = Path.unlink
-
-    def failing_unlink(self: Path, missing_ok: bool = False) -> None:
-        if self.suffix == ".xlsx":
-            raise OSError("Simulated unlink failure")
-        orig_unlink(self, missing_ok=missing_ok)
-
-    monkeypatch.setattr(Path, "unlink", failing_unlink)
+    unlink_mock = MagicMock(side_effect=OSError("Simulated unlink failure"))
+    monkeypatch.setattr(Path, "unlink", unlink_mock)
 
     res = SimpleNamespace(
         details={
@@ -644,6 +738,8 @@ def test_render_download_section_xlsx_export_and_cleanup_error(
     xlsx_dl = [d for d in downloads if "XLSX" in str(d["args"]) or "XLSX" in str(d["kwargs"])]
     assert len(xlsx_dl) == 1
     assert xlsx_dl[0]["kwargs"]["data"] == b"MOCK_PHASE1_XLSX"
+    unlink_mock.assert_called_once()
+    assert unlink_mock.call_args.kwargs.get("missing_ok") is True
 
 
 def test_render_download_section_csv_zip_and_format_phase1_frame(
@@ -677,10 +773,14 @@ def test_render_download_section_csv_zip_and_format_phase1_frame(
                 "Benchmark IR": [0.852],
                 "Years": [4.2],
                 "z_score": [1.987],
+                "z-score": [3.456],
+                "zscore": [2.345],
                 "blended": [0.765],
                 "OS Months": [24.0],
+                "Fund Months": [18.0],
             }
         ),
+        "misc": pd.DataFrame({"CAGR": [10.5], "Noise Vol": [5.0]}),
         "periods": pd.DataFrame(
             {
                 "CAGR": [10.2],
@@ -713,6 +813,7 @@ def test_render_download_section_csv_zip_and_format_phase1_frame(
     names = zf.namelist()
     assert "trend_phase1_summary.csv" in names
     assert "trend_phase1_periods.csv" in names
+    assert "trend_phase1_misc.csv" in names
     assert "trend_phase1_empty_sheet.csv" not in names
 
     summary_csv = zf.read("trend_phase1_summary.csv").decode("utf-8")
@@ -724,8 +825,16 @@ def test_render_download_section_csv_zip_and_format_phase1_frame(
     assert summary_df["Benchmark IR"].iloc[0] == "0.85"
     assert summary_df["Years"].iloc[0] == "4.2"
     assert summary_df["z_score"].iloc[0] == "1.99"
+    assert summary_df["z-score"].iloc[0] == "3.46"
+    assert summary_df["zscore"].iloc[0] == "2.35"
     assert summary_df["blended"].iloc[0] == "0.77"
     assert summary_df["OS Months"].iloc[0] == "24"
+    assert summary_df["Fund Months"].iloc[0] == "18"
+
+    misc_csv = zf.read("trend_phase1_misc.csv").decode("utf-8")
+    misc_df = pd.read_csv(io.StringIO(misc_csv), dtype=str)
+    assert misc_df["CAGR"].iloc[0] == "10.5"
+    assert misc_df["Noise Vol"].iloc[0] == "5.0"
 
     periods_csv = zf.read("trend_phase1_periods.csv").decode("utf-8")
     periods_df = pd.read_csv(io.StringIO(periods_csv), dtype=str)
