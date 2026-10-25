@@ -22,7 +22,7 @@ def test_proxy_cli_main_invocation(monkeypatch, capsys):
     stub_server.StreamlitProxy = object
     monkeypatch.setitem(sys.modules, "trend_analysis.proxy.server", stub_server)
     monkeypatch.setattr(
-        "trend_analysis.proxy.cli.setup_logging", lambda **_: Path("/tmp/proxy.log")
+        "trend_analysis.logging_setup.setup_logging", lambda **_: Path("/tmp/proxy.log")
     )
 
     with pytest.raises(SystemExit) as exc:
