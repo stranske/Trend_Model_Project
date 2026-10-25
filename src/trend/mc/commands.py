@@ -399,8 +399,8 @@ def write_mc_manifest(
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "base_config": str(scenario.base_config),
                 # Persist the actual runner snapshot, not a later reload of the
-                # base file or only the raw scenario overrides. Legacy direct
-                # callers without a snapshot explicitly record unavailable data.
+                # base file or only the raw scenario overrides. Callers that omit
+                # the runner snapshot explicitly record unavailable data.
                 "effective_config_sections": (
                     {
                         section: normalise_for_json(dict(values))
