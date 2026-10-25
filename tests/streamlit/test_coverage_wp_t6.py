@@ -26,41 +26,9 @@ from tests.support.dummy_streamlit import DummyStreamlit, Placeholder
 # Helper stubs
 # =============================================================================
 
-# Patch Placeholder to support additional methods needed by the production code
-original_init = Placeholder.__init__
-original_empty = Placeholder.empty
 
-
-def patched_init(self, stub):
-    original_init(self, stub)
-
-
-def patched_empty(self):
-    return original_empty(self)
-
-
-# Add missing methods to Placeholder
-Placeholder.text = lambda self, msg: self._stub.write_calls.append(msg)
-Placeholder.write = lambda self, msg: self._stub.write_calls.append(msg)
-Placeholder.markdown = lambda self, msg: self._stub.markdowns.append(msg)
-Placeholder.info = lambda self, msg: self._stub.info_messages.append(msg)
-Placeholder.warning = lambda self, msg: self._stub.warning_messages.append(msg)
-Placeholder.error = lambda self, msg: self._stub.error_messages.append(msg)
-Placeholder.success = lambda self, msg: self._stub.success_messages.append(msg)
-
-
-class CustomDummyStreamlit(DummyStreamlit):
-    """Extended DummyStreamlit with enhanced Placeholder support for batch/full validation tests."""
-
-    def empty(self) -> EnhancedPlaceholder:
-        return EnhancedPlaceholder(self)
-
-
-class EnhancedPlaceholder:
+class EnhancedPlaceholder(Placeholder):
     """Enhanced Placeholder that supports text, write, markdown, etc. methods."""
-
-    def __init__(self, stub: DummyStreamlit) -> None:
-        self._stub = stub
 
     def text(self, msg: str) -> None:
         self._stub.write_calls.append(msg)
@@ -82,6 +50,13 @@ class EnhancedPlaceholder:
 
     def success(self, msg: str) -> None:
         self._stub.success_messages.append(msg)
+
+
+class CustomDummyStreamlit(DummyStreamlit):
+    """Keep the t6 placeholder extensions local to this test module."""
+
+    def empty(self) -> EnhancedPlaceholder:
+        return EnhancedPlaceholder(self)
 
 
 @dataclass
@@ -533,7 +508,7 @@ def test_run_test_analysis_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_render_validation_page_stops_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 551-559."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.stop_error = "disabled"
     _install_streamlit_stub(monkeypatch, stub, active_context=False)
     _mock_demo_profile_and_state(monkeypatch, enabled=False)
@@ -545,7 +520,7 @@ def test_render_validation_page_stops_when_disabled(monkeypatch: pytest.MonkeyPa
 
 def test_render_validation_page_stops_without_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 570-573."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.stop_error = "no data"
     _install_streamlit_stub(monkeypatch, stub, active_context=False)
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=None)
@@ -557,7 +532,7 @@ def test_render_validation_page_stops_without_data(monkeypatch: pytest.MonkeyPat
 
 def test_render_validation_page_renders(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 561-627."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -571,7 +546,7 @@ def test_render_validation_page_renders(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_render_validation_page_sidebar_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 583-601."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -584,7 +559,7 @@ def test_render_validation_page_sidebar_widgets(monkeypatch: pytest.MonkeyPatch)
 
 def test_render_validation_page_baseline_test_columns(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 610-625."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -598,7 +573,7 @@ def test_render_validation_page_baseline_test_columns(monkeypatch: pytest.Monkey
 
 def test_render_validation_page_button(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers line 627."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -613,7 +588,7 @@ def test_render_validation_page_button_click_baseline_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 628-651."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -632,7 +607,7 @@ def test_render_validation_page_hash_computation_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 669-670."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -668,7 +643,7 @@ def test_render_validation_page_setting_not_wired(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 674-675."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -694,7 +669,7 @@ def test_render_validation_page_setting_is_wired(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 686-689."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -731,7 +706,7 @@ def test_render_validation_page_setting_is_wired(
 
 def test_render_validation_page_results_no_change(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 664-684."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -757,7 +732,7 @@ def test_render_validation_page_metric_display_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 691-723 (metric display with changes)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
@@ -793,7 +768,7 @@ def test_render_validation_page_metric_display_loop(
 
 def test_render_validation_page_results_changed(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 661-684."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [True]  # Click the Run Comparison Test button
     stub.selectbox_returns = [
         "Selection",
@@ -832,7 +807,7 @@ def test_render_validation_page_results_changed(monkeypatch: pytest.MonkeyPatch)
 
 def test_render_validation_page_batch_section(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 733-737."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -847,7 +822,7 @@ def test_render_validation_page_batch_test_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 738-760, 763-774, 776-780 (batch test execution)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [
         False,
         True,
@@ -886,7 +861,7 @@ def test_render_validation_page_batch_results_table(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 800-806 (batch results display)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -917,7 +892,7 @@ def test_render_validation_page_batch_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 808-826 (batch summary and download)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -967,7 +942,7 @@ def test_render_validation_page_batch_summary(
 
 def test_render_validation_page_batch_button(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 737-827."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -982,7 +957,7 @@ def test_apply_inclusion_approach_special_handling_random(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 753-755 (random inclusion approach)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1031,7 +1006,7 @@ def test_apply_inclusion_approach_special_handling_top_pct(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 756-757 (top_pct inclusion approach)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1079,7 +1054,7 @@ def test_apply_inclusion_approach_special_handling_top_pct(
 
 def test_render_validation_page_full_validation_section(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 828-915."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
@@ -1094,7 +1069,7 @@ def test_render_validation_page_full_validation_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 833-860 (full validation execution)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, False, True]  # Skip first two, click third (Full Validation)
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1128,7 +1103,7 @@ def test_render_validation_page_full_validation_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 889-915 (full validation results display and download)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1183,7 +1158,7 @@ def test_render_validation_page_full_validation_category_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 893-906 (full validation category summary)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1214,7 +1189,7 @@ def test_render_validation_page_full_validation_inclusion_approach(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 852-856 (inclusion_approach special handling in full validation)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.button_responses = [False, False, True]
     stub.selectbox_returns = ["Selection"]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1511,7 +1486,7 @@ def test_generate_comparison_explanation_no_metrics_a_only(
 
 def test_render_comparison_llm_zone_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 203-210."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=True):
         from streamlit_app.components.comparison_llm import render_comparison_llm
@@ -1529,7 +1504,7 @@ def test_render_comparison_llm_zone_disabled(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_render_comparison_llm_missing_details(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 216-220."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
         from streamlit_app.components.comparison_llm import render_comparison_llm
@@ -1546,7 +1521,7 @@ def test_render_comparison_llm_questions_textarea(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 222-228 (questions textarea)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     _enable_widget_call_recording(stub)
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1591,7 +1566,7 @@ def test_render_comparison_llm_provider_selectbox(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 247-248 (provider selectbox index calculation)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     monkeypatch.setenv("TREND_LLM_PROVIDER", "anthropic")
     _enable_widget_call_recording(stub)
@@ -1634,7 +1609,7 @@ def test_render_comparison_llm_api_key_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers line 261 (API key fallback from env) and line 314 (default key on click)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     stub.button_responses = [True]
 
@@ -1700,7 +1675,7 @@ def test_render_comparison_llm_api_key_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers line 276 (API key configured caption)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {"comparison_llm_api_key::k": "test_key"}
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
@@ -1743,7 +1718,7 @@ def test_render_comparison_llm_button_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers line 304-305 (button key generation)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     _enable_widget_call_recording(stub)
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1786,7 +1761,7 @@ def test_render_comparison_llm_exception_handling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers lines 330-333 (exception handling in generate_comparison_explanation)."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
@@ -1833,7 +1808,7 @@ def test_render_comparison_llm_exception_handling(
 
 def test_render_comparison_llm_llm_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 230-302."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
     with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
@@ -1872,7 +1847,7 @@ def test_render_comparison_llm_llm_settings(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_render_comparison_llm_button_and_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 304-333."""
-    stub = DummyStreamlit()
+    stub = CustomDummyStreamlit()
     stub.session_state = {}
     stub.button_responses = [True]
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
