@@ -211,6 +211,7 @@ omit = [
 
 [tool.coverage.report]
 fail_under = 80
+include_namespace_packages = true
 omit = [
     "/tmp/pytest-of-*/**",
     "*/pytest-of-*/**",
