@@ -1015,12 +1015,12 @@ def test_main_file_not_found_deactivates_coverage(
 # --- llm_proxy server (in-process, stubbed deps; no sockets) ---
 
 
-def _fake_proxy(modules: dict[str, Any]) -> Any:
+def _fake_proxy(monkeypatch: pytest.MonkeyPatch, modules: dict[str, Any]) -> Any:
     import trend_analysis.llm_proxy.server as srv
 
     for name, val in modules.items():
-        setattr(srv, name, val)
-    srv._DEPS_AVAILABLE = True  # type: ignore[attr-defined]
+        monkeypatch.setattr(srv, name, val, raising=False)
+    monkeypatch.setattr(srv, "_DEPS_AVAILABLE", True, raising=False)
     return srv
 
 
@@ -1103,7 +1103,7 @@ def _proxy_fakes() -> tuple[dict[str, Any], dict[str, Any]]:
 
 def test_proxy_init_routes_health_forward(monkeypatch: pytest.MonkeyPatch) -> None:
     mods, state = _proxy_fakes()
-    srv = _fake_proxy(mods)
+    srv = _fake_proxy(monkeypatch, mods)
     monkeypatch.delenv("TS_LLM_PROXY_TOKEN", raising=False)
     monkeypatch.delenv("TS_LLM_PROXY_UPSTREAM", raising=False)
     proxy = srv.LLMProxy("https://up.example/")
@@ -1128,14 +1128,17 @@ def test_proxy_load_and_assert_deps(monkeypatch: pytest.MonkeyPatch) -> None:
         "uvicorn": types.ModuleType("uvicorn"),
     }
     monkeypatch.setattr(srv.importlib, "import_module", lambda n: fakes[n])
-    srv._DEPS_AVAILABLE = False
+    # _load_deps rebinds these module globals; register them first so the test leaves them as it found them
+    for name in ("FastAPI", "HTTPException", "Request", "Response", "httpx", "uvicorn"):
+        monkeypatch.setattr(srv, name, getattr(srv, name, None), raising=False)
+    monkeypatch.setattr(srv, "_DEPS_AVAILABLE", False, raising=False)
     srv._load_deps()
     assert srv._DEPS_AVAILABLE is True and srv.FastAPI is fake_fastapi.FastAPI
     srv._assert_deps()
     monkeypatch.setattr(
         srv.importlib, "import_module", lambda n: (_ for _ in ()).throw(ImportError("no"))
     )
-    srv._DEPS_AVAILABLE = False
+    monkeypatch.setattr(srv, "_DEPS_AVAILABLE", False, raising=False)
     srv._load_deps()
     assert srv.FastAPI is None and srv._DEPS_AVAILABLE is False
     with pytest.raises(RuntimeError, match="Required dependencies not available"):
@@ -1174,7 +1177,9 @@ def _req(
 
 def test_proxy_handle_request_auth_and_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mods, state = _proxy_fakes()
-    srv = _fake_proxy(mods)
+    srv = _fake_proxy(monkeypatch, mods)
+    monkeypatch.delenv("TS_STREAMLIT_API_KEY", raising=False)
+    monkeypatch.delenv("TS_OPENAI_STREAMLIT", raising=False)
     monkeypatch.setenv("TS_LLM_PROXY_TOKEN", "secret")
     monkeypatch.setenv("OPENAI_API_KEY", "upkey")
     proxy = srv.LLMProxy("https://up.example")
@@ -1199,7 +1204,7 @@ def test_proxy_handle_request_auth_and_success(monkeypatch: pytest.MonkeyPatch) 
 
 def test_proxy_handle_request_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     mods, state = _proxy_fakes()
-    srv = _fake_proxy(mods)
+    srv = _fake_proxy(monkeypatch, mods)
     monkeypatch.delenv("TS_LLM_PROXY_TOKEN", raising=False)
     for key in (
         "TS_STREAMLIT_API_KEY",
@@ -1241,7 +1246,7 @@ def test_proxy_handle_request_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_proxy_start_and_close(monkeypatch: pytest.MonkeyPatch) -> None:
     mods, state = _proxy_fakes()
-    srv = _fake_proxy(mods)
+    srv = _fake_proxy(monkeypatch, mods)
     monkeypatch.delenv("TS_LLM_PROXY_TOKEN", raising=False)
     seen: dict[str, Any] = {}
 
@@ -1257,11 +1262,11 @@ def test_proxy_start_and_close(monkeypatch: pytest.MonkeyPatch) -> None:
             seen["served"] = True
 
     mods["uvicorn"] = SimpleNamespace(Config=Cfg, Server=Server)
-    srv.uvicorn = mods["uvicorn"]
+    monkeypatch.setattr(srv, "uvicorn", mods["uvicorn"], raising=False)
     proxy = srv.LLMProxy("https://up.example")
     asyncio.run(proxy.start(host="0.0.0.0", port=9999))
     assert seen == {"host": "0.0.0.0", "port": 9999, "served": True}
-    srv.uvicorn = None
+    monkeypatch.setattr(srv, "uvicorn", None, raising=False)
     with pytest.raises(RuntimeError, match="uvicorn dependency is required"):
         asyncio.run(proxy.start())
     asyncio.run(proxy.close())
