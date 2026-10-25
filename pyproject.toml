@@ -190,6 +190,20 @@ namespace_packages = true
 # in this repository. Measured with the omit applied: 90.79% over 104,163 in-repo statements,
 # against 83.33% over 116,654 with the phantom rows included.
 [tool.coverage.run]
+# Coverage counts PRODUCT code only: src/ (trend_analysis, trend, data, ...), streamlit_app/,
+# design-system/ (the vendored Streamlit adapter) and analysis/. Owner decision 2026-10-16
+# for the fleet's other app repo (Portable-Alpha-Extension-Model #2374), applied here on
+# 2026-10-25: tests, scripts/, tools/ and .github/ are not product code, and measuring every
+# file the run imported let the test suite's own near-total coverage lift the headline
+# (tests/ was 57% of the measured statements and ran at 98%). `source` also makes coverage
+# report a never-imported .py file under these directories at 0%, so an untested module
+# cannot hide by never being imported.
+#
+# This changes what the number MEANS. Readings taken before this change (the Gate's coverage
+# trend history, config/coverage-baseline.json before 2026-10-25) were all-files readings and
+# are not comparable with readings taken after it. Line coverage only (no branch data), as
+# before; the omit patterns below keep the phantom tmp-workspace rows out as they did.
+source = ["src", "streamlit_app", "design-system", "analysis"]
 omit = [
     "/tmp/pytest-of-*/**",
     "*/pytest-of-*/**",
