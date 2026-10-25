@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import types
 from pathlib import Path
 from types import SimpleNamespace
@@ -32,6 +33,16 @@ from trend.commands.report_export import (
 from trend.diagnostics import DiagnosticPayload, DiagnosticResult
 from trend.mc.viz import TrendCLIError
 from trend_analysis.io.market_data import MarketDataValidationError
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_llm_or_proxy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CI sets provider and proxy secrets in the environment (its log shows them as ***), and the
+    proxy resolves its upstream key from several of them in a fixed order. Remove every such
+    variable before each test; the tests that need one set it themselves."""
+    for name in list(os.environ):
+        if name.startswith(("TS_", "TREND_", "OPENAI_", "ANTHROPIC_", "LANGSMITH_", "LANGCHAIN_")):
+            monkeypatch.delenv(name, raising=False)
 
 
 def _mde(msg: str = "bad data", issues: list[str] | None = None) -> MarketDataValidationError:
