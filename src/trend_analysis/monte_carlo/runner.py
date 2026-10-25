@@ -2352,6 +2352,10 @@ class MonteCarloRunner:
             "export",
             "run",
             "regime",
+            "multi_period",
+            "signals",
+            "robustness",
+            "performance",
         )
         updated = dict(config)
         for section in mergeable_sections:

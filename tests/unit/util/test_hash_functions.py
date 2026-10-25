@@ -52,6 +52,13 @@ def test_normalise_for_json_handles_paths_and_collections(value: Any, expected: 
     assert hash_util.normalise_for_json(value) == expected
 
 
+def test_normalise_for_json_handles_yaml_dates() -> None:
+    import datetime
+
+    value = {"sample_split": {"date": datetime.date(2017, 12, 31)}}
+    assert hash_util.normalise_for_json(value) == {"sample_split": {"date": "2017-12-31"}}
+
+
 def test_normalise_for_json_uses_model_dump() -> None:
     model = DummyModel({"threshold": 0.5, "paths": [Path("/data")]})
     normalised = hash_util.normalise_for_json(model)
