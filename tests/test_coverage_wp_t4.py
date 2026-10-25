@@ -238,6 +238,26 @@ def test_membership_table_from_frame_parsing() -> None:
         MembershipWindow(pd.Timestamp("2020-02-01"), pd.Timestamp("2020-12-31")),
     )
 
+    unsorted = pd.DataFrame(
+        {
+            "fund": [" FundC ", " FundC ", "FundD"],
+            "effective_date": [
+                "2020-10-1",
+                "2020-2-1",
+                pd.Timestamp("2020-03-01"),
+            ],
+            "end_date": ["2020-12-31", "2020-06-30", "2020-08-31"],
+        }
+    )
+    fund_c = _membership_table_from_frame(unsorted)["FundC"]
+    assert fund_c[0].effective_date == pd.Timestamp("2020-02-01")
+    assert fund_c[0].end_date == pd.Timestamp("2020-06-30")
+    assert fund_c[1].effective_date == pd.Timestamp("2020-10-01")
+    assert fund_c[1].end_date == pd.Timestamp("2020-12-31")
+    assert _membership_table_from_frame(unsorted)["FundD"] == (
+        MembershipWindow(pd.Timestamp("2020-03-01"), pd.Timestamp("2020-08-31")),
+    )
+
 
 def test_as_weight_series_inputs() -> None:
     df_no_weight_col = pd.DataFrame({"score": [0.4, 0.6]}, index=["A", "B"])
@@ -416,17 +436,34 @@ def test_run_mapping_missing_policy_preserves_periods(monkeypatch: pytest.Monkey
     monkeypatch.setattr(mp_engine, "_run_threshold_hold_multi_periods", fake_run_mp)
 
     class DummyCfg:
-        def __init__(self) -> None:
-            self.data = {"missing_policy": {"FundA": "drop"}}
+        def __init__(self, policy: Any) -> None:
+            self.data = {"missing_policy": policy}
             self.portfolio = {"policy": "threshold_hold", "cost_model": {}}
             self.multi_period = {"frequency": "M"}
 
-    df = pd.DataFrame(
-        {"Date": pd.to_datetime(["2020-01-31", "2020-02-29"]), "FundA": [0.05, np.nan]}
+    # An all-NaN month with all-ffill mapping keeps row 2 when preserve_empty_periods is True (pins line 1914)
+    df_empty_month = pd.DataFrame(
+        {
+            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
+            "FundA": [0.05, np.nan],
+            "FundB": [0.01, np.nan],
+        }
     )
-    mp_engine.run(DummyCfg(), df)
-    # The NaN row was dropped because policy_spec is all "drop"
-    assert len(captured["df"]) == 1
+    mp_engine.run(DummyCfg({"FundA": "ffill", "FundB": "ffill"}), df_empty_month)
+    assert len(captured["df"]) == 2
+    assert captured["df"]["Date"].tolist() == [
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    ]
+
+    captured.clear()
+    mixed_cfg = DummyCfg({"FundA": "ffill", "FundB": "drop"})
+    mp_engine.run(mixed_cfg, df_empty_month)
+    assert len(captured["df"]) == 2
+    assert captured["df"]["Date"].tolist() == [
+        pd.Timestamp("2020-01-31"),
+        pd.Timestamp("2020-02-29"),
+    ]
 
 
 def test_run_inception_date_masking(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -501,27 +538,27 @@ def test_run_membership_missing_entries_raises() -> None:
             self.portfolio = {"policy": "threshold_hold", "cost_model": {}}
             self.multi_period = {"frequency": "M"}
 
-    df = pd.DataFrame(
-        {
-            "Date": pd.to_datetime(["2020-01-31", "2020-02-29"]),
-            "FundA": [0.01, 0.02],
-            "FundB": [0.03, 0.04],
-        }
-    )
+    funds = {f"Fund{i:02d}": [0.01, 0.02] for i in range(1, 8)}
+    funds["Date"] = pd.to_datetime(["2020-01-31", "2020-02-29"])
+    df = pd.DataFrame(funds)
     mem = pd.DataFrame(
         {
-            "fund": ["FundA"],
+            "fund": ["KnownFund"],
             "effective_date": ["2020-01-01"],
             "end_date": ["2020-12-31"],
         }
     )
     with pytest.raises(
-        ValueError, match="^Universe membership is missing effective_date entries for: FundB$"
+        ValueError,
+        match=(
+            r"^Universe membership is missing effective_date entries for: "
+            r"Fund01, Fund02, Fund03, Fund04, Fund05…$"
+        ),
     ):
         mp_engine.run(DummyCfg(), df, membership=mem)
 
 
-def test_run_membership_removes_all_rows_raises() -> None:
+def test_run_membership_removes_all_rows_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     class DummyCfg:
         def __init__(self) -> None:
             self.data = {"missing_policy": "ffill"}
@@ -545,6 +582,25 @@ def test_run_membership_removes_all_rows_raises() -> None:
     )
     with pytest.raises(ValueError, match="^Universe membership removed all rows for analysis$"):
         mp_engine.run(DummyCfg(), df, membership=mem)
+
+    good_mem = pd.DataFrame(
+        {
+            "fund": ["FundA", "FundB"],
+            "effective_date": ["2020-01-01", "2020-01-01"],
+            "end_date": ["2020-12-31", "2020-12-31"],
+        }
+    )
+    captured: dict[str, pd.DataFrame] = {}
+
+    def fake_run_mp(cfg: Any, frame: pd.DataFrame, **kwargs: Any) -> list[str]:
+        captured["df"] = frame
+        return ["ok"]
+
+    monkeypatch.setattr(mp_engine, "_run_threshold_hold_multi_periods", fake_run_mp)
+    mp_engine.run(DummyCfg(), df, membership=good_mem)
+    assert len(captured["df"]) == 2
+    assert captured["df"]["FundA"].tolist() == [0.01, 0.02]
+    assert captured["df"]["FundB"].tolist() == [0.03, 0.04]
 
 
 def test_run_empty_membership_frame_treated_as_none() -> None:
@@ -629,8 +685,55 @@ def test_threshold_hold_invalid_config_parsing() -> None:
             "Gamma Fund": [0.02, 0.03, -0.01, 0.04],
         }
     )
+    cfg.portfolio["rank"]["n"] = 1
     res = run_mp(cfg, df)
     assert len(res) == 2
+    assert list(res[0]["fund_weights"].keys()) == ["Alpha Fund"]
+    cfg.portfolio["constraints"]["min_funds"] = 2
+    res_min = run_mp(cfg, df)
+    assert len(res_min[0]["fund_weights"]) == 2
+
+    cfg_min_exit = _make_base_config()
+    cfg_min_exit.portfolio["constraints"]["min_funds"] = "bad"
+    cfg_min_exit.portfolio["threshold_hold"] = {
+        "soft_strikes": 1,
+        "z_exit_soft": 0.5,
+        "z_entry_soft": 2.0,
+    }
+    cfg_min_exit.portfolio["rank"]["n"] = 1
+    df_exit = pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha Fund": [0.05, 0.05, -0.02, -0.02],
+            "Beta Fund": [0.01, -0.02, 0.00, 0.00],
+            "Gamma Fund": [0.02, 0.03, 0.00, 0.00],
+        }
+    )
+    res_min_exit = run_mp(cfg_min_exit, df_exit)
+    assert res_min_exit[1]["fund_weights"]["Gamma Fund"] == pytest.approx(0.62)
+
+    hard_dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    hard_df = pd.DataFrame(
+        {
+            "Date": hard_dates,
+            "RF": [0.001, 0.001, 0.001, 0.001],
+            "FundA": [0.05, 0.06, -0.05, -0.05],
+            "FundB": [0.04, 0.05, 0.04, 0.05],
+            "FundC": [0.01, 0.02, 0.05, 0.06],
+        }
+    )
+    cfg_bad_exit = _make_base_config()
+    cfg_bad_exit.data["allow_risk_free_fallback"] = False
+    cfg_bad_exit.data["risk_free_column"] = "RF"
+    cfg_bad_exit.portfolio["threshold_hold"] = {"z_exit_hard": "bad", "metric": "Sharpe"}
+    cfg_forced_exit = _make_base_config()
+    cfg_forced_exit.data["allow_risk_free_fallback"] = False
+    cfg_forced_exit.data["risk_free_column"] = "RF"
+    cfg_forced_exit.portfolio["threshold_hold"] = {"z_exit_hard": -0.1, "metric": "Sharpe"}
+    res_bad_exit = run_mp(cfg_bad_exit, hard_df)
+    res_forced_exit = run_mp(cfg_forced_exit, hard_df)
+    assert "FundA" in res_bad_exit[1]["fund_weights"]
+    assert "FundA" not in res_forced_exit[1]["fund_weights"]
 
 
 def test_threshold_hold_no_investable_funds() -> None:
@@ -651,6 +754,15 @@ def test_threshold_hold_no_investable_funds() -> None:
     res = run_mp(cfg, df)
     assert len(res) == 2
     assert res[0].get("fund_weights") == {}
+    assert res[0].get("selected_funds") == []
+    assert res[0]["turnover"] == 0.0
+    assert res[0]["manager_changes"] == []
+    assert res[0]["score_frame"].empty
+    assert res[0]["in_sample_scaled"].empty
+    assert res[0]["out_sample_scaled"].empty
+    assert res[1].get("fund_weights") == {}
+    assert res[1].get("selected_funds") == []
+    assert res[1]["turnover"] == 0.0
 
 
 def test_threshold_hold_missing_rf_series_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -720,6 +832,7 @@ def test_threshold_hold_blended_metric_fallback_sharpe() -> None:
 
 def test_threshold_hold_random_mode() -> None:
     cfg = _make_base_config()
+    cfg.seed = 42
     cfg.multi_period["end"] = "2020-05"
     cfg.portfolio["selection_mode"] = "random"
     cfg.portfolio["constraints"]["max_funds"] = 2
@@ -739,7 +852,37 @@ def test_threshold_hold_random_mode() -> None:
     )
     res = run_mp(cfg, df)
     assert len(res) == 3
+    assert set(res[0]["fund_weights"].keys()) == {"Beta Two", "Gamma One"}
+    assert res[0]["fund_weights"]["Beta Two"] == pytest.approx(0.5)
+    assert res[0]["fund_weights"]["Gamma One"] == pytest.approx(0.5)
     assert set(res[1]["fund_weights"].keys()) == {"Alpha One", "Gamma One"}
+    assert res[1]["fund_weights"]["Alpha One"] == pytest.approx(0.475)
+    assert res[1]["fund_weights"]["Gamma One"] == pytest.approx(0.475)
+    assert set(res[2]["fund_weights"].keys()) == {"Alpha Two", "Beta One"}
+
+
+def test_threshold_hold_random_mode_seed7_single_fund_cap() -> None:
+    cfg = _make_base_config()
+    cfg.seed = 7
+    cfg.multi_period["end"] = "2020-05"
+    cfg.portfolio["selection_mode"] = "random"
+    cfg.portfolio["constraints"]["max_funds"] = 1
+    cfg.portfolio["rank"] = {"inclusion_approach": "top_n", "n": 3}
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "A1": [0.05, 0.05, -0.02, 0.01, 0.02],
+            "A2": [0.01, -0.02, 0.06, -0.01, 0.01],
+            "B1": [0.02, 0.03, -0.01, 0.04, -0.02],
+            "B2": [-0.01, 0.04, 0.02, 0.02, 0.03],
+            "C1": [0.03, -0.01, 0.01, 0.03, 0.01],
+        }
+    )
+    res = run_mp(cfg, df)
+    assert len(res) == 3
+    assert [list(p["fund_weights"].keys()) for p in res] == [["A1"], ["A1"], ["A1"]]
+    assert res[1]["fund_weights"]["A1"] == pytest.approx(0.7)
 
 
 def test_threshold_hold_buy_and_hold_mode_and_data_ceased() -> None:
@@ -775,6 +918,7 @@ def test_threshold_hold_buy_and_hold_mode_and_data_ceased() -> None:
     assert "Gamma Fund" in res[1]["fund_weights"]
     reasons = [e.get("reason") for e in res[1]["manager_changes"]]
     assert "replacement" in reasons
+    assert "data_ceased" in reasons
 
 
 def test_threshold_hold_sticky_add_and_drop() -> None:
@@ -833,21 +977,43 @@ def test_threshold_hold_min_tenure_guard() -> None:
 
 
 def test_threshold_hold_turnover_budget_max_changes() -> None:
-    cfg = _make_base_config()
-    cfg.multi_period["end"] = "2020-05"
-    cfg.portfolio["turnover_budget_max_changes"] = "bad"
-
     dates = pd.date_range("2020-01-31", periods=5, freq="ME")
     df = pd.DataFrame(
         {
             "Date": dates,
             "Alpha": [0.05, 0.05, -0.05, 0.05, 0.05],
             "Beta": [0.04, 0.04, 0.04, -0.05, -0.05],
-            "Gamma": [0.01, 0.01, 0.05, 0.05, 0.05],
+            "Gamma": [0.01, 0.08, 0.08, 0.08, 0.08],
+            "Delta": [0.01, 0.09, 0.09, 0.09, 0.09],
         }
     )
-    res = run_mp(cfg, df)
-    assert len(res) == 3
+
+    cfg_unlimited = _make_base_config()
+    cfg_unlimited.multi_period["end"] = "2020-05"
+    cfg_unlimited.portfolio["constraints"]["max_funds"] = 4
+    cfg_unlimited.portfolio["threshold_hold"] = {"z_entry_soft": 0.0}
+    cfg_unlimited.portfolio["turnover_budget_max_changes"] = "bad"
+    res_unlimited = run_mp(cfg_unlimited, df)
+    assert len(res_unlimited) == 3
+    assert len(res_unlimited[1]["fund_weights"]) == 4
+    assert "Gamma" in res_unlimited[1]["fund_weights"]
+    assert "Delta" in res_unlimited[1]["fund_weights"]
+    budget_events = [
+        ev
+        for period in res_unlimited
+        for ev in (period.get("manager_changes") or [])
+        if ev.get("reason") == "turnover_budget"
+    ]
+    assert budget_events == []
+
+    cfg_zero = _make_base_config()
+    cfg_zero.multi_period["end"] = "2020-05"
+    cfg_zero.portfolio["constraints"]["max_funds"] = 4
+    cfg_zero.portfolio["threshold_hold"] = {"z_entry_soft": 0.0}
+    cfg_zero.portfolio["turnover_budget_max_changes"] = 0
+    res_zero = run_mp(cfg_zero, df)
+    for period_bad, period_zero in zip(res_unlimited, res_zero, strict=True):
+        assert period_bad["fund_weights"] == period_zero["fund_weights"]
 
 
 def test_threshold_hold_hard_exit_forced() -> None:
@@ -893,6 +1059,10 @@ def test_threshold_hold_rank_scores_blended_and_transform() -> None:
     )
     res = run_mp(cfg, df)
     assert list(res[0].get("fund_weights", {}).keys()) == ["FundA"]
+    assert res[0]["fund_weights"]["FundA"] == pytest.approx(0.7)
+    ssf = res[0]["selection_score_frame"]
+    assert ssf.loc["FundA", "zscore"] == pytest.approx(1.0)
+    assert ssf.loc["FundB", "zscore"] == pytest.approx(-1.0)
 
 
 def test_threshold_hold_custom_weighting() -> None:
@@ -933,7 +1103,7 @@ def test_threshold_hold_weight_policy_fallback_equal() -> None:
     }
 
 
-def test_threshold_hold_risk_weighting_engine() -> None:
+def test_threshold_hold_risk_weighting_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _make_base_config()
     cfg.portfolio["weighting"] = {"name": "vol_inverse"}
     cfg.portfolio["constraints"]["max_weight"] = 0.8
@@ -947,8 +1117,53 @@ def test_threshold_hold_risk_weighting_engine() -> None:
     )
     res = run_mp(cfg, df)
     assert len(res) == 2
-    assert res[0]["fund_weights"]["FundA"] == pytest.approx(0.75)
-    assert res[0]["fund_weights"]["FundB"] == pytest.approx(0.25)
+    weights = res[0]["fund_weights"]
+    assert set(weights) == {"FundA", "FundB"}
+    assert weights["FundA"] == pytest.approx(0.75)
+    assert weights["FundB"] == pytest.approx(0.25)
+    assert sum(weights.values()) == pytest.approx(1.0)
+
+    # Missing holding filled with zero (pins line 2870)
+    cfg_missing = _make_base_config()
+    cfg_missing.portfolio["weighting"] = {"name": "vol_inverse"}
+    cfg_missing.portfolio["constraints"]["min_weight"] = 0.0
+    cfg_missing.portfolio["constraints"]["max_weight"] = 1.0
+
+    class MockMissingRiskEngine:
+        def weight(self, cov: Any) -> pd.Series:
+            return pd.Series({"FundA": 1.0})
+
+    orig_resolve = mp_engine._resolve_portfolio_weighting
+
+    def mock_resolve_missing(c: Any) -> Any:
+        w, u, r, f, s = orig_resolve(c)
+        return w, True, MockMissingRiskEngine(), f, s
+
+    monkeypatch.setattr(mp_engine, "_resolve_portfolio_weighting", mock_resolve_missing)
+    res_missing = run_mp(cfg_missing, df)
+    assert res_missing[0]["fund_weights"]["FundA"] == pytest.approx(1.0)
+    assert "FundB" not in res_missing[0]["fund_weights"]
+
+    # Unnormalized weights normalized by total under cash policy (pins line 2872)
+    cfg_unnorm = _make_base_config()
+    cfg_unnorm.portfolio["weighting"] = {"name": "vol_inverse"}
+    cfg_unnorm.portfolio["weight_policy"] = {"mode": "cash"}
+    cfg_unnorm.portfolio["constraints"]["min_weight"] = 0.0
+    cfg_unnorm.portfolio["constraints"]["max_weight"] = 1.0
+
+    class MockUnnormRiskEngine:
+        def weight(self, cov: Any) -> pd.Series:
+            return pd.Series({"FundA": 0.05, "FundB": 0.03})
+
+    def mock_resolve_unnorm(c: Any) -> Any:
+        w, u, r, f, s = orig_resolve(c)
+        return w, True, MockUnnormRiskEngine(), f, s
+
+    monkeypatch.setattr(mp_engine, "_resolve_portfolio_weighting", mock_resolve_unnorm)
+    res_unnorm = run_mp(cfg_unnorm, df)
+    weights_unnorm = res_unnorm[0]["fund_weights"]
+    assert weights_unnorm["FundA"] == pytest.approx(0.625)
+    assert weights_unnorm["FundB"] == pytest.approx(0.375)
 
 
 def test_threshold_hold_enforce_min_funds_random_mode() -> None:
@@ -973,3 +1188,72 @@ def test_threshold_hold_enforce_min_funds_random_mode() -> None:
     assert len(weights) >= 3
     firms = [k.split()[0] for k in weights]
     assert len(firms) == len(set(firms))
+
+
+def test_threshold_hold_rank_blended_normalizes_metric_weights() -> None:
+    cfg = _make_base_config()
+    cfg.portfolio["rank"] = {
+        "inclusion_approach": "threshold",
+        "score_by": "blended",
+        "blended_weights": {"Sharpe": 1.0, "MaxDrawdown": 3.0},
+        "threshold": 0.35,
+        "transform": "raw",
+    }
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": [0.08, 0.07, 0.06, 0.05],
+            "FundB": [0.02, -0.01, 0.03, 0.04],
+            "FundC": [-0.02, 0.01, 0.02, 0.03],
+        }
+    )
+    res = run_mp(cfg, df)
+    assert list(res[0]["fund_weights"].keys()) == ["FundA", "FundC"]
+    assert res[0]["fund_weights"]["FundA"] == pytest.approx(0.5)
+    assert res[0]["fund_weights"]["FundC"] == pytest.approx(0.5)
+
+
+def test_threshold_hold_zero_pipeline_weights_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trend.diagnostics import DiagnosticResult
+
+    original = mp_engine._call_pipeline_with_diag
+
+    def wrap_pipeline(*args: Any, **kwargs: Any) -> DiagnosticResult[dict[str, Any] | None]:
+        out = original(*args, **kwargs)
+        if out.value is None:
+            return out
+        payload = dict(out.value)
+        manual = [str(x) for x in (kwargs.get("manual_funds") or [])]
+        zeroed = {name: 0.0 for name in manual}
+        rf_col = kwargs.get("risk_free_column")
+        if rf_col:
+            zeroed[str(rf_col)] = 0.0
+        payload["fund_weights"] = zeroed
+        return DiagnosticResult(value=payload, diagnostic=out.diagnostic)
+
+    monkeypatch.setattr(mp_engine, "_call_pipeline_with_diag", wrap_pipeline)
+
+    cfg = _make_base_config()
+    cfg.data["allow_risk_free_fallback"] = False
+    cfg.data["risk_free_column"] = "RF"
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "RF": [0.001, 0.001, 0.001, 0.001],
+            "FundA": [0.05, 0.05, -0.02, 0.01],
+            "FundB": [0.01, -0.02, 0.06, -0.01],
+        }
+    )
+    res = run_mp(cfg, df)
+    assert len(res) == 2
+    assert "RF" not in res[0]["fund_weights"]
+    assert res[0]["fund_weights"] == {
+        "FundA": pytest.approx(0.5),
+        "FundB": pytest.approx(0.5),
+    }
+    assert res[1]["fund_weights"]["FundA"] == pytest.approx(0.5)
+    assert "RF" not in res[1]["fund_weights"]
