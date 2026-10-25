@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -23,6 +24,38 @@ from trend_analysis.llm.nl_logging import NLOperationLog
 from trend_analysis.monte_carlo.registry import ScenarioRegistryEntry
 from trend_analysis.monte_carlo.scenario import MonteCarloScenario, MonteCarloSettings
 
+_REAL_STREAMLIT = sys.modules.get("streamlit") or importlib.import_module("streamlit")
+_RELOADED: dict[str, ModuleType] = {}
+
+
+def _reload(name: str) -> ModuleType:
+    """Reload a page module under the stub and remember it so the fixture below can rebind it."""
+    module = importlib.reload(importlib.import_module(name))
+    _RELOADED[name] = module
+    return module
+
+
+@pytest.fixture(autouse=True)
+def _rebind_reloaded_modules_to_real_streamlit() -> Iterator[None]:
+    """Reloading a page module under the DummyStreamlit stub rebinds its module-level ``st`` in place,
+    so a module object other test files imported at collection time would keep the stub. After every
+    test put the real streamlit back into each module this file reloaded. It does not depend on the
+    order of the conftest's eviction fixture or of monkeypatch's teardown: the real module is swapped
+    in for the reload itself, and a module that was already evicted is re-registered first."""
+    yield
+    saved = sys.modules.get("streamlit")
+    sys.modules["streamlit"] = _REAL_STREAMLIT
+    try:
+        for name, module in list(_RELOADED.items()):
+            sys.modules.setdefault(name, module)
+            importlib.reload(module)
+    finally:
+        if saved is None:
+            sys.modules.pop("streamlit", None)
+        else:
+            sys.modules["streamlit"] = saved
+        _RELOADED.clear()
+
 
 def _install_stub(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
     stub = DummyStreamlit()
@@ -37,9 +70,9 @@ def _install_stub(monkeypatch: pytest.MonkeyPatch) -> DummyStreamlit:
 
 def _load_page(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, DummyStreamlit]:
     stub = _install_stub(monkeypatch)
-    importlib.reload(importlib.import_module("streamlit_app.components.mc_tables"))
-    importlib.reload(importlib.import_module("streamlit_app.components.mc_plots"))
-    page = importlib.reload(importlib.import_module("streamlit_app.monte_carlo_page"))
+    _reload("streamlit_app.components.mc_tables")
+    _reload("streamlit_app.components.mc_plots")
+    page = _reload("streamlit_app.monte_carlo_page")
     return page, stub
 
 
@@ -86,9 +119,7 @@ def _load_nl(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, Any]:
     st_stub.spinner.side_effect = lambda *_a, **_k: nullcontext()
     st_stub.container.side_effect = lambda *_a, **_k: nullcontext()
     monkeypatch.setitem(sys.modules, "streamlit", st_stub)
-    module = importlib.reload(
-        importlib.import_module("streamlit_app.components.nl_operation_viewer")
-    )
+    module = _reload("streamlit_app.components.nl_operation_viewer")
     return module, st_stub
 
 
@@ -853,6 +884,9 @@ def test_demo_run_with_overrides_happy_and_failures(monkeypatch: pytest.MonkeyPa
         "Balanced", overrides={"portfolio": {"max_weight": 0.4}}, st_module=fake_st
     )
     assert ok is True
+    first_policy = captured["store"][1].sim_config["policy"]
+    assert first_policy["max_weight"] == 0.4
+    assert first_policy["cooldown_periods"] == 3
     ok_lb = demo_runner.run_demo_with_overrides(
         "Balanced", overrides={"lookback_periods": 24}, st_module=fake_st
     )
@@ -910,6 +944,10 @@ def test_demo_analysis_run_key_fallbacks() -> None:
         {"data_fingerprint": "fp", "analysis_fund_columns": ["F1"]}, model, None
     )
     assert key1 != key2
+    key_expected = demo_runner._analysis_run_key(
+        {"data_fingerprint": "fp", "analysis_fund_columns": ["F1", "F2"]}, model, None
+    )
+    assert key1 == key_expected
     key3 = demo_runner._analysis_run_key(
         {"data_fingerprint": "fp", "fund_columns": "bad"}, model, None
     )
