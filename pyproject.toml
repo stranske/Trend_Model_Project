@@ -196,8 +196,10 @@ namespace_packages = true
 # 2026-10-25: tests, scripts/, tools/ and .github/ are not product code, and measuring every
 # file the run imported let the test suite's own near-total coverage lift the headline
 # (tests/ was 57% of the measured statements and ran at 98%). `source` also makes coverage
-# report a never-imported .py file under these directories at 0%, so an untested module
-# cannot hide by never being imported.
+# report a never-imported .py file under these directories at 0% (with
+# include_namespace_packages in [tool.coverage.report] below, also in directories that have no
+# __init__.py, such as streamlit_app/pages and design-system), so an untested module cannot
+# hide by never being imported.
 #
 # This changes what the number MEANS. Readings taken before this change (the Gate's coverage
 # trend history, config/coverage-baseline.json before 2026-10-25) were all-files readings and
@@ -211,6 +213,12 @@ omit = [
 
 [tool.coverage.report]
 fail_under = 80
+# Without this, coverage skips directories that have no __init__.py when it looks for
+# never-imported files under `source`, so an untested module in streamlit_app/pages or in a
+# subpackage without __init__.py would not appear as 0% and could not move the number.
+# Today it adds nothing (every such file is already imported by a test); it is here so that
+# stays true when a file is added.
+include_namespace_packages = true
 include_namespace_packages = true
 omit = [
     "/tmp/pytest-of-*/**",
