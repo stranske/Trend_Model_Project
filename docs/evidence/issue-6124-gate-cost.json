@@ -1,0 +1,44 @@
+{
+  "source_issue": "stranske/Trend_Model_Project#6124",
+  "baseline_run": "https://github.com/stranske/Trend_Model_Project/actions/runs/39251258614",
+  "baseline_python_job_seconds": 685,
+  "baseline_pytest_step_seconds": 634,
+  "hosted_before_tests": {
+    "passed": 6079,
+    "skipped": 5,
+    "seconds": 628.13
+  },
+  "local_command": "PYTHONPATH=src <repository-selected .venv/bin/python> -m pytest -q tests/test_legacy_surface_absence.py tests/test_cli_installed.py --durations=10 --junitxml=<artifact>",
+  "local_before": {
+    "passed": 47,
+    "failed": 2,
+    "seconds": 62.8,
+    "installed_fixture_setup_seconds": 18.55,
+    "import_scan_seconds": 4.25
+  },
+  "local_after": {
+    "passed": 47,
+    "failed": 2,
+    "seconds": 33.53,
+    "installed_fixture_setup_seconds": 8.89,
+    "import_scan_seconds": 2.93
+  },
+  "limits": [
+    "First before-run CLI import was cold (18.79s vs1.42s), so the whole-run29.27s delta is not an optimization estimate.",
+    "Both installed CLI tests fail before and after: child venv uses base numpy1.26.4 with scipy requiring numpy>=2.0; no shared/base environment edits.",
+    "Selected interpreter has no black,ruff,pip modules; local formatting-tool checks unavailable.",
+    "Hosted after-Gate and seven consecutive daily p50<=10min readings remain required; no issue completion or p50 target claim."
+  ],
+  "hashes": {
+    "test_cli_installed.py": "be3ef91e7fd0b0e9470aa27e750d4c0f3c71f6bde911e72a829aaf82c8882da7",
+    "test_legacy_surface_absence.py": "91fc95d48cb1c1c1562919c56fcb8e2ee681e207809313002f8f6ab2daa0553a",
+    "trend-local-before.log": "6cb3882eb400756df9a4ad42b3cb5a1ca89aefb1d7c6405dafa94ade7c1a3d45",
+    "trend-local-after.log": "4189b1fc42e4e1f428e1bbde804b664855478418be6701ba919dbf692f3a0fc5",
+    "trend-scanner-red.log": "0bec7f26fb7db706019fa0ac7ab69d38437c3b40006c74f03d3243adc0717a9e"
+  },
+  "scanner_deliberate_break": {
+    "actual_restored_import": "from trend_analysis import cli",
+    "red": "1 failed in3.44s; exact restored probe named by actual scanner",
+    "restored": "47 passed in21.99s; exact temporary probe removed"
+  }
+}
