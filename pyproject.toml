@@ -219,7 +219,6 @@ fail_under = 80
 # Today it adds nothing (every such file is already imported by a test); it is here so that
 # stays true when a file is added.
 include_namespace_packages = true
-include_namespace_packages = true
 omit = [
     "/tmp/pytest-of-*/**",
     "*/pytest-of-*/**",
