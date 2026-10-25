@@ -628,94 +628,6 @@ def test_render_validation_page_button_click_baseline_success(
     # Baseline ran successfully
 
 
-def _test_render_validation_page_inclusion_approach_random_baseline(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 634-635."""
-    stub = DummyStreamlit()
-    stub.button_responses = [True]
-    stub.selectbox_returns = ["Selection", "inclusion_approach"]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    returns_df = pd.DataFrame(
-        {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
-    )
-    _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    mock_result = MockRunResult()
-    page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    # Mock TESTABLE_SETTINGS to include inclusion_approach with baseline "random"
-    mock_setting = MagicMock()
-    mock_setting.key = "inclusion_approach"
-    mock_setting.baseline = "random"
-    mock_setting.test_values = ["threshold"]
-    mock_setting.category = "Selection"
-    mock_setting.label = "inclusion_approach"
-    with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-            with patch(
-                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
-            ):
-                page.render_validation_page()
-    # Should have set random_seed in baseline_state
-
-
-def _test_render_validation_page_inclusion_approach_random_test(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 645-646."""
-    stub = DummyStreamlit()
-    stub.button_responses = [True]
-    stub.selectbox_returns = ["Selection", "inclusion_approach"]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    returns_df = pd.DataFrame(
-        {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
-    )
-    _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    mock_result = MockRunResult()
-    page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    # Mock TESTABLE_SETTINGS to include inclusion_approach with test value "random"
-    mock_setting = MagicMock()
-    mock_setting.key = "inclusion_approach"
-    mock_setting.baseline = "threshold"
-    mock_setting.test_values = ["random"]
-    mock_setting.category = "Selection"
-    mock_setting.label = "inclusion_approach"
-    with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-            with patch(
-                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
-            ):
-                page.render_validation_page()
-
-
-def _test_render_validation_page_inclusion_approach_top_pct(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 647-648."""
-    stub = DummyStreamlit()
-    stub.button_responses = [True]
-    stub.selectbox_returns = ["Selection", "inclusion_approach"]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    returns_df = pd.DataFrame(
-        {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
-    )
-    _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    mock_result = MockRunResult()
-    page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    # Mock TESTABLE_SETTINGS to include inclusion_approach with test value "top_pct"
-    mock_setting = MagicMock()
-    mock_setting.key = "inclusion_approach"
-    mock_setting.baseline = "threshold"
-    mock_setting.test_values = ["top_pct"]
-    mock_setting.category = "Selection"
-    mock_setting.label = "inclusion_approach"
-    with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-            with patch(
-                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
-            ):
-                page.render_validation_page()
-
-
 def test_render_validation_page_hash_computation_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -727,20 +639,29 @@ def test_render_validation_page_hash_computation_failure(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
     )
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    # Create a result that will cause hash computation to fail
-    mock_result = MagicMock()
-    mock_result.weights = None
-    mock_result.metrics = None
-    mock_result.costs = None
-    mock_result.turnover = None
-    mock_result.period_results = None
-    mock_result.period_count = None
-    # The hash computation will fail because of the circular reference in mock
+    mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-        with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
-            page.render_validation_page()
-    # Just verify it runs without error
+    with patch(
+        "streamlit_app.developer_settings_validation.json.dumps",
+        side_effect=TypeError("serialize"),
+    ):
+        with patch.object(
+            page.analysis_runner, "run_analysis", return_value=mock_result
+        ) as run_mock:
+            with patch(
+                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
+            ):
+                page.render_validation_page()
+    assert run_mock.call_count == 2
+    assert any("HASH COMPUTATION FAILED" in msg for msg in stub.warning_messages)
+    assert any("`selection_count`" in msg for msg in stub.warning_messages)
+    last_test = stub.session_state["last_validation_test"]
+    assert last_test["setting"] == "selection_count"
+    assert last_test["baseline_value"] == 10
+    assert last_test["test_value"] == 5
+    assert last_test["changed"] is False
+    assert last_test["baseline_metrics"]["_result_hash"] == "error"
+    assert last_test["test_metrics"]["_result_hash"] == "error"
 
 
 def test_render_validation_page_setting_not_wired(
@@ -754,13 +675,19 @@ def test_render_validation_page_setting_not_wired(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
     )
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    # Create identical results for baseline and test
     mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result) as run_mock:
         with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
             page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    assert any("SETTING NOT WIRED" in msg for msg in stub.error_messages)
+    assert any("`selection_count`" in msg for msg in stub.error_messages)
+    last_test = stub.session_state["last_validation_test"]
+    assert last_test["setting"] == "selection_count"
+    assert last_test["baseline_value"] == 10
+    assert last_test["test_value"] == 5
+    assert last_test["changed"] is False
 
 
 def test_render_validation_page_setting_is_wired(
@@ -785,10 +712,21 @@ def test_render_validation_page_setting_is_wired(
         )
 
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", side_effect=fake_run):
+    with patch.object(page.analysis_runner, "run_analysis", side_effect=fake_run) as run_mock:
         with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
             page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    assert call_count[0] == 2
+    assert any("SETTING IS WIRED" in msg for msg in stub.success_messages)
+    assert any("`selection_count`" in msg for msg in stub.success_messages)
+    last_test = stub.session_state["last_validation_test"]
+    assert last_test["setting"] == "selection_count"
+    assert last_test["baseline_value"] == 10
+    assert last_test["test_value"] == 5
+    assert last_test["changed"] is True
+    assert (
+        last_test["baseline_metrics"]["_result_hash"] != last_test["test_metrics"]["_result_hash"]
+    )
 
 
 def test_render_validation_page_results_no_change(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -802,10 +740,17 @@ def test_render_validation_page_results_no_change(monkeypatch: pytest.MonkeyPatc
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
     mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result) as run_mock:
         with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
             page.render_validation_page()
-    # Just verify it runs without error - the exact message may vary
+    assert run_mock.call_count == 2
+    assert any("SETTING NOT WIRED" in msg for msg in stub.error_messages)
+    assert not any("🔄" in msg for msg in stub.markdowns)
+    last_test = stub.session_state["last_validation_test"]
+    assert last_test["changed"] is False
+    assert (
+        last_test["baseline_metrics"]["_result_hash"] == last_test["test_metrics"]["_result_hash"]
+    )
 
 
 def test_render_validation_page_metric_display_loop(
@@ -846,29 +791,6 @@ def test_render_validation_page_metric_display_loop(
     assert any("🔄" in msg for msg in stub.markdowns)
 
 
-def _test_render_validation_page_result_storage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 722-731 (storing results in session state)."""
-    stub = DummyStreamlit()
-    stub.button_responses = [True]
-    stub.selectbox_returns = ["Selection", "selection_count"]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    returns_df = pd.DataFrame(
-        {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
-    )
-    _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    mock_result = MockRunResult(
-        weights=pd.Series({"A": 0.5}),
-        metrics=pd.DataFrame({"CAGR": [0.15], "Sharpe": [1.5]}),
-    )
-    page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-        with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
-            page.render_validation_page()
-    # Just verify it runs without error
-
-
 def test_render_validation_page_results_changed(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 661-684."""
     stub = DummyStreamlit()
@@ -893,10 +815,19 @@ def test_render_validation_page_results_changed(monkeypatch: pytest.MonkeyPatch)
         )
 
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    with patch.object(page.analysis_runner, "run_analysis", side_effect=fake_run):
+    with patch.object(page.analysis_runner, "run_analysis", side_effect=fake_run) as run_mock:
         with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
             page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    assert call_count[0] == 2
+    assert any("SETTING IS WIRED" in msg for msg in stub.success_messages)
+    assert any("`portfolio_CAGR`" in msg for msg in stub.markdowns)
+    assert any("🔄" in msg for msg in stub.markdowns)
+    last_test = stub.session_state["last_validation_test"]
+    assert last_test["setting"] == "selection_count"
+    assert last_test["baseline_value"] == 10
+    assert last_test["test_value"] == 5
+    assert last_test["changed"] is True
 
 
 def test_render_validation_page_batch_section(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1004,12 +935,34 @@ def test_render_validation_page_batch_summary(
     mock_setting.label = "selection_count"
     mock_setting.expected_effect = "More funds"
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+        with patch.object(
+            page.analysis_runner, "run_analysis", return_value=mock_result
+        ) as run_mock:
             with patch(
                 "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
             ):
                 page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    batch_df = next(
+        df
+        for df in stub.dataframes
+        if list(df.columns) == ["Setting", "Key", "Baseline", "Test", "Status", "Expected Effect"]
+    )
+    assert batch_df.iloc[0].to_dict() == {
+        "Setting": "selection_count",
+        "Key": "selection_count",
+        "Baseline": "10",
+        "Test": "20",
+        "Status": "❌ NOT WIRED",
+        "Expected Effect": "More funds",
+    }
+    assert any(
+        "**Summary for Selection:**" in msg and "Not Wired: 1" in msg for msg in stub.markdowns
+    )
+    assert len(stub.downloads) == 1
+    assert stub.downloads[0]["label"] == "📥 Download Results CSV"
+    assert stub.downloads[0]["mime"] == "text/csv"
+    assert stub.downloads[0]["data"].startswith("Setting,Key,Baseline,Test,Status,Expected Effect")
 
 
 def test_render_validation_page_batch_button(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1193,12 +1146,37 @@ def test_render_validation_page_full_validation_results(
     mock_setting.label = "selection_count"
     mock_setting.expected_effect = "More funds"
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+        with patch.object(
+            page.analysis_runner, "run_analysis", return_value=mock_result
+        ) as run_mock:
             with patch(
                 "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
             ):
                 page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    full_df = next(
+        df
+        for df in stub.dataframes
+        if list(df.columns)
+        == ["Category", "Setting", "Key", "Baseline", "Test", "Status", "Expected Effect"]
+    )
+    assert full_df.iloc[0].to_dict() == {
+        "Category": "Selection",
+        "Setting": "selection_count",
+        "Key": "selection_count",
+        "Baseline": "10",
+        "Test": "20",
+        "Status": "❌ NOT WIRED",
+        "Expected Effect": "More funds",
+    }
+    assert any(msg == "Summary by Category" for msg in stub.subheaders)
+    assert any("**Selection**: 0✅ / 1❌ / 0⚠️" in msg for msg in stub.error_messages)
+    assert len(stub.downloads) == 1
+    assert stub.downloads[0]["label"] == "📥 Download Full Results CSV"
+    assert stub.downloads[0]["mime"] == "text/csv"
+    assert stub.downloads[0]["data"].startswith(
+        "Category,Setting,Key,Baseline,Test,Status,Expected Effect"
+    )
 
 
 def test_render_validation_page_full_validation_category_summary(
@@ -1853,105 +1831,6 @@ def test_render_comparison_llm_exception_handling(
                                 )
 
 
-def _test_render_comparison_llm_trace_url_display(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers line 341 (trace URL caption)."""
-    stub = DummyStreamlit()
-    stub.session_state = {}
-    stub.button_responses = [True]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    from streamlit_app.components.comparison_llm import ComparisonExplanationResult
-
-    cached = ComparisonExplanationResult(
-        text="Cached text",
-        trace_url="http://trace.url",
-        claim_issues=[],
-        metric_count=10,
-        created_at="2024-01-01T00:00:00Z",
-    )
-    stub.session_state["comparison_llm_cache"] = {"k": cached}
-    with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
-        from streamlit_app.components.comparison_llm import render_comparison_llm
-
-        render_comparison_llm(
-            result_a=StubResult(details={}),
-            result_b=StubResult(details={}),
-            label_a="A",
-            label_b="B",
-            config_diff="",
-            run_key="k",
-        )
-        # Just verify it runs without error
-
-
-def _test_render_comparison_llm_discrepancy_log(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 343-348 (discrepancy log expander)."""
-    stub = DummyStreamlit()
-    stub.session_state = {}
-    stub.button_responses = [True]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    from streamlit_app.components.comparison_llm import (
-        ComparisonExplanationResult,
-        ResultClaimIssue,
-    )
-
-    cached = ComparisonExplanationResult(
-        text="Cached text",
-        trace_url=None,
-        claim_issues=[ResultClaimIssue(kind="test", message="Test issue")],
-        metric_count=10,
-        created_at="2024-01-01T00:00:00Z",
-    )
-    stub.session_state["comparison_llm_cache"] = {"k": cached}
-    with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
-        from streamlit_app.components.comparison_llm import render_comparison_llm
-
-        render_comparison_llm(
-            result_a=StubResult(details={}),
-            result_b=StubResult(details={}),
-            label_a="A",
-            label_b="B",
-            config_diff="",
-            run_key="k",
-        )
-        # Just verify it runs without error
-
-
-def _test_render_comparison_llm_download_buttons_two_columns(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Covers lines 361-376 (download buttons in 2 columns)."""
-    stub = DummyStreamlit()
-    stub.session_state = {}
-    stub.button_responses = [True]
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    from streamlit_app.components.comparison_llm import ComparisonExplanationResult
-
-    cached = ComparisonExplanationResult(
-        text="Cached text",
-        trace_url=None,
-        claim_issues=[],
-        metric_count=10,
-        created_at="2024-01-01T00:00:00Z",
-    )
-    stub.session_state["comparison_llm_cache"] = {"k": cached}
-    with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
-        from streamlit_app.components.comparison_llm import render_comparison_llm
-
-        render_comparison_llm(
-            result_a=StubResult(details={}),
-            result_b=StubResult(details={}),
-            label_a="A",
-            label_b="B",
-            config_diff="",
-            run_key="k",
-        )
-        # Just verify it runs without error
-
-
 def test_render_comparison_llm_llm_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Covers lines 230-302."""
     stub = DummyStreamlit()
@@ -2035,61 +1914,3 @@ def test_render_comparison_llm_button_and_cache(monkeypatch: pytest.MonkeyPatch)
                                 assert any(
                                     "Click Explain comparison" in msg for msg in stub.info_messages
                                 )
-
-
-def _test_render_comparison_llm_cached_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Covers lines 335-349."""
-    stub = DummyStreamlit()
-    stub.session_state = {}
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    from streamlit_app.components.comparison_llm import ComparisonExplanationResult
-
-    cached = ComparisonExplanationResult(
-        text="Cached text",
-        trace_url="http://trace",
-        claim_issues=[],
-        metric_count=10,
-        created_at="2024-01-01T00:00:00Z",
-    )
-    stub.session_state["comparison_llm_cache"] = {"k": cached}
-    with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
-        from streamlit_app.components.comparison_llm import render_comparison_llm
-
-        render_comparison_llm(
-            result_a=StubResult(details={}),
-            result_b=StubResult(details={}),
-            label_a="A",
-            label_b="B",
-            config_diff="",
-            run_key="k",
-        )
-        # Just verify it runs without error
-
-
-def _test_render_comparison_llm_download_buttons(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Covers lines 350-384."""
-    stub = DummyStreamlit()
-    stub.session_state = {}
-    _install_streamlit_stub(monkeypatch, stub, active_context=True)
-    from streamlit_app.components.comparison_llm import ComparisonExplanationResult
-
-    cached = ComparisonExplanationResult(
-        text="text",
-        trace_url=None,
-        claim_issues=[],
-        metric_count=10,
-        created_at="2024-01-01T00:00:00Z",
-    )
-    stub.session_state["comparison_llm_cache"] = {"k": cached}
-    with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
-        from streamlit_app.components.comparison_llm import render_comparison_llm
-
-        render_comparison_llm(
-            result_a=StubResult(details={}),
-            result_b=StubResult(details={}),
-            label_a="A",
-            label_b="B",
-            config_diff="",
-            run_key="k",
-        )
-        # Just verify it runs without error
