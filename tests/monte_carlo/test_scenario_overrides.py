@@ -70,9 +70,16 @@ def test_cli_manifest_records_effective_scenario_sections(
     runner = _scenario(
         tmp_path,
         {
-            "multi_period": {"min_funds": 2},
+            # A monthly schedule fits the simulated year, so the real runner
+            # retains this section when preparing each simulation config.
+            "multi_period": {
+                "min_funds": 2,
+                "frequency": "M",
+                "in_sample_len": 3,
+                "out_sample_len": 1,
+            },
             "metrics": {"rf_override_enabled": True, "rf_rate_annual": 0.0},
-            "signals": {"window": 27},
+            "signals": {"window": 2},
             "performance": {"enable_cache": False},
         },
     )
@@ -123,7 +130,7 @@ def test_cli_manifest_records_effective_scenario_sections(
     assert effective["multi_period"]["min_funds"] == 2
     assert effective["multi_period"]["max_funds"] == 25
     assert effective["signals"] == runner.base_config["signals"]
-    assert effective["signals"]["window"] == 27
+    assert effective["signals"]["window"] == 2
     assert effective["metrics"] == runner.base_config["metrics"]
     assert effective["metrics"]["rf_override_enabled"] is True
     assert effective["performance"]["enable_cache"] is False
@@ -135,6 +142,16 @@ def test_cli_manifest_records_effective_scenario_sections(
     assert manifest["results"]["errors"] == 0
     assert len(used_configs) == 2
     for config in used_configs:
+        # The runner rebases dates to each path; the other settings must agree
+        # with the merged snapshot recorded in the manifest.
+        assert {
+            key: value for key, value in config.multi_period.items() if key not in {"start", "end"}
+        } == {
+            key: value
+            for key, value in effective["multi_period"].items()
+            if key not in {"start", "end"}
+        }
+        assert config.signals == effective["signals"]
         assert config.metrics == effective["metrics"]
         assert config.performance == effective["performance"]
 
