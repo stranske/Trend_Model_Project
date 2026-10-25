@@ -546,23 +546,14 @@ def _forbidden_import_offenders(path: Path, text: str) -> list[str]:
             # valid Python AST, then continue with the remaining cells.
             modules.extend(_textual_import_modules(code_unit))
             continue
-        modules.extend(
-            alias.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-        )
-        modules.extend(
-            node.module
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-        )
-        modules.extend(
-            f"{node.module}.{alias.name}"
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module is not None
-            for alias in node.names
-        )
+        # Large notebooks and source files need only one traversal. Keep both
+        # the parent and imported names so from-imports retain the same coverage.
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                modules.append(node.module)
+                modules.extend(f"{node.module}.{alias.name}" for alias in node.names)
     try:
         display_path = path.relative_to(REPO_ROOT)
     except ValueError:

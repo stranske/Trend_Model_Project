@@ -20,10 +20,10 @@ REMOVED_COMMANDS = (
 )
 
 
-@pytest.fixture()
-def installed_bin(tmp_path: Path) -> Path:
-    """Install this checkout into an isolated environment with shared dependencies."""
-    environment = tmp_path / "installed-package"
+@pytest.fixture(scope="module")
+def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Share one isolated installation between the read-only console checks."""
+    environment = tmp_path_factory.mktemp("installed-cli") / "installed-package"
     venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
     python = environment / "bin" / "python"
     project_root = Path(__file__).resolve().parents[1]
