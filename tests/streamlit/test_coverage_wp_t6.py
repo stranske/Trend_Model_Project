@@ -190,14 +190,30 @@ def _install_streamlit_stub(
     return module
 
 
-def _reload_module(monkeypatch: pytest.MonkeyPatch, module_name: str) -> Any:
-    """Reload a module with stubbed streamlit."""
+def _reload_module(
+    monkeypatch: pytest.MonkeyPatch, module_name: str, *, auto_render: bool = False
+) -> Any:
+    """Import a module fresh against the stubbed streamlit.
+
+    The page module renders itself at import when it runs inside a Streamlit script context. That
+    first render would consume the queued ``button_responses`` and call the real analysis runner
+    before a test has installed its mocks, so the import runs with no script context unless the
+    test is about the import-time render (``auto_render=True``).
+    """
     for name in [
         m for m in list(sys.modules) if m == module_name or m.startswith(f"{module_name}.")
     ]:
         del sys.modules[name]
     importlib.invalidate_caches()
-    return importlib.import_module(module_name)
+    scriptrunner = sys.modules.get("streamlit.runtime.scriptrunner")
+    original = getattr(scriptrunner, "get_script_run_ctx", None)
+    if scriptrunner is not None and not auto_render:
+        scriptrunner.get_script_run_ctx = lambda: None
+    try:
+        return importlib.import_module(module_name)
+    finally:
+        if scriptrunner is not None and original is not None:
+            scriptrunner.get_script_run_ctx = original
 
 
 def _mock_demo_profile_and_state(
