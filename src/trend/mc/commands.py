@@ -186,6 +186,7 @@ def handle_mc_command(args: argparse.Namespace) -> int:
             exported_files=exported,
             data_path=Path(args.data) if getattr(args, "data", None) else None,
             jobs_used=runner._resolve_jobs(getattr(args, "jobs", None)),
+            effective_config=runner.base_config,
         )
     except (MarketDataValidationError, OSError, ValueError) as exc:
         print(f"Scenario run failed: {exc}", file=sys.stderr)
@@ -383,6 +384,7 @@ def write_mc_manifest(
     exported_files: Mapping[str, Path],
     data_path: Path | None,
     jobs_used: int,
+    effective_config: Mapping[str, Any] | None = None,
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.json"
@@ -395,6 +397,18 @@ def write_mc_manifest(
                 "version": scenario.version,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "base_config": str(scenario.base_config),
+                # Persist the actual runner snapshot, not a later reload of the
+                # base file or only the raw scenario overrides. Legacy direct
+                # callers without a snapshot explicitly record unavailable data.
+                "effective_config_sections": (
+                    {
+                        section: dict(values)
+                        for section, values in effective_config.items()
+                        if isinstance(values, Mapping)
+                    }
+                    if effective_config is not None
+                    else None
+                ),
                 "data_path": str(data_path) if data_path else None,
                 "settings": {
                     "mode": mc_settings.mode,
