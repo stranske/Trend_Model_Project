@@ -371,6 +371,25 @@ def test_extract_key_metrics_with_period_results() -> None:
     metrics = extract_key_metrics(result)
     assert metrics["num_periods"] == 2
     assert metrics["avg_funds_per_period"] == 2.5
+    assert metrics["min_funds_period"] == 2
+    assert metrics["max_funds_period"] == 3
+
+
+def test_extract_key_metrics_period_weights_positive_count() -> None:
+    """Pins line 449: period_results weights dict drives fund counts."""
+    from streamlit_app.developer_settings_validation import extract_key_metrics
+
+    result = MockRunResult(
+        period_results=[
+            {"weights": {"X": 0.5, "Y": 0.5, "Z": 0.0}},
+            {"weights": {"P": 1.0, "Q": 1.0, "R": 1.0}},
+        ],
+    )
+    metrics = extract_key_metrics(result)
+    assert metrics["num_periods"] == 2
+    assert metrics["avg_funds_per_period"] == 2.5
+    assert metrics["min_funds_period"] == 2
+    assert metrics["max_funds_period"] == 3
 
 
 def test_extract_key_metrics_period_count_fallback() -> None:
@@ -821,7 +840,10 @@ def test_render_validation_page_metric_display_loop(
     with patch.object(page.analysis_runner, "run_analysis", side_effect=fake_run):
         with patch("streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"):
             page.render_validation_page()
-    # Verify metrics were displayed - just check it completed without error
+    assert call_count[0] >= 2
+    assert not any("`_result_hash`" in msg for msg in stub.markdowns)
+    assert any("`portfolio_CAGR`" in msg for msg in stub.markdowns)
+    assert any("🔄" in msg for msg in stub.markdowns)
 
 
 def _test_render_validation_page_result_storage(
@@ -915,13 +937,18 @@ def test_render_validation_page_batch_test_run(
     mock_setting.category = "Selection"
     mock_setting.label = "selection_count"
     mock_setting.expected_effect = "More funds"
+    run_mock = MagicMock(return_value=mock_result)
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+        with patch.object(page.analysis_runner, "run_analysis", run_mock):
             with patch(
                 "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
             ):
                 page.render_validation_page()
-    # Verify batch test ran - just check it completed without error
+    assert run_mock.call_count == 2
+    assert stub.progress_calls[0] == (0.0, None)
+    assert stub.progress_calls[-1] == (1.0, None)
+    assert any(msg == "Testing: selection_count..." for msg in stub.write_calls)
+    assert any(msg == "Complete!" for msg in stub.write_calls)
 
 
 def test_render_validation_page_batch_results_table(
@@ -1012,20 +1039,39 @@ def test_apply_inclusion_approach_special_handling_random(
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
     mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    # Mock TESTABLE_SETTINGS with inclusion_approach = random
-    mock_setting = MagicMock()
-    mock_setting.key = "inclusion_approach"
-    mock_setting.baseline = "random"
-    mock_setting.test_values = ["threshold"]
-    mock_setting.category = "Selection"
-    mock_setting.label = "inclusion_approach"
-    mock_setting.expected_effect = "Random selection"
+    original_baseline = page.get_baseline_state
+
+    def baseline_without_random_seed() -> dict[str, Any]:
+        state = dict(original_baseline())
+        state.pop("random_seed", None)
+        return state
+
+    monkeypatch.setattr(page, "get_baseline_state", baseline_without_random_seed)
+    mock_setting = page.SettingDef(
+        key="inclusion_approach",
+        label="inclusion_approach",
+        category="Selection",
+        baseline="random",
+        test_values=["threshold"],
+        expected_effect="Random selection",
+        economic_intuition="Random changes selection",
+    )
+    captured_states: list[dict[str, Any]] = []
+
+    def capture_test_analysis(
+        _returns: pd.DataFrame, model_state: dict[str, Any]
+    ) -> dict[str, Any]:
+        captured_states.append(dict(model_state))
+        return {"status": "success", "result": mock_result}
+
+    monkeypatch.setattr(page, "run_test_analysis", capture_test_analysis)
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-            with patch(
-                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
-            ):
-                page.render_validation_page()
+        page.render_validation_page()
+    assert len(captured_states) == 2
+    assert any(
+        state.get("inclusion_approach") == "random" and state.get("random_seed") == 42
+        for state in captured_states
+    )
 
 
 def test_apply_inclusion_approach_special_handling_top_pct(
@@ -1042,20 +1088,40 @@ def test_apply_inclusion_approach_special_handling_top_pct(
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
     mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
-    # Mock TESTABLE_SETTINGS with inclusion_approach = top_pct
-    mock_setting = MagicMock()
-    mock_setting.key = "inclusion_approach"
-    mock_setting.baseline = "threshold"
-    mock_setting.test_values = ["top_pct"]
-    mock_setting.category = "Selection"
-    mock_setting.label = "inclusion_approach"
-    mock_setting.expected_effect = "Top percentile selection"
+    original_baseline = page.get_baseline_state
+
+    def baseline_without_rank_pct() -> dict[str, Any]:
+        state = dict(original_baseline())
+        state.pop("rank_pct", None)
+        return state
+
+    monkeypatch.setattr(page, "get_baseline_state", baseline_without_rank_pct)
+    mock_setting = page.SettingDef(
+        key="inclusion_approach",
+        label="inclusion_approach",
+        category="Selection",
+        baseline="threshold",
+        test_values=["top_pct"],
+        expected_effect="Top percentile selection",
+        economic_intuition="Top pct changes selection",
+    )
+    captured_states: list[dict[str, Any]] = []
+
+    def capture_test_analysis(
+        _returns: pd.DataFrame, model_state: dict[str, Any]
+    ) -> dict[str, Any]:
+        captured_states.append(dict(model_state))
+        return {"status": "success", "result": mock_result}
+
+    monkeypatch.setattr(page, "run_test_analysis", capture_test_analysis)
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
-            with patch(
-                "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
-            ):
-                page.render_validation_page()
+        page.render_validation_page()
+    assert len(captured_states) == 2
+    assert any(
+        state.get("inclusion_approach") == "top_pct" and state.get("rank_pct") == 0.20
+        for state in captured_states
+    )
+    assert any(msg == "Testing: inclusion_approach..." for msg in stub.write_calls)
 
 
 def test_render_validation_page_full_validation_section(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1092,13 +1158,17 @@ def test_render_validation_page_full_validation_run(
     mock_setting.category = "Selection"
     mock_setting.label = "selection_count"
     mock_setting.expected_effect = "More funds"
+    run_mock = MagicMock(return_value=mock_result)
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+        with patch.object(page.analysis_runner, "run_analysis", run_mock):
             with patch(
                 "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
             ):
                 page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count == 2
+    assert stub.progress_calls[0] == (0.0, None)
+    assert stub.progress_calls[-1] == (1.0, None)
+    assert any(msg == "Complete!" for msg in stub.write_calls)
 
 
 def test_render_validation_page_full_validation_results(
@@ -1143,7 +1213,6 @@ def test_render_validation_page_full_validation_category_summary(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
     )
     _mock_demo_profile_and_state(monkeypatch, enabled=True, returns_data=returns_df)
-    mock_result = MockRunResult()
     page = _reload_module(monkeypatch, "streamlit_app.developer_settings_validation")
     mock_setting = MagicMock()
     mock_setting.key = "selection_count"
@@ -1152,13 +1221,15 @@ def test_render_validation_page_full_validation_category_summary(
     mock_setting.category = "Selection"
     mock_setting.label = "selection_count"
     mock_setting.expected_effect = "More funds"
+    run_mock = MagicMock(side_effect=RuntimeError("analysis failed"))
     with patch("streamlit_app.developer_settings_validation.TESTABLE_SETTINGS", [mock_setting]):
-        with patch.object(page.analysis_runner, "run_analysis", return_value=mock_result):
+        with patch.object(page.analysis_runner, "run_analysis", run_mock):
             with patch(
                 "streamlit_app.developer_settings_validation.analysis_runner.AnalysisPayload"
             ):
                 page.render_validation_page()
-    # Just verify it runs without error
+    assert run_mock.call_count >= 1
+    assert any("**Selection**: 0✅ / 0❌ / 1⚠️" in msg for msg in stub.warning_messages)
 
 
 def test_render_validation_page_full_validation_inclusion_approach(
@@ -1381,7 +1452,48 @@ def test_generate_comparison_explanation_with_metrics(
     run_kwargs = mock_chain.run.call_args.kwargs
     assert run_kwargs["questions"] == "Test question"
     assert len(run_kwargs["metric_entries"]) == 4
-    assert run_kwargs["metric_entries"][0].path.startswith("A.")
+    entry_paths = [entry.path for entry in run_kwargs["metric_entries"]]
+    assert sum(path.startswith("A.") for path in entry_paths) == 2
+    assert sum(path.startswith("B.") for path in entry_paths) == 2
+    assert all(path.startswith("A.") for path in entry_paths[:2])
+    assert all(path.startswith("B.") for path in entry_paths[2:])
+    assert {entry.source for entry in run_kwargs["metric_entries"]} == {
+        "A:in_sample_stats",
+        "B:in_sample_stats",
+    }
+    catalog_a, catalog_b = run_kwargs["metric_catalog"]
+    assert catalog_a.startswith("Metrics A (A):")
+    assert catalog_b.startswith("Metrics B (B):")
+    assert "A.in_sample_stats.pf.cagr" in catalog_a
+    assert "B.in_sample_stats.pf.cagr" in catalog_b
+
+
+def test_generate_comparison_explanation_no_metrics_b_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pins line 153: empty B catalog uses the no-metrics placeholder."""
+    from streamlit_app.components.comparison_llm import generate_comparison_explanation
+
+    details_a = {"in_sample_stats": {"pf": {"cagr": 0.15}}}
+    details_b = {}
+    mock_chain = MagicMock()
+    mock_chain.run.return_value = MagicMock(text="Analysis", trace_url=None)
+    with patch(
+        "streamlit_app.components.comparison_llm._build_comparison_chain",
+        return_value=mock_chain,
+    ):
+        result = generate_comparison_explanation(
+            details_a,
+            details_b,
+            config_diff="",
+            questions=None,
+            label_a="A",
+            label_b="B",
+        )
+    assert result.metric_count == 1
+    catalog_a, catalog_b = mock_chain.run.call_args.kwargs["metric_catalog"]
+    assert catalog_a == ("Metrics A (A):\nA.in_sample_stats.pf.cagr: 0.15 [from A:in_sample_stats]")
+    assert catalog_b == "Metrics B (B):\nNo metrics available."
 
 
 def test_generate_comparison_explanation_no_metrics_a_only(
@@ -1543,11 +1655,27 @@ def test_render_comparison_llm_provider_selectbox(
 def test_render_comparison_llm_api_key_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Covers line 261 (API key fallback from env)."""
+    """Covers line 261 (API key fallback from env) and line 314 (default key on click)."""
     stub = DummyStreamlit()
     stub.session_state = {}
+    stub.button_responses = [True]
+
+    def recording_download(*args: Any, **kwargs: Any) -> None:
+        stub.downloads.append({"label": args[0] if args else None, **kwargs})
+
+    stub.download_button = recording_download
     _enable_widget_call_recording(stub)
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
+
+    from streamlit_app.components.comparison_llm import ComparisonExplanationResult
+
+    explanation = ComparisonExplanationResult(
+        text="ok",
+        trace_url=None,
+        claim_issues=[],
+        metric_count=0,
+        created_at="2024-01-01T00:00:00Z",
+    )
     with patch("streamlit_app.components.comparison_llm.llm_zone_disabled", return_value=False):
         with patch(
             "streamlit_app.components.comparison_llm.browser_llm_runtime", return_value=False
@@ -1559,7 +1687,7 @@ def test_render_comparison_llm_api_key_fallback(
                 with patch(
                     "streamlit_app.components.comparison_llm.default_api_key",
                     return_value="env_key",
-                ):
+                ) as default_key_mock:
                     with patch(
                         "streamlit_app.components.comparison_llm.sanitize_api_key",
                         return_value=True,
@@ -1568,19 +1696,26 @@ def test_render_comparison_llm_api_key_fallback(
                             "streamlit_app.components.comparison_llm.resolve_api_key_input",
                             return_value=None,
                         ):
-                            from streamlit_app.components.comparison_llm import (
-                                render_comparison_llm,
-                            )
+                            with patch(
+                                "streamlit_app.components.comparison_llm.generate_comparison_explanation",
+                                return_value=explanation,
+                            ) as generate_mock:
+                                from streamlit_app.components.comparison_llm import (
+                                    render_comparison_llm,
+                                )
 
-                            render_comparison_llm(
-                                result_a=StubResult(details={}),
-                                result_b=StubResult(details={}),
-                                label_a="A",
-                                label_b="B",
-                                config_diff="",
-                                run_key="k",
-                            )
+                                render_comparison_llm(
+                                    result_a=StubResult(details={"in_sample_stats": {}}),
+                                    result_b=StubResult(details={"in_sample_stats": {}}),
+                                    label_a="A",
+                                    label_b="B",
+                                    config_diff="",
+                                    run_key="k",
+                                )
                             assert stub.session_state["comparison_llm_api_key::k"] == "env_key"
+                            assert default_key_mock.call_args_list[-1].args == ("openai",)
+                            generate_mock.assert_called_once()
+                            assert generate_mock.call_args.kwargs["api_key"] == "env_key"
 
 
 def test_render_comparison_llm_api_key_configured(
@@ -1666,6 +1801,7 @@ def test_render_comparison_llm_button_key(
                                 run_key="test_key_12345",
                             )
                             assert stub.button_key_calls == ["btn_compare_llm_45af89b510a3"]
+                            assert stub.button_labels == ["Explain comparison"]
 
 
 def test_render_comparison_llm_exception_handling(
