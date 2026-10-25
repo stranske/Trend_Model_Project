@@ -357,11 +357,12 @@ def test_count_available_funds_csv_read_failure(
 ) -> None:
     broken = tmp_path / "broken.csv"
     broken.write_text("not,really,csv", encoding="utf-8")
+    original_read_csv = pd.read_csv
 
     def boom(*args: Any, **kwargs: Any) -> Any:
         if kwargs.get("nrows") == 0:
             raise OSError("cannot read header")
-        return pd.read_csv(*args, **kwargs)
+        return original_read_csv(*args, **kwargs)
 
     monkeypatch.setattr(v.pd, "read_csv", boom)
     assert v._count_available_funds({"data": {"csv_path": "broken.csv"}}, tmp_path) is None
@@ -372,7 +373,8 @@ def test_count_available_funds_branches(tmp_path: Path) -> None:
     assert v._count_available_funds({"data": {}}, tmp_path) is None
     bad = tmp_path / "bad.csv"
     bad.write_bytes(b"\xff\xfe\x00bad")
-    # Unreadable/odd CSV still returns a count or None; force exception via directory
+    # an undecodable CSV and a missing one are both unreadable: no count is available
+    assert v._count_available_funds({"data": {"csv_path": "bad.csv"}}, tmp_path) is None
     assert v._count_available_funds({"data": {"csv_path": "missing.csv"}}, tmp_path) is None
     good = tmp_path / "funds.csv"
     good.write_text("Date,FundA,FundB,RF\n2024-01-31,0.1,0.2,0.0\n", encoding="utf-8")
@@ -600,9 +602,9 @@ def test_load_ui_dataset_fixable_without_autofix(tmp_path: Path) -> None:
 
 def test_inspect_ui_date_issues_excel(tmp_path: Path) -> None:
     p = tmp_path / "book.xlsx"
-    pd.DataFrame({"Date": ["2024-01-31"], "FundA": [0.01]}).to_excel(p, index=False)
+    pd.DataFrame({"Date": ["not-a-date"], "FundA": [0.01]}).to_excel(p, index=False)
     result = ui.inspect_ui_date_issues(p)
-    assert result.unfixable == []
+    assert result.unfixable == [(0, "not-a-date")]
 
 
 def test_load_ui_dataset_excel(tmp_path: Path) -> None:
@@ -630,7 +632,8 @@ def test_apply_and_validate() -> None:
     patch = pm.ConfigPatch(operations=[_op("set", "version", value="2")], summary="bump")
     updated, result = pm.apply_and_validate({"version": "1"}, patch)
     assert updated["version"] == "2"
-    assert hasattr(result, "valid")
+    assert isinstance(result, v.ValidationResult)
+    assert result.valid is False
 
 
 def test_parse_dotpath_invalid_and_format() -> None:
@@ -880,8 +883,6 @@ def test_build_config_multi_period_without_user_dates() -> None:
 
 
 def test_build_config_from_ui_state_non_datetime_and_multiperiod() -> None:
-    returns = pd.DataFrame({"FundA": [0.01] * 24}, index=pd.RangeIndex(24))
-    returns.index = pd.date_range("2022-01-31", periods=24, freq="ME")
     plain = pd.DataFrame({"FundA": [0.01, 0.02]}, index=[0, 1])
     plain.index = pd.Index(["2024-01-31", "2024-02-29"])
     cfg = um.build_config_from_ui_state(
