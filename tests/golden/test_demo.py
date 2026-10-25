@@ -20,6 +20,8 @@ import pytest
 pytest.importorskip("matplotlib")
 
 
+@pytest.mark.serial
+@pytest.mark.xdist_group(name="demo_pipeline")
 class TestDemoGoldenMaster:
     """Golden master tests for demo pipeline outputs."""
 
@@ -166,8 +168,6 @@ class TestDemoGoldenMaster:
         # Return sorted list, limit to most critical files
         return sorted(key_files)[:8]
 
-    @pytest.mark.serial
-    @pytest.mark.xdist_group(name="demo_pipeline")
     def test_demo_pipeline_end_to_end(self):
         """
         Golden master test: Run complete demo pipeline and validate outputs.
@@ -300,8 +300,6 @@ class TestDemoGoldenMaster:
         for filename, file_hash in sorted(file_hashes.items()):
             print(f"  {filename}: {file_hash}")
 
-    @pytest.mark.serial
-    @pytest.mark.xdist_group(name="demo_pipeline")
     def test_demo_pipeline_deterministic(self):
         """Test that demo pipeline produces deterministic outputs across runs.
 

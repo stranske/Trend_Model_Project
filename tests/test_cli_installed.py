@@ -10,6 +10,10 @@ from pathlib import Path
 
 import pytest
 
+# pip builds the shared checkout in place; keep its module-scoped installation
+# on one worker instead of racing builds from separate xdist workers.
+pytestmark = pytest.mark.xdist_group(name="installed_cli")
+
 REMOVED_COMMANDS = (
     "trend-analysis",
     "trend-multi-analysis",
@@ -45,7 +49,6 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
             str(project_root),
         ],
         check=True,
-        capture_output=True,
         text=True,
     )
     return environment / "bin"

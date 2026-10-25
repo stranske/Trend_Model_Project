@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import runpy
 import sys
+from importlib import import_module
 from pathlib import Path
 from types import ModuleType
 
@@ -21,9 +22,8 @@ def test_proxy_cli_main_invocation(monkeypatch, capsys):
     stub_server.run_proxy = fake_run_proxy
     stub_server.StreamlitProxy = object
     monkeypatch.setitem(sys.modules, "trend_analysis.proxy.server", stub_server)
-    monkeypatch.setattr(
-        "trend_analysis.proxy.cli.setup_logging", lambda **_: Path("/tmp/proxy.log")
-    )
+    logging_setup = import_module("trend_analysis.logging_setup")
+    monkeypatch.setattr(logging_setup, "setup_logging", lambda **_: Path("/tmp/proxy.log"))
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("trend_analysis.proxy.cli", run_name="__main__")
