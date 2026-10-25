@@ -28,6 +28,7 @@ from trend_analysis.monte_carlo.history import load_price_history
 from trend_analysis.monte_carlo.costs import CostProcess
 from trend_analysis.monte_carlo.registry import load_scenario_from_path
 from trend_analysis.monte_carlo.results import MonteCarloResults, export_results
+from trend_analysis.util.hash import normalise_for_json
 
 
 def add_mc_subparsers(parent: argparse.ArgumentParser) -> None:
@@ -402,7 +403,7 @@ def write_mc_manifest(
                 # callers without a snapshot explicitly record unavailable data.
                 "effective_config_sections": (
                     {
-                        section: dict(values)
+                        section: normalise_for_json(dict(values))
                         for section, values in effective_config.items()
                         if isinstance(values, Mapping)
                     }

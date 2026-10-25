@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping, Union
 
@@ -51,6 +52,10 @@ def normalise_for_json(value: Any) -> Any:
 
     if isinstance(value, Path):
         return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
     if isinstance(value, Mapping):
         return {k: normalise_for_json(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
