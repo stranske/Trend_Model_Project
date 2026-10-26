@@ -852,27 +852,32 @@ def _render_manager_changes(result) -> None:
 
     # Debug expander for period-by-period breakdown
     with st.expander("📊 Period-by-Period Diagnostic", expanded=False):
-        # Show period breakdown
-        period_stats = changes_df.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
-        st.caption("Changes by period:")
-        st.dataframe(period_stats, use_container_width=True)
+        if changes_df.empty:
+            st.caption("No changes to break down by period.")
+        else:
+            # Show period breakdown
+            period_stats = changes_df.groupby("Date")["Action"].value_counts().unstack(fill_value=0)
+            st.caption("Changes by period:")
+            st.dataframe(period_stats, use_container_width=True)
 
-        # Show unique manager counts
-        unique_initial = changes_df[changes_df["Action"] == "Initial"]["Manager"].nunique()
-        unique_hired = changes_df[changes_df["Action"] == "Hired"]["Manager"].nunique()
-        unique_terminated = changes_df[changes_df["Action"] == "Terminated"]["Manager"].nunique()
+            # Show unique manager counts
+            unique_initial = changes_df[changes_df["Action"] == "Initial"]["Manager"].nunique()
+            unique_hired = changes_df[changes_df["Action"] == "Hired"]["Manager"].nunique()
+            unique_terminated = changes_df[changes_df["Action"] == "Terminated"][
+                "Manager"
+            ].nunique()
 
-        st.caption(
-            f"Unique managers: {unique_initial} initial, {unique_hired} ever hired, "
-            f"{unique_terminated} ever terminated"
-        )
+            st.caption(
+                f"Unique managers: {unique_initial} initial, {unique_hired} ever hired, "
+                f"{unique_terminated} ever terminated"
+            )
 
-        # Check for managers hired multiple times
-        hire_counts = changes_df[changes_df["Action"] == "Hired"]["Manager"].value_counts()
-        multi_hired = hire_counts[hire_counts > 1]
-        if not multi_hired.empty:
-            st.caption(f"Managers hired multiple times: {len(multi_hired)}")
-            st.write(multi_hired.head(10).to_dict())
+            # Check for managers hired multiple times
+            hire_counts = changes_df[changes_df["Action"] == "Hired"]["Manager"].value_counts()
+            multi_hired = hire_counts[hire_counts > 1]
+            if not multi_hired.empty:
+                st.caption(f"Managers hired multiple times: {len(multi_hired)}")
+                st.write(multi_hired.head(10).to_dict())
 
 
 # =============================================================================

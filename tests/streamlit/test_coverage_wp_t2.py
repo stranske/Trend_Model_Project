@@ -9,9 +9,9 @@ handed to the download buttons, charts and LLM panels.
 The LLM surfaces (``explain_results`` / ``comparison_llm``) and the Excel export are replaced by
 recording stubs, so nothing here reaches a provider, the network or a subprocess.
 
-The manager timeline defect remains pinned as a strict ``xfail``: decision-log events without
-holdings raise ``KeyError``. Period Return tests cover the engine's ``max_drawdown`` field and
-legacy dictionary aliases.
+Period Return tests cover the engine's ``max_drawdown`` field and legacy dictionary aliases.
+The manager timeline regression asserts that decision-log events render even when there are
+no holdings.
 """
 
 from __future__ import annotations
@@ -730,14 +730,6 @@ def test_manager_changes_warn_when_final_holdings_disagree_with_the_timeline(
     assert stub.captions[-4] == "Total: 2 (1 initial, 1 terminated)"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=KeyError,
-    reason=(
-        "3_Results.py:856 groups the empty net-changes frame by 'Date' when the run only has "
-        "decision-log events, so the page raises KeyError('Date') instead of rendering the log"
-    ),
-)
 def test_manager_changes_with_only_decision_events_still_render_the_log(
     results_page: tuple[ModuleType, PageStub],
 ) -> None:
@@ -757,28 +749,25 @@ def test_manager_changes_with_only_decision_events_still_render_the_log(
         }
     )
 
-    try:
-        page._render_manager_changes(result)
-    finally:
-        # What is rendered before the crash must already be right, and once the crash is fixed
-        # the same assertions describe the finished page.
-        assert stub.captions[:3] == [
-            "Total: 0 (1 skipped)",
-            "No net hires or terminations recorded.",
-            "Includes eligible-but-skipped candidates and policy-driven holds. "
-            "Skipped entries indicate candidates that met criteria but were blocked by "
-            "caps/guards.",
-        ]
-        assert _frame_of(stub.dataframes[0]).to_dict("records") == [
-            {
-                "Date": "2020-04-30",
-                "Action": "Skipped",
-                "Manager": "Delta",
-                "Firm": "FirmD",
-                "Reason": "Minimum tenure guard",
-                "Detail": "blocked by cap",
-            }
-        ]
+    page._render_manager_changes(result)
+    assert stub.captions[:3] == [
+        "Total: 0 (1 skipped)",
+        "No net hires or terminations recorded.",
+        "Includes eligible-but-skipped candidates and policy-driven holds. "
+        "Skipped entries indicate candidates that met criteria but were blocked by "
+        "caps/guards.",
+    ]
+    assert _frame_of(stub.dataframes[0]).to_dict("records") == [
+        {
+            "Date": "2020-04-30",
+            "Action": "Skipped",
+            "Manager": "Delta",
+            "Firm": "FirmD",
+            "Reason": "Minimum tenure guard",
+            "Detail": "blocked by cap",
+        }
+    ]
+    assert stub.captions[-1] == "No changes to break down by period."
 
 
 def test_manager_change_highlighters_paint_known_actions_and_skip_the_rest(
