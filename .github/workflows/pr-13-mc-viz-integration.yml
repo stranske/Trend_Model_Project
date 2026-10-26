@@ -25,11 +25,11 @@ concurrency:
 
 jobs:
   mc-viz-integration:
-    name: MC Viz Integration (py3.12)
+    name: MC Viz Integration (py3.14)
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       working-directory: "."
-      python-versions: '["3.12"]'
+      python-versions: '["3.14"]'
       lint: false
       format_check: false
       typecheck: false
