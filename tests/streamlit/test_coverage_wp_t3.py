@@ -181,20 +181,16 @@ def test_chain_cache_state_repairs_a_corrupt_entries_map(model_page: ModelPage) 
     assert st.session_state[key] is fresh
 
 
-def test_chain_cache_signature_from_inputs_normalizes_before_serializing(
+def test_chain_cache_signature_from_inputs_normalizes_before_hashing(
     model_page: ModelPage,
 ) -> None:
     page, _st = model_page
 
     assert page._chain_cache_signature_from_inputs(
         "  anthropic ", "claude-3", " https://llm.example ", "org-1", 0.25
-    ) == (
-        '{"base_url": "https://llm.example", "cache_version": "v1", "model": "claude-3", '
-        '"organization": "org-1", "provider": "anthropic", "temperature": 0.25}'
-    )
+    ) == ("511487fc2eb12449edc2b4e02bf111dfbd97a2a96f2f132c4dc164ed1cf60545")
     assert page._chain_cache_signature_from_inputs("openai", "   ", None, "  ", 0.123456) == (
-        '{"base_url": null, "cache_version": "v1", "model": "gpt-4o-mini", '
-        '"organization": null, "provider": "openai", "temperature": 0.1235}'
+        "47ba8325330ea2c93bc9512edb18930c1ea14789cc621c1fd4498c3e77159e2c"
     )
 
 
@@ -2297,11 +2293,6 @@ def test_config_chat_contents_reports_an_unavailable_cache_key(
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the cache signature label is the first 8 characters of a JSON string, which is "
-    "always '{\"cache_', so it cannot tell two cache keys apart",
-)
 def test_config_chat_contents_signature_label_distinguishes_cache_keys(
     model_page: ModelPage, monkeypatch: pytest.MonkeyPatch
 ) -> None:

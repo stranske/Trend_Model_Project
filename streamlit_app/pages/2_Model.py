@@ -136,7 +136,8 @@ def _get_chain_cache_state() -> dict[str, Any]:
 
 
 def _chain_cache_signature(cache_key: Mapping[str, Any]) -> str:
-    return json.dumps(dict(cache_key), sort_keys=True, default=str)
+    serialized = json.dumps(dict(cache_key), sort_keys=True, default=str)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def _derive_cache_signature(
