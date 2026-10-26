@@ -136,12 +136,9 @@ def _contains_old_runtime(value: Any) -> bool:
         except (TypeError, ValueError):
             pass
         else:
-            if decoded != value:
+            if isinstance(decoded, (dict, list, str)) and decoded != value:
                 return _contains_old_runtime(decoded)
-        text = str(value)
-        if "${{" in text and OLD_RUNTIME_RE.search(text):
-            return True
-        return text == "3.12" or text.startswith("3.12.")
+        return bool(OLD_RUNTIME_RE.search(value))
     return str(value) == "3.12" or str(value).startswith("3.12.")
 
 
@@ -217,9 +214,63 @@ def test_expression_valued_object_python_axis(expression: str, expected: bool) -
     assert offenders == (["ci.yml.jobs.test.strategy.matrix.include[0].python"] if expected else [])
 
 
+@pytest.mark.parametrize(
+    "version, expected",
+    [
+        ("3.12-dev", True),
+        ("pypy3.12", True),
+        (">=3.12,<3.13", True),
+        ("3.120", False),
+        ("3.13", False),
+        ("3.14", False),
+    ],
+)
+def test_plain_runtime_specifications(version: str, expected: bool) -> None:
+    assert _contains_old_runtime(version) is expected
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    [
+        "jobs:\n  test:\n    with:\n      python-versions: '[\"3.12\"]'\n"
+        "    with:\n      python-versions: '[\"3.14\"]'\n",
+        "jobs:\n  test:\n    with:\n      python-versions: '[\"3.12\"]'\n"
+        "      python-versions: '[\"3.14\"]'\n",
+    ],
+)
+def test_runtime_guard_rejects_duplicate_workflow_keys(
+    workflow: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "ci.yml").write_text(workflow, encoding="utf-8")
+    monkeypatch.setitem(
+        test_workflow_python_pins_follow_standard.__globals__, "WORKFLOWS", tmp_path
+    )
+    with pytest.raises(yaml.constructor.ConstructorError, match="duplicate key"):
+        test_workflow_python_pins_follow_standard()
+
+
+class _WorkflowLoader(yaml.SafeLoader):
+    """Reject duplicate keys before a later mapping can hide runtime pins."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        self.flatten_mapping(node)
+        seen = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in seen:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a workflow mapping",
+                    node.start_mark,
+                    f"duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
 def test_workflow_python_pins_follow_standard() -> None:
     workflows = {
-        path.name: yaml.safe_load(path.read_text(encoding="utf-8"))
+        path.name: yaml.load(path.read_text(encoding="utf-8"), Loader=_WorkflowLoader)
         for path in sorted(WORKFLOWS.iterdir())
         if path.is_file() and path.suffix in {".yml", ".yaml"}
     }
