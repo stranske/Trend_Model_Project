@@ -426,6 +426,12 @@ class MonteCarloScenario:
         self.folds = _coerce_optional_mapping(self.folds, "folds", allow_null=False)
         self.enable_fold_runs = _require_bool(self.enable_fold_runs, "enable_fold_runs")
         self.outputs = _coerce_optional_mapping(self.outputs, "outputs")
+        if self.outputs is not None and "store_paths" in self.outputs:
+            raise ValueError(
+                "outputs.store_paths is not supported; remove it. "
+                "NAV diagnostics are exported automatically when available; "
+                "configurable NAV retention and weight-path exports are not supported."
+            )
         self.costs = _coerce_optional_mapping(self.costs, "costs")
 
         if self.path is not None and not isinstance(self.path, Path):

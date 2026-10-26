@@ -640,9 +640,6 @@ strategy_set:
 # Output configuration
 outputs:
   directory: outputs/monte_carlo/{scenario_name}/{timestamp}
-  store_paths:
-    nav: 50                     # Store NAV series for N representative paths
-    weights: 0                  # Store weight series (0 = none)
   quantiles: [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
   formats: [parquet, csv]       # Output formats
 ```
@@ -653,6 +650,13 @@ defined as a top-level compatibility section. Optional sections may be omitted o
 set to `null` to document intentional absence where allowed. Required sections such
 as `scenario`, `base_config`, and `monte_carlo` remain strict and must contain
 valid values (`monte_carlo: null` fails validation).
+
+`outputs.store_paths` is not supported and is rejected during scenario loading.
+Remove it from older configurations: configurable NAV-path retention limits and
+weight-path exports are not implemented. When NAV diagnostics are available,
+the exporter writes them automatically as `nav_paths.parquet` or per-fold
+`nav_paths_fold_<id>.parquet`; those existing diagnostics have no configurable
+path-count limit.
 
 ---
 
