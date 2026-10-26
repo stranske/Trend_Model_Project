@@ -14,6 +14,13 @@ if str(SCRIPT_DIR) not in sys.path:
 import gate_summary  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def isolate_delivery_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A unit test must not consume the enclosing CI job's generated PR event."""
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.delenv("DELIVERY_SEAL_RESULT", raising=False)
+
+
 def write_summary(
     root: Path,
     runtime: str,
@@ -366,6 +373,19 @@ def test_main_writes_summary_and_output(monkeypatch: pytest.MonkeyPatch, tmp_pat
     output_text = output_path.read_text(encoding="utf-8")
     assert "Docs-only" in summary_text
     assert "state=success" in output_text
+
+
+def test_main_preserves_explicit_failed_delivery_seal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_path = tmp_path / "output.txt"
+    monkeypatch.setenv("DOC_ONLY", "true")
+    monkeypatch.setenv("DELIVERY_SEAL_RESULT", "failure")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path / "summary.md"))
+    assert gate_summary.main() == 0
+    assert "state=failure" in output_path.read_text(encoding="utf-8")
+    assert "Generated delivery hold" in (tmp_path / "summary.md").read_text(encoding="utf-8")
 
 
 def test_write_summary_and_outputs(tmp_path: Path) -> None:
