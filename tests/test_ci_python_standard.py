@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 import yaml
 
+pytest_plugins = ("pytester",)
+
 WORKFLOWS = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 OWNED_WORKFLOWS = (
     "ci.yml",
@@ -401,9 +403,11 @@ def test_line_level_312_deliberate_break_and_restore(
 
 @pytest.mark.parametrize("filename, job", [("ci.yml", "python"), ("pr-00-gate.yml", "python-ci")])
 def test_json_matrix_deliberate_break_and_restore(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, filename: str, job: str
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, filename: str, job: str
 ) -> None:
-    """Reject a one-pin regression, then recover with every workflow byte preserved."""
+    """Reject a one-pin regression in pytest, then recover every workflow byte."""
+    tmp_path = pytester.path / "workflows"
+    tmp_path.mkdir()
     originals = {
         path.name: path.read_bytes()
         for path in WORKFLOWS.iterdir()
@@ -413,6 +417,26 @@ def test_json_matrix_deliberate_break_and_restore(
         (tmp_path / name).write_bytes(content)
     monkeypatch.setattr(f"{__name__}.WORKFLOWS", tmp_path)
     test_workflow_python_pins_follow_standard()
+
+    guard_file = pytester.makepyfile(
+        test_ci_python_standard=Path(__file__).read_text(encoding="utf-8")
+    )
+    pytester.makeconftest("""from pathlib import Path
+import pytest
+
+@pytest.fixture(autouse=True)
+def workflow_snapshot(request, monkeypatch):
+    monkeypatch.setattr(request.module, "WORKFLOWS", Path(__file__).parent / "workflows")
+""")
+    # Keep child pytest independent of application plugins and repository conftest.
+    monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+    guard_args = (
+        f"{guard_file}::test_workflow_python_pins_follow_standard",
+        "-m",
+        "not slow",
+        "-q",
+        "--tb=short",
+    )
 
     path = tmp_path / filename
     original = originals[filename]
@@ -426,11 +450,21 @@ def test_json_matrix_deliberate_break_and_restore(
         assert str(failure.value).splitlines()[0] == (
             f"Python 3.12 runtime pins remain: ['{filename}.jobs.{job}.with.python-versions']"
         )
+        result = pytester.runpytest_subprocess(*guard_args, timeout=30)
+        assert result.ret == pytest.ExitCode.TESTS_FAILED
+        result.assert_outcomes(failed=1)
+        assert "FAILED test_ci_python_standard.py::test_workflow_python_pins_follow_standard" in (
+            result.stdout.str()
+        )
+        assert f"{filename}.jobs.{job}.with.python-versions" in result.stdout.str()
     finally:
         path.write_bytes(original)
 
     assert {name: (tmp_path / name).read_bytes() for name in originals} == originals
     test_workflow_python_pins_follow_standard()
+    restored = pytester.runpytest_subprocess(*guard_args, timeout=30)
+    assert restored.ret == pytest.ExitCode.OK
+    restored.assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize("suffix", [".yml", ".yaml"])
