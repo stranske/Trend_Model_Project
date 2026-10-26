@@ -403,24 +403,33 @@ def test_line_level_312_deliberate_break_and_restore(
 def test_json_matrix_deliberate_break_and_restore(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, filename: str, job: str
 ) -> None:
-    """The named guard must reject a restored 3.12 JSON pin in either caller."""
-    for name in OWNED_WORKFLOWS:
-        (tmp_path / name).write_bytes((WORKFLOWS / name).read_bytes())
+    """Reject a one-pin regression, then recover with every workflow byte preserved."""
+    originals = {
+        path.name: path.read_bytes()
+        for path in WORKFLOWS.iterdir()
+        if path.is_file() and path.suffix in {".yml", ".yaml"}
+    }
+    for name, content in originals.items():
+        (tmp_path / name).write_bytes(content)
     monkeypatch.setattr(f"{__name__}.WORKFLOWS", tmp_path)
     test_workflow_python_pins_follow_standard()
 
     path = tmp_path / filename
-    original = path.read_bytes()
-    workflow = yaml.safe_load(original)
-    workflow["jobs"][job]["with"]["python-versions"] = '["3.12", "3.14"]'
-    path.write_text(yaml.safe_dump(workflow), encoding="utf-8")
-    with pytest.raises(AssertionError, match="Python 3.12 runtime pins remain") as failure:
-        test_workflow_python_pins_follow_standard()
-    assert str(failure.value).splitlines()[0] == (
-        f"Python 3.12 runtime pins remain: ['{filename}.jobs.{job}.with.python-versions']"
-    )
+    original = originals[filename]
+    current_pin = b'python-versions: \'["3.13", "3.14"]\''
+    regressed_pin = b'python-versions: \'["3.12", "3.14"]\''
+    assert original.count(current_pin) == 1, "Expected exactly one caller matrix pin"
+    try:
+        path.write_bytes(original.replace(current_pin, regressed_pin, 1))
+        with pytest.raises(AssertionError, match="Python 3.12 runtime pins remain") as failure:
+            test_workflow_python_pins_follow_standard()
+        assert str(failure.value).splitlines()[0] == (
+            f"Python 3.12 runtime pins remain: ['{filename}.jobs.{job}.with.python-versions']"
+        )
+    finally:
+        path.write_bytes(original)
 
-    path.write_bytes(original)
+    assert {name: (tmp_path / name).read_bytes() for name in originals} == originals
     test_workflow_python_pins_follow_standard()
 
 
