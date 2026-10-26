@@ -198,12 +198,14 @@ def _mock_demo_profile_and_state(
     returns_data: pd.DataFrame | None = None,
 ) -> None:
     """Mock demo_profile and state modules."""
+    package = importlib.import_module("streamlit_app")
     mock_profile = MagicMock()
     mock_profile.custom_analysis_enabled.return_value = enabled
     mock_profile.get_active_profile.return_value = profile_name
     mock_profile.initialize_profile = MagicMock()
 
     monkeypatch.setitem(sys.modules, "streamlit_app.demo_profile", mock_profile)
+    monkeypatch.setattr(package, "demo_profile", mock_profile, raising=False)
     monkeypatch.setattr(
         sys.modules["streamlit_app.demo_profile"],
         "custom_analysis_enabled",
@@ -230,6 +232,7 @@ def _mock_demo_profile_and_state(
     mock_app_state.initialize_session_state = MagicMock()
 
     monkeypatch.setitem(sys.modules, "streamlit_app.state", mock_app_state)
+    monkeypatch.setattr(package, "state", mock_app_state, raising=False)
     monkeypatch.setattr(
         sys.modules["streamlit_app.state"], "get_uploaded_data", fake_get_uploaded_data
     )
@@ -530,10 +533,16 @@ def test_render_validation_page_stops_without_data(monkeypatch: pytest.MonkeyPat
     assert any("Please load data" in msg for msg in stub.warning_messages)
 
 
-def test_render_validation_page_renders(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("preload_modules", [False, True])
+def test_render_validation_page_renders(
+    monkeypatch: pytest.MonkeyPatch, preload_modules: bool
+) -> None:
     """Covers lines 561-627."""
     stub = CustomDummyStreamlit()
     _install_streamlit_stub(monkeypatch, stub, active_context=True)
+    if preload_modules:
+        importlib.import_module("streamlit_app.demo_profile")
+        importlib.import_module("streamlit_app.state")
     returns_df = pd.DataFrame(
         {"FundA": [0.01]}, index=pd.date_range("2024-01-31", periods=1, freq="ME")
     )
