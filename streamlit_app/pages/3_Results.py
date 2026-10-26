@@ -1416,7 +1416,17 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                 stats = out_user if isinstance(out_user, dict) else vars(out_user)
                 metrics_to_show = ["cagr", "vol", "sharpe", "sortino", "max_dd"]
                 for m in metrics_to_show:
-                    val = stats.get(m) or stats.get(m.replace("_", ""))
+                    if m == "max_dd":
+                        val = next(
+                            (
+                                stats[key]
+                                for key in ("max_drawdown", "max_dd", "maxdd")
+                                if stats.get(key) is not None
+                            ),
+                            None,
+                        )
+                    else:
+                        val = stats.get(m) or stats.get(m.replace("_", ""))
                     if val is not None:
                         if m in ["cagr", "vol", "max_dd"]:
                             st.metric(m.upper().replace("_", " "), _fmt_pct(val, 1))
@@ -1431,7 +1441,17 @@ def _render_single_period(period_data: dict[str, Any]) -> None:
                 stats = out_ew if isinstance(out_ew, dict) else vars(out_ew)
                 metrics_to_show = ["cagr", "vol", "sharpe", "sortino", "max_dd"]
                 for m in metrics_to_show:
-                    val = stats.get(m) or stats.get(m.replace("_", ""))
+                    if m == "max_dd":
+                        val = next(
+                            (
+                                stats[key]
+                                for key in ("max_drawdown", "max_dd", "maxdd")
+                                if stats.get(key) is not None
+                            ),
+                            None,
+                        )
+                    else:
+                        val = stats.get(m) or stats.get(m.replace("_", ""))
                     if val is not None:
                         if m in ["cagr", "vol", "max_dd"]:
                             st.metric(m.upper().replace("_", " "), _fmt_pct(val, 1))

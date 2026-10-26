@@ -9,9 +9,9 @@ handed to the download buttons, charts and LLM panels.
 The LLM surfaces (``explain_results`` / ``comparison_llm``) and the Excel export are replaced by
 recording stubs, so nothing here reaches a provider, the network or a subprocess.
 
-The Period Return tab defect remains pinned as a strict ``xfail``: it never shows MAX DD because
-it reads ``max_dd`` while the engine's stats carry ``max_drawdown``. The manager timeline regression
-asserts that decision-log events render even when there are no holdings.
+Period Return tests cover the engine's ``max_drawdown`` field and legacy dictionary aliases.
+The manager timeline regression asserts that decision-log events render even when there are
+no holdings.
 """
 
 from __future__ import annotations
@@ -1305,16 +1305,10 @@ def test_single_period_selection_tab_lists_only_the_actions_that_happened(
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "3_Results.py:1412 and 1427 look the drawdown up as 'max_dd'/'maxdd' but the engine's "
-        "_Stats field is 'max_drawdown', so MAX DD is never rendered for a real run"
-    ),
-)
+@pytest.mark.parametrize("stats_field", ["out_user_stats", "out_ew_stats"])
 def test_single_period_return_tab_shows_the_max_drawdown_of_engine_stats(
     results_page: tuple[ModuleType, PageStub],
+    stats_field: str,
 ) -> None:
     from trend_analysis.stages.portfolio import _Stats
 
@@ -1323,7 +1317,7 @@ def test_single_period_return_tab_shows_the_max_drawdown_of_engine_stats(
         cagr=0.1, vol=0.05, sharpe=1.5, sortino=2.0, max_drawdown=-0.08, information_ratio=0.3
     )
 
-    page._render_single_period(_detail(page, out_user_stats=engine_stats))
+    page._render_single_period(_detail(page, **{stats_field: engine_stats}))
 
     assert stub.metrics == [
         ("CAGR", "10.0%"),
@@ -1332,6 +1326,35 @@ def test_single_period_return_tab_shows_the_max_drawdown_of_engine_stats(
         ("Sortino", "2.00"),
         ("MAX DD", "-8.0%"),
     ]
+
+
+@pytest.mark.parametrize("stats_field", ["out_user_stats", "out_ew_stats"])
+@pytest.mark.parametrize("key", ["max_drawdown", "max_dd", "maxdd"])
+@pytest.mark.parametrize("drawdown, expected", [(-0.08, "-8.0%"), (0.0, "0.0%")])
+def test_single_period_drawdown_dict_aliases_preserve_zero(
+    results_page: tuple[ModuleType, PageStub],
+    stats_field: str,
+    key: str,
+    drawdown: float,
+    expected: str,
+) -> None:
+    page, stub = results_page
+    page._render_single_period(_detail(page, **{stats_field: {key: drawdown}}))
+    assert stub.metrics == [("MAX DD", expected)]
+
+
+@pytest.mark.parametrize("stats_field", ["out_user_stats", "out_ew_stats"])
+@pytest.mark.parametrize("canonical, expected", [(None, "-8.0%"), (0.0, "0.0%")])
+def test_single_period_drawdown_prefers_canonical_unless_none(
+    results_page: tuple[ModuleType, PageStub],
+    stats_field: str,
+    canonical: float | None,
+    expected: str,
+) -> None:
+    page, stub = results_page
+    stats = {"max_drawdown": canonical, "max_dd": -0.08, "maxdd": -0.12}
+    page._render_single_period(_detail(page, **{stats_field: stats}))
+    assert stub.metrics == [("MAX DD", expected)]
 
 
 # ---------------------------------------------------------------------------
