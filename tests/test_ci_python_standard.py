@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,15 @@ FROMJSON_MATRIX_RE = re.compile(
 )
 OPAQUE_MATRIX = object()
 OLD_RUNTIME_RE = re.compile(r"(?<![\d.])3\.12(?!\d)")
+
+
+def test_ci_runtime_migration_preserves_supported_python_floors() -> None:
+    """New CI runtimes must not raise the package or type-checker's Python floor."""
+    config_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    assert config["project"]["requires-python"] == ">=3.12"
+    assert "Programming Language :: Python :: 3.12" in config["project"]["classifiers"]
+    assert config["tool"]["mypy"]["python_version"] == "3.12"
 
 
 def _decode_fromjson_literal(value: str) -> Any | None:
