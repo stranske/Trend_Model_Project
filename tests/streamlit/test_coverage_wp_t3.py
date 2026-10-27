@@ -819,10 +819,6 @@ def test_sync_model_widgets_ignores_missing_and_invalid_fields(model_page: Model
     assert dict(st.session_state) == stale
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="_sync_model_widgets_from_state truncates instead of rounding: rank_pct 0.29 shows as 28",
-)
 def test_sync_model_widgets_round_trips_whole_percentages(model_page: ModelPage) -> None:
     page, st = model_page
 

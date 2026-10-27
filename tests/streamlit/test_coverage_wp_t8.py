@@ -593,14 +593,16 @@ def test_preset_unknown_and_weighting_change(env: SimpleNamespace) -> None:
     assert env.stub.session_state["model_state"]["weighting_name"] == "risk_parity"
 
 
-def test_inclusion_top_pct_and_buy_hold_captions(env: SimpleNamespace) -> None:
+@pytest.mark.parametrize("percentage", [25, 29])
+def test_inclusion_top_pct_and_buy_hold_captions(env: SimpleNamespace, percentage: int) -> None:
     _setup(env, _df(["FundA"]))
     _patch_saved(env, {})
     env.stub.session_state["model_state"]["inclusion_approach"] = "top_pct"
-    env.stub.session_state["model_state"]["rank_pct"] = 0.25
+    env.stub.session_state["model_state"]["rank_pct"] = percentage / 100.0
     env.stub.selectbox_by_key["inclusion_approach_select"] = "top_pct"
     env.module.render_model_page()
-    assert "🏆 Select top 25% of funds by score" in env.stub.captions
+    assert f"🏆 Select top {percentage}% of funds by score" in env.stub.captions
+    assert env.stub.session_state["model_state"]["rank_pct"] == percentage / 100.0
     # buy and hold
     env.stub.captions.clear()
     env.stub.session_state["model_state"] = env.module._initial_model_state()
