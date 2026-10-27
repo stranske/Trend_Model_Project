@@ -600,10 +600,15 @@ def test_inclusion_top_pct_and_buy_hold_captions(env: SimpleNamespace, percentag
     env.stub.session_state["model_state"]["inclusion_approach"] = "top_pct"
     env.stub.session_state["model_state"]["rank_pct"] = percentage / 100.0
     env.stub.selectbox_by_key["inclusion_approach_select"] = "top_pct"
+    env.stub.submit_by_label["💾 Save Configuration"] = True
+    env.monkeypatch.setattr(env.module, "_validate_model", lambda _v, _c: [])
     env.module.render_model_page()
     assert f"🏆 Select top {percentage}% of funds by score" in env.stub.captions
     assert env.stub.session_state["model_state"]["rank_pct"] == percentage / 100.0
+    assert "✅ Model configuration saved. Go to Results to run analysis." in env.stub.successes
+    assert env.calls["cleared"] == 1
     # buy and hold
+    env.stub.submit_by_label["💾 Save Configuration"] = False
     env.stub.captions.clear()
     env.stub.session_state["model_state"] = env.module._initial_model_state()
     env.stub.session_state["model_state"]["inclusion_approach"] = "buy_and_hold"
@@ -611,6 +616,30 @@ def test_inclusion_top_pct_and_buy_hold_captions(env: SimpleNamespace, percentag
     env.stub.selectbox_by_key["buy_hold_initial_select"] = "top_n"
     env.module.render_model_page()
     assert any("Buy & Hold" in c and "Top N (Ranking)" in c for c in env.stub.captions)
+
+
+@pytest.mark.parametrize("rank_pct, percentage", [(0.506, 50), (0.004, 1), (0.5, 50)])
+def test_top_pct_widget_clamps_saved_fraction(
+    env: SimpleNamespace, rank_pct: float, percentage: int
+) -> None:
+    _setup(env, _df(["FundA"]))
+    _patch_saved(env, {})
+    env.stub.session_state["model_state"].update(inclusion_approach="top_pct", rank_pct=rank_pct)
+    env.stub.selectbox_by_key["inclusion_approach_select"] = "top_pct"
+    number_input = env.stub.number_input
+    observed: list[int] = []
+
+    def bounded_number_input(label: str = "", **kwargs: Any) -> Any:
+        if label == "Top Percentage (%)":
+            assert kwargs["min_value"] <= kwargs["value"] <= kwargs["max_value"]
+            observed.append(kwargs["value"])
+        return number_input(label, **kwargs)
+
+    env.monkeypatch.setattr(env.stub, "number_input", bounded_number_input)
+    env.module.render_model_page()
+
+    assert observed == [percentage]
+    assert f"🏆 Select top {percentage}% of funds by score" in env.stub.captions
 
 
 def test_topn_disabled_captions_and_random(env: SimpleNamespace) -> None:

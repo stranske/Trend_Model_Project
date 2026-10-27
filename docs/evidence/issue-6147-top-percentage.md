@@ -34,3 +34,31 @@ After restoring the implementation byte-for-byte, the same command passes:
 These tests use the existing Streamlit test doubles; they do not claim a live
 browser exercise. Raw logs, the exact interpreter command, and the restored-file
 SHA-256 are retained in the opener run `run-20261027T0400`.
+
+## Review recovery, 2026-10-27
+
+Review threads `discussion_r4385020411` and `discussion_r4385020426` exposed an
+out-of-range imported fraction and a render-only assertion. Both conversion
+points now clamp the rounded percentage to the existing widget range, 1–50.
+The 25% and 29% tests submit Save Configuration, require its success message
+and cache invalidation, and check the fraction produced by that save path.
+
+Before the clamp, the focused boundary/save command reported **4 failed,
+4 passed**: imports of 0.506 and 0.004 produced 51 and 0 in each conversion
+path. With the fix, the two affected modules report **228 passed**:
+
+```bash
+python -m pytest tests/streamlit/test_coverage_wp_t3.py tests/streamlit/test_coverage_wp_t8.py -q
+```
+
+To verify that the save assertions observe a real update, the conversion
+`rank_pct_input / 100.0` was temporarily changed to `/ 10.0`. The 25% and 29%
+save cases both failed, with saved values 2.5 and 2.9. Restoring the file
+byte-for-byte made both pass. The mutation was never committed.
+
+Validation used the canonical repo's `.venv/bin/python`; Ruff and diff checks
+pass. Black used `/opt/anaconda3/bin/black --target-version py312` because
+Black is absent from the selected test interpreter. Full local transcripts
+and the restore checksum are retained in automation run
+`run-20261027T0457`. Hosted checks and the new post-push review floor must be
+verified separately for the published commit.

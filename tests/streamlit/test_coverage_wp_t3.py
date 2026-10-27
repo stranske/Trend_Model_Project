@@ -819,12 +819,15 @@ def test_sync_model_widgets_ignores_missing_and_invalid_fields(model_page: Model
     assert dict(st.session_state) == stale
 
 
-def test_sync_model_widgets_round_trips_whole_percentages(model_page: ModelPage) -> None:
+@pytest.mark.parametrize("rank_pct, percentage", [(0.29, 29), (0.506, 50), (0.004, 1)])
+def test_sync_model_widgets_round_trips_whole_percentages(
+    model_page: ModelPage, rank_pct: float, percentage: int
+) -> None:
     page, st = model_page
 
-    page._sync_model_widgets_from_state({"rank_pct": 0.29})
+    page._sync_model_widgets_from_state({"rank_pct": rank_pct})
 
-    assert st.session_state["rank_pct_primary"] == 29
+    assert st.session_state["rank_pct_primary"] == percentage
 
 
 def test_apply_config_wrapper_replaces_model_state_and_resyncs_widgets(
