@@ -829,7 +829,7 @@ def _sync_model_widgets_from_state(model_state: Mapping[str, Any]) -> None:
 
     rank_pct = model_state.get("rank_pct")
     if isinstance(rank_pct, (int, float)):
-        st.session_state["rank_pct_primary"] = int(float(rank_pct) * 100)
+        st.session_state["rank_pct_primary"] = max(1, min(50, round(float(rank_pct) * 100)))
 
     mp_min = model_state.get("mp_min_funds")
     if isinstance(mp_min, (int, float)):
@@ -3591,7 +3591,7 @@ def render_model_page() -> None:
                     "Top Percentage (%)",
                     min_value=1,
                     max_value=50,
-                    value=int(float(model_state.get("rank_pct", 0.10)) * 100),
+                    value=max(1, min(50, round(float(model_state.get("rank_pct", 0.10)) * 100))),
                     step=1,
                     help="Select top N% of funds by score (e.g., 10 = top 10%)",
                     key="rank_pct_primary",
