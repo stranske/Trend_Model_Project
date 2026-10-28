@@ -101,7 +101,7 @@ fonttools==4.62.1
     # via
     #   fpdf2
     #   matplotlib
-fpdf2==2.8.7
+fpdf2==2.8.8
     # via trend-model (pyproject.toml)
 frozenlist==1.8.0
     # via
