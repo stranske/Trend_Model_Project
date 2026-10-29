@@ -254,7 +254,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.4.0
+mypy==2.4.1
     # via trend-model (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -387,7 +387,7 @@ pygments==2.20.0
     #   pytest
 pyparsing==3.3.2
     # via matplotlib
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   trend-model (pyproject.toml)
     #   app-baseline-kit
