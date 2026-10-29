@@ -29,7 +29,7 @@ Start every automation change by reviewing the [Workflow System Overview](docs/c
     [`.github/workflows/pr-00-gate.yml`](.github/workflows/pr-00-gate.yml)) must
     pass before merges. Branch protection blocks the default branch until this
     check succeeds; treat the gate status as the final merge blocker. It fans
-    out to the Python 3.11/3.12 test lanes and the Docker smoke job.
+    out to the Python 3.13/3.14 test lanes and the Docker smoke job.
    - `Health 45 Agents Guard / Enforce agents workflow protections` (defined in
       [`.github/workflows/agents-guard.yml`](.github/workflows/agents-guard.yml))
     must pass whenever a pull request touches `agents-*.yml` workflows. The
@@ -184,7 +184,7 @@ To prevent CI‑only failures (workflow lint, container smoke, type drift), the 
 
 | Purpose | CI Job | Local Script |
 |---------|--------|--------------|
-| Black/Ruff/Mypy pinned | `pr-00-gate.yml` jobs `core tests (3.11/3.12)` | `scripts/style_gate_local.sh` |
+| Black/Ruff/Mypy pinned | `pr-00-gate.yml` job `Python CI` (3.13/3.14) | `scripts/style_gate_local.sh` |
 | Full quality (style + type + adaptive tests) | aggregate | `scripts/quality_gate.sh` |
 | Workflow syntax/semantic lint | `workflow lint (actionlint)` / `actionlint` | `scripts/workflow_lint.sh` |
 | Docker build + health smoke | `Docker` (smoke) | `scripts/docker_smoke.sh` |
