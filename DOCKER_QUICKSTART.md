@@ -1,6 +1,6 @@
 # Docker Quickstart Guide
 
-This guide walks through building and running the new multi-stage (Python 3.12.2-slim)
+This guide walks through building and running the new multi-stage (Python 3.14-slim; see `PYTHON_IMAGE` in the Dockerfile)
 container image. The builder/runtime split keeps dependencies reproducible and
 enforces a lock-file parity check every time you build.
 
@@ -93,7 +93,7 @@ whenever you modify `pyproject.toml`.
 
 ### Security Features
 - **Non-root User**: Runs as user `appuser` (UID 1001) for security
-- **Minimal Base**: Multi-stage Python 3.12.2-slim image copies only the
+- **Minimal Base**: Multi-stage Python 3.14-slim image copies only the
   prepared virtualenv into runtime, keeping attack surface small
 - **Dependency Parity**: Build fails if `pip freeze` differs from
   `requirements.lock`, guaranteeing runtime reproducibility
