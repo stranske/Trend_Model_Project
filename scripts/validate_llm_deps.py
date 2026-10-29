@@ -62,9 +62,9 @@ def main() -> int:
         print("LLM extras not installed; skipping compatibility checks.")
         return 0
 
-    if sys.version_info < (3, 12):
+    if sys.version_info < (3, 13):
         print(
-            "Python >=3.12 is required for LLM extras. "
+            "Python >=3.13 is required for LLM extras. "
             f"Detected {sys.version_info.major}.{sys.version_info.minor}.",
             file=sys.stderr,
         )
