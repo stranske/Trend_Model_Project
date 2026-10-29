@@ -561,7 +561,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Error checking, linting, and testing topology
 - **Reusable Python CI** – `reusable-10-ci-python.yml` fans out ruff, mypy, and
-  pytest across the interpreter matrix. It reads `python_version = "3.11"` from
+  pytest across the interpreter matrix. It reads `python_version` (currently `"3.13"`) from
   `pyproject.toml` and pins the mypy leg accordingly.
 - **Reusable Docker CI** – `reusable-12-ci-docker.yml` builds the container
   image and exercises the smoke tests Gate otherwise short-circuits for
