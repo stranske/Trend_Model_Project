@@ -17,7 +17,7 @@ name = "trend-model"
 version = "0.1.0"
 description = "Volatility-adjusted trend analysis package"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = {text = "MIT"}
 authors = [
     {name = "Trend Analysis Contributors"}
@@ -32,8 +32,8 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "PyYAML==6.0.3",
@@ -167,7 +167,7 @@ extend-exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 strict = true
 ignore_missing_imports = true
 files = ["src", "tests"]
