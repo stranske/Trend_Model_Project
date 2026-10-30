@@ -37,16 +37,25 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
         check=True,
         text=True,
     )
+    wheel_dir = tmp_path_factory.mktemp("installed-cli-wheels", numbered=False)
     subprocess.run(
         [
             python,
             "-m",
             "pip",
-            "install",
+            "wheel",
             "--no-build-isolation",
             "--no-deps",
             str(project_root),
+            "-w",
+            str(wheel_dir),
         ],
+        check=True,
+        text=True,
+    )
+    wheel_path = next(wheel_dir.glob("*.whl"))
+    subprocess.run(
+        [python, "-m", "pip", "install", str(wheel_path)],
         check=True,
         text=True,
     )
