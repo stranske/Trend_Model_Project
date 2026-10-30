@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import json
 import os
 import re
@@ -309,16 +310,33 @@ def _include_text_file(path: Path) -> bool:
     )
 
 
+@functools.lru_cache(maxsize=None)
+def _text_file_paths_for_root(root: str) -> tuple[str, ...]:
+    """Cache expensive tree walks; keys are resolved root paths as strings."""
+
+    root_path = Path(root)
+    if root_path.is_file():
+        return (str(root_path),) if _include_text_file(root_path) else ()
+    return tuple(
+        str(path)
+        for path in root_path.rglob("*")
+        if _include_text_file(path)
+    )
+
+
 def _text_files(root: Path) -> list[Path]:
-    if root.is_file():
-        return [root] if _include_text_file(root) else []
-    return [path for path in root.rglob("*") if _include_text_file(path)]
+    return [Path(path) for path in _text_file_paths_for_root(str(root.resolve()))]
+
+
+@functools.lru_cache(maxsize=None)
+def _semantic_marker_file_paths() -> tuple[str, ...]:
+    paths = {path for root in SEMANTIC_MARKER_ROOTS for path in _text_files(root)}
+    paths.update(path for path in SEMANTIC_MARKER_FILES if _include_text_file(path))
+    return tuple(sorted(str(path) for path in paths))
 
 
 def _semantic_marker_files() -> list[Path]:
-    paths = {path for root in SEMANTIC_MARKER_ROOTS for path in _text_files(root)}
-    paths.update(path for path in SEMANTIC_MARKER_FILES if _include_text_file(path))
-    return sorted(paths)
+    return [Path(path) for path in _semantic_marker_file_paths()]
 
 
 def _marker_classification(path: Path, line: str, context: str) -> str | None:

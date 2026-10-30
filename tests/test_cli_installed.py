@@ -24,10 +24,10 @@ REMOVED_COMMANDS = (
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Share one isolated installation between the read-only console checks."""
-    environment = tmp_path_factory.mktemp("installed-cli") / "installed-package"
+    """Share one isolated installation for the whole legacy-surface pytest session."""
+    environment = tmp_path_factory.mktemp("installed-cli", numbered=False) / "installed-package"
     venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
     python = environment / "bin" / "python"
     project_root = Path(__file__).resolve().parents[1]
@@ -46,9 +46,11 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "install",
             "--no-build-isolation",
             "--no-deps",
+            "-e",
             str(project_root),
         ],
         check=True,
+        capture_output=True,
         text=True,
     )
     return environment / "bin"
