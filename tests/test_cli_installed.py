@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import venv
 from pathlib import Path
 
 import pytest
 
-# pip builds the shared checkout in place; keep its module-scoped installation
-# on one worker instead of racing builds from separate xdist workers.
+# Keep the shared install on one worker so session-scoped venv creation is not
+# duplicated across xdist workers.
 pytestmark = pytest.mark.xdist_group(name="installed_cli")
 
 REMOVED_COMMANDS = (
@@ -23,14 +24,45 @@ REMOVED_COMMANDS = (
     "trend-quick-report",
 )
 
+# Exclude heavy / generated trees when copying sources for an isolated install.
+_INSTALL_COPY_IGNORE = shutil.ignore_patterns(
+    ".git",
+    ".github",
+    ".venv",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".workflows-lib",
+    "__pycache__",
+    "*.pyc",
+    "node_modules",
+    "archives",
+    "notebooks",
+    "build",
+    "dist",
+    "*.egg-info",
+)
+
 
 @pytest.fixture(scope="session")
 def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Share one isolated installation for the whole legacy-surface pytest session."""
     environment = tmp_path_factory.mktemp("installed-cli", numbered=False) / "installed-package"
+    source_copy = tmp_path_factory.mktemp("installed-cli-src", numbered=False)
     venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
     python = environment / "bin" / "python"
     project_root = Path(__file__).resolve().parents[1]
+    # Non-editable install must not build in the shared checkout: setuptools
+    # writes build/ and egg-info there and races other xdist workers reading
+    # checkout CSVs (EmptyDataError). Copy sources, build a wheel from the copy,
+    # then install that wheel so packaged preset_data comes from the package.
+    shutil.copytree(
+        project_root,
+        source_copy,
+        dirs_exist_ok=True,
+        ignore=_INSTALL_COPY_IGNORE,
+    )
     # Match pyproject.toml build-system pins; CI venvs may not expose setuptools.
     subprocess.run(
         [python, "-m", "pip", "install", "setuptools==83.0.0", "wheel==0.47.0"],
@@ -46,7 +78,7 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "wheel",
             "--no-build-isolation",
             "--no-deps",
-            str(project_root),
+            str(source_copy),
             "-w",
             str(wheel_dir),
         ],
