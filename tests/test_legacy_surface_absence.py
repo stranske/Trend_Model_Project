@@ -317,11 +317,7 @@ def _text_file_paths_for_root(root: str) -> tuple[str, ...]:
     root_path = Path(root)
     if root_path.is_file():
         return (str(root_path),) if _include_text_file(root_path) else ()
-    return tuple(
-        str(path)
-        for path in root_path.rglob("*")
-        if _include_text_file(path)
-    )
+    return tuple(str(path) for path in root_path.rglob("*") if _include_text_file(path))
 
 
 def _text_files(root: Path) -> list[Path]:
