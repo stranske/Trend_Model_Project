@@ -35,7 +35,6 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
     subprocess.run(
         [python, "-m", "pip", "install", "setuptools==83.0.0", "wheel==0.47.0"],
         check=True,
-        capture_output=True,
         text=True,
     )
     subprocess.run(
@@ -46,11 +45,9 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "install",
             "--no-build-isolation",
             "--no-deps",
-            "-e",
             str(project_root),
         ],
         check=True,
-        capture_output=True,
         text=True,
     )
     return environment / "bin"
