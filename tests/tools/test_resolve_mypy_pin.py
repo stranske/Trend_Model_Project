@@ -5,6 +5,8 @@ Tests the utility for resolving which Python version should run mypy.
 
 from __future__ import annotations
 
+import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -46,14 +48,14 @@ def test_get_mypy_python_version_extracts_version(
     pyproject.write_text(
         """
         [tool.mypy]
-        python_version = "3.12"
+        python_version = "3.13"
         strict = true
         """,
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
     result = resolve_mypy_pin.get_mypy_python_version()
-    assert result == "3.12"
+    assert result == "3.13"
 
 
 def test_get_mypy_python_version_handles_unquoted_version(
@@ -82,7 +84,7 @@ def test_main_writes_to_github_output(
     pyproject.write_text(
         """
         [tool.mypy]
-        python_version = "3.12"
+        python_version = "3.13"
         """,
         encoding="utf-8",
     )
@@ -97,7 +99,7 @@ def test_main_writes_to_github_output(
     assert return_code == 0
     assert output_file.exists()
     content = output_file.read_text(encoding="utf-8")
-    assert "python-version=3.12" in content
+    assert "python-version=3.13" in content
 
 
 def test_main_uses_matrix_version_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -106,19 +108,28 @@ def test_main_uses_matrix_version_fallback(tmp_path: Path, monkeypatch: pytest.M
 
     output_file = tmp_path / "output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
-    monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.12")
+    monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.13")
 
     return_code = resolve_mypy_pin.main()
 
     assert return_code == 0
     content = output_file.read_text(encoding="utf-8")
-    assert "python-version=3.12" in content
+    assert "python-version=3.13" in content
 
 
-def test_main_defaults_to_312_without_any_config(
+def _synced_primary_python() -> str:
+    # tools/resolve_mypy_pin.py is synced from stranske/Workflows, which owns its fallback
+    # literal; read it from the tool so a template promotion that moves the primary runtime
+    # does not break this repo-owned test.
+    match = re.search(r'matrix_version or "(\d+\.\d+)"', inspect.getsource(resolve_mypy_pin.main))
+    assert match, "resolve_mypy_pin.main() no longer has a literal primary-Python fallback"
+    return match.group(1)
+
+
+def test_main_defaults_to_primary_python_without_any_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test main defaults to 3.12 when nothing is configured."""
+    """Test main defaults to the synced primary Python when nothing is configured."""
     monkeypatch.chdir(tmp_path)
 
     output_file = tmp_path / "output.txt"
@@ -129,4 +140,4 @@ def test_main_defaults_to_312_without_any_config(
 
     assert return_code == 0
     content = output_file.read_text(encoding="utf-8")
-    assert "python-version=3.12" in content
+    assert f"python-version={_synced_primary_python()}" in content
