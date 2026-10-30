@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import json
 import os
 import re
@@ -309,16 +310,41 @@ def _include_text_file(path: Path) -> bool:
     )
 
 
+@functools.lru_cache(maxsize=None)
+def _text_file_paths_for_root(root: str) -> tuple[str, ...]:
+    """Cache expensive tree walks; keys are resolved root paths as strings."""
+
+    root_path = Path(root)
+    if root_path.is_file():
+        return (str(root_path),) if _include_text_file(root_path) else ()
+    return tuple(str(path) for path in root_path.rglob("*") if _include_text_file(path))
+
+
 def _text_files(root: Path) -> list[Path]:
-    if root.is_file():
-        return [root] if _include_text_file(root) else []
-    return [path for path in root.rglob("*") if _include_text_file(path)]
+    return [Path(path) for path in _text_file_paths_for_root(str(root.resolve()))]
+
+
+@functools.lru_cache(maxsize=None)
+def _python_source_paths_for_root(root: str) -> tuple[str, ...]:
+    """Cache ``*.py`` walks shared by retired-import AST scans."""
+
+    root_path = Path(root)
+    return tuple(str(path) for path in root_path.rglob("*.py"))
+
+
+def _python_sources(root: Path) -> list[Path]:
+    return [Path(path) for path in _python_source_paths_for_root(str(root.resolve()))]
+
+
+@functools.lru_cache(maxsize=None)
+def _semantic_marker_file_paths() -> tuple[str, ...]:
+    paths = {path for root in SEMANTIC_MARKER_ROOTS for path in _text_files(root)}
+    paths.update(path for path in SEMANTIC_MARKER_FILES if _include_text_file(path))
+    return tuple(sorted(str(path) for path in paths))
 
 
 def _semantic_marker_files() -> list[Path]:
-    paths = {path for root in SEMANTIC_MARKER_ROOTS for path in _text_files(root)}
-    paths.update(path for path in SEMANTIC_MARKER_FILES if _include_text_file(path))
-    return sorted(paths)
+    return [Path(path) for path in _semantic_marker_file_paths()]
 
 
 def _marker_classification(path: Path, line: str, context: str) -> str | None:
@@ -957,7 +983,7 @@ def test_pipeline_private_run_facade_is_absent() -> None:
     retired_pipeline_names = retired_helpers | {"_run_analysis"}
     offenders: list[str] = []
     for root_name in ("src", "tests", "scripts", "streamlit_app"):
-        for source_path in (REPO_ROOT / root_name).rglob("*.py"):
+        for source_path in _python_sources(REPO_ROOT / root_name):
             source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
             for node in ast.walk(source_tree):
                 if (
@@ -1002,7 +1028,7 @@ def test_api_run_analysis_backcompat_hook_remains_absent() -> None:
     retired_api_names = {"_run_analysis"}
     offenders: list[str] = []
     for root_name in ("src", "tests", "scripts", "streamlit_app"):
-        for source_path in (REPO_ROOT / root_name).rglob("*.py"):
+        for source_path in _python_sources(REPO_ROOT / root_name):
             source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
             for node in ast.walk(source_tree):
                 if (
@@ -1028,6 +1054,33 @@ def test_api_run_analysis_backcompat_hook_remains_absent() -> None:
     # Allow references in test files that are testing the absence (this file)
     offenders = [o for o in offenders if "test_legacy_surface_absence.py" not in o]
     assert offenders == []
+
+
+def test_repository_tree_walk_caches_reuse_file_lists(tmp_path: Path) -> None:
+    """Repeated scans under the same root must reuse cached path tuples."""
+
+    source = tmp_path / "pkg"
+    source.mkdir()
+    (source / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    (source / "notes.md").write_text("# note\n", encoding="utf-8")
+
+    _text_file_paths_for_root.cache_clear()
+    _python_source_paths_for_root.cache_clear()
+    try:
+        assert len(_text_files(source)) == 2
+        assert _text_files(source) == _text_files(source)
+        text_info = _text_file_paths_for_root.cache_info()
+        assert text_info.hits >= 1
+        assert text_info.misses == 1
+
+        assert _python_sources(source) == [source / "mod.py"]
+        assert _python_sources(source) == _python_sources(source)
+        py_info = _python_source_paths_for_root.cache_info()
+        assert py_info.hits >= 1
+        assert py_info.misses == 1
+    finally:
+        _text_file_paths_for_root.cache_clear()
+        _python_source_paths_for_root.cache_clear()
 
 
 @pytest.mark.parametrize("directory", ["scripts", "tools"])
