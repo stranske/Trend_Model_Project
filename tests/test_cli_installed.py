@@ -86,8 +86,18 @@ def installed_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
         text=True,
     )
     wheel_path = next(wheel_dir.glob("*.whl"))
+    # system_site_packages=True sees the CI env's same-version install and
+    # would otherwise skip writing console scripts into this venv's bin/.
     subprocess.run(
-        [python, "-m", "pip", "install", str(wheel_path)],
+        [
+            python,
+            "-m",
+            "pip",
+            "install",
+            "--force-reinstall",
+            "--no-deps",
+            str(wheel_path),
+        ],
         check=True,
         text=True,
     )
