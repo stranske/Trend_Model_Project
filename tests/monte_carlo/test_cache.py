@@ -375,6 +375,53 @@ def test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_peri
     assert spy.call_count == first
 
 
+@pytest.mark.parametrize("multi_period,one_count,three_count", [(False, 6, 12), (True, 39, 111)])
+def test_runner_strategy_only_disconnect_demonstrates_12_versus_6_failure(
+    monkeypatch, multi_period, one_count, three_count
+):
+    """The original runner gate must reject disconnecting only strategy cache use."""
+    import inspect
+    from contextlib import nullcontext
+
+    import trend_analysis.monte_carlo.runner as runner_module
+
+    original_use_metric_cache = runner_module.use_metric_cache
+    scopes = []
+
+    def strategy_only_disconnect(cache):
+        frame = inspect.currentframe()
+        try:
+            caller = frame.f_back.f_code.co_name
+        finally:
+            del frame
+        scopes.append(caller)
+        if caller == "_evaluate_strategy":
+            return nullcontext()
+        return original_use_metric_cache(cache)
+
+    with monkeypatch.context() as control:
+        control.setattr(runner_module, "use_metric_cache", strategy_only_disconnect)
+        with pytest.raises(
+            AssertionError, match=rf"assert {three_count} == {one_count}\b"
+        ) as rejection:
+            test_runner_kernel_calls_do_not_grow_with_strategies(control, multi_period)
+
+    # Both real path-generation scopes retained their cache; only evaluation bypassed it.
+    assert scopes == [
+        "_generate_path_context",
+        "_evaluate_strategy",
+        "_generate_path_context",
+        "_evaluate_strategy",
+        "_evaluate_strategy",
+        "_evaluate_strategy",
+    ]
+    print(f"multi_period={multi_period}: original runner gate rejected strategy-only disconnect")
+    print(str(rejection.value))
+
+    # The same original assertion must pass again after the scoped patch is restored.
+    test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_period)
+
+
 @pytest.mark.parametrize("multi_period", [False, True])
 def test_cached_and_uncached_runs_match(monkeypatch, multi_period):
     from contextlib import nullcontext
