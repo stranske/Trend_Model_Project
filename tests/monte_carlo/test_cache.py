@@ -375,90 +375,51 @@ def test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_peri
     assert spy.call_count == first
 
 
-@pytest.mark.parametrize("multi_period", [False, True])
+@pytest.mark.parametrize("multi_period,one_count,three_count", [(False, 6, 12), (True, 39, 111)])
 def test_runner_strategy_only_disconnect_demonstrates_12_versus_6_failure(
-    monkeypatch, multi_period
+    monkeypatch, multi_period, one_count, three_count
 ):
-    """Negative-control: bypassing _evaluate_strategy's use_metric_cache causes count growth.
-
-    This test demonstrates that when cache use in _evaluate_strategy is bypassed
-    while preserving cache use in _generate_path_context, the metric computation
-    count grows (12 vs 6 for single-period, or similar ratio for multi-period),
-    proving the cache connection is required for the optimization.
-    """
-    from contextlib import nullcontext
-    from unittest.mock import Mock, patch
-    from trend_analysis.core import rank_selection
-    import trend_analysis.monte_carlo.runner as runner_module
-    from trend_analysis.core.path_metrics import use_metric_cache as original_use_metric_cache
-
-    spy = Mock(wraps=rank_selection._compute_metric_series)
-    monkeypatch.setattr(rank_selection, "_compute_metric_series", spy)
-
-    # Create a conditional use_metric_cache that bypasses only for _evaluate_strategy
-    # We'll track the call stack to identify the caller
+    """The original runner gate must reject disconnecting only strategy cache use."""
     import inspect
+    from contextlib import nullcontext
 
-    def conditional_use_metric_cache(cache):
+    import trend_analysis.monte_carlo.runner as runner_module
+
+    original_use_metric_cache = runner_module.use_metric_cache
+    scopes = []
+
+    def strategy_only_disconnect(cache):
         frame = inspect.currentframe()
         try:
-            # frame.f_back is the caller of conditional_use_metric_cache
-            # which is the function that called use_metric_cache
-            caller_frame = frame.f_back
-            if caller_frame and caller_frame.f_code.co_name == "_evaluate_strategy":
-                # Bypass cache for _evaluate_strategy
-                return nullcontext()
-            else:
-                # Use normal cache for _generate_path_context and others
-                return original_use_metric_cache(cache)
+            caller = frame.f_back.f_code.co_name
         finally:
             del frame
+        scopes.append(caller)
+        if caller == "_evaluate_strategy":
+            return nullcontext()
+        return original_use_metric_cache(cache)
 
-    # Test with 1 strategy - cache in _generate_path_context works, _evaluate_strategy bypasses
-    with patch.object(runner_module, "use_metric_cache", conditional_use_metric_cache):
-        one = _real_runner(1, multi_period=multi_period).run(jobs=1)
-        single_strategy_count = spy.call_count
+    with monkeypatch.context() as control:
+        control.setattr(runner_module, "use_metric_cache", strategy_only_disconnect)
+        with pytest.raises(
+            AssertionError, match=rf"assert {three_count} == {one_count}\b"
+        ) as rejection:
+            test_runner_kernel_calls_do_not_grow_with_strategies(control, multi_period)
 
-        spy.reset_mock()
+    # Both real path-generation scopes retained their cache; only evaluation bypassed it.
+    assert scopes == [
+        "_generate_path_context",
+        "_evaluate_strategy",
+        "_generate_path_context",
+        "_evaluate_strategy",
+        "_evaluate_strategy",
+        "_evaluate_strategy",
+    ]
+    print(f"multi_period={multi_period}: original runner gate rejected strategy-only disconnect")
+    print(str(rejection.value))
 
-        # Test with 3 strategies - each _evaluate_strategy call bypasses cache
-        three = _real_runner(3, multi_period=multi_period).run(jobs=1)
-        multi_strategy_count = spy.call_count
-
-    assert not one.errors and not three.errors
-    assert len(three.results_frame) == 3
-
-    # Record actual counts for documentation
-    actual_single = single_strategy_count
-    actual_multi = multi_strategy_count
-
-    # The key assertion: with disconnection, count grows
-    assert actual_multi > actual_single, (
-        f"Cache disconnection should increase call count. "
-        f"Got single={actual_single}, multi={actual_multi}"
-    )
-
-    # Restore normal evaluation and verify original assertion passes
-    spy.reset_mock()
-    restored_one = _real_runner(1, multi_period=multi_period).run(jobs=1)
-    restored_first = spy.call_count
-    spy.reset_mock()
-    restored_three = _real_runner(3, multi_period=multi_period).run(jobs=1)
-    restored_second = spy.call_count
-
-    assert not restored_one.errors and not restored_three.errors
-    assert restored_second == restored_first, (
-        f"Restored cache should have equal counts. "
-        f"Got first={restored_first}, second={restored_second}"
-    )
-
-    # Log the actual counts for the PR body
-    print(f"\n[ACCEPTANCE RECORD] Strategy-only disconnect test (multi_period={multi_period}):")
-    print(f"  Single strategy (disconnected): {actual_single} calls")
-    print(f"  Multi strategy (3, disconnected): {actual_multi} calls")
-    print(f"  Single strategy (restored): {restored_first} calls")
-    print(f"  Multi strategy (3, restored): {restored_second} calls")
-    print(f"  Disconnection ratio: {actual_multi / actual_single if actual_single > 0 else 0:.1f}x")
+    # The same original assertion must pass again after the scoped patch is restored.
+    test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_period)
 
 
 @pytest.mark.parametrize("multi_period", [False, True])
