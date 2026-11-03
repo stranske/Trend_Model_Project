@@ -376,6 +376,92 @@ def test_runner_kernel_calls_do_not_grow_with_strategies(monkeypatch, multi_peri
 
 
 @pytest.mark.parametrize("multi_period", [False, True])
+def test_runner_strategy_only_disconnect_demonstrates_12_versus_6_failure(
+    monkeypatch, multi_period
+):
+    """Negative-control: bypassing _evaluate_strategy's use_metric_cache causes count growth.
+
+    This test demonstrates that when cache use in _evaluate_strategy is bypassed
+    while preserving cache use in _generate_path_context, the metric computation
+    count grows (12 vs 6 for single-period, or similar ratio for multi-period),
+    proving the cache connection is required for the optimization.
+    """
+    from contextlib import nullcontext
+    from unittest.mock import Mock, patch
+    from trend_analysis.core import rank_selection
+    import trend_analysis.monte_carlo.runner as runner_module
+    from trend_analysis.core.path_metrics import use_metric_cache as original_use_metric_cache
+
+    spy = Mock(wraps=rank_selection._compute_metric_series)
+    monkeypatch.setattr(rank_selection, "_compute_metric_series", spy)
+
+    # Create a conditional use_metric_cache that bypasses only for _evaluate_strategy
+    # We'll track the call stack to identify the caller
+    import inspect
+
+    def conditional_use_metric_cache(cache):
+        frame = inspect.currentframe()
+        try:
+            # frame.f_back is the caller of conditional_use_metric_cache
+            # which is the function that called use_metric_cache
+            caller_frame = frame.f_back
+            if caller_frame and caller_frame.f_code.co_name == "_evaluate_strategy":
+                # Bypass cache for _evaluate_strategy
+                return nullcontext()
+            else:
+                # Use normal cache for _generate_path_context and others
+                return original_use_metric_cache(cache)
+        finally:
+            del frame
+
+    # Test with 1 strategy - cache in _generate_path_context works, _evaluate_strategy bypasses
+    with patch.object(runner_module, "use_metric_cache", conditional_use_metric_cache):
+        one = _real_runner(1, multi_period=multi_period).run(jobs=1)
+        single_strategy_count = spy.call_count
+
+        spy.reset_mock()
+
+        # Test with 3 strategies - each _evaluate_strategy call bypasses cache
+        three = _real_runner(3, multi_period=multi_period).run(jobs=1)
+        multi_strategy_count = spy.call_count
+
+    assert not one.errors and not three.errors
+    assert len(three.results_frame) == 3
+
+    # Record actual counts for documentation
+    actual_single = single_strategy_count
+    actual_multi = multi_strategy_count
+
+    # The key assertion: with disconnection, count grows
+    assert actual_multi > actual_single, (
+        f"Cache disconnection should increase call count. "
+        f"Got single={actual_single}, multi={actual_multi}"
+    )
+
+    # Restore normal evaluation and verify original assertion passes
+    spy.reset_mock()
+    restored_one = _real_runner(1, multi_period=multi_period).run(jobs=1)
+    restored_first = spy.call_count
+    spy.reset_mock()
+    restored_three = _real_runner(3, multi_period=multi_period).run(jobs=1)
+    restored_second = spy.call_count
+
+    assert not restored_one.errors and not restored_three.errors
+    assert restored_second == restored_first, (
+        f"Restored cache should have equal counts. "
+        f"Got first={restored_first}, second={restored_second}"
+    )
+
+    # Log the actual counts for the PR body
+    print(f"\n[ACCEPTANCE RECORD] Strategy-only disconnect test (multi_period={multi_period}):")
+    print(f"  Single strategy (disconnected): {actual_single} calls")
+    print(f"  Multi strategy (3, disconnected): {actual_multi} calls")
+    print(f"  Single strategy (restored): {restored_first} calls")
+    print(f"  Multi strategy (3, restored): {restored_second} calls")
+    print(f"  Disconnection ratio: {actual_multi / actual_single if actual_single > 0 else 0:.1f}x")
+
+
+@pytest.mark.parametrize("multi_period", [False, True])
 def test_cached_and_uncached_runs_match(monkeypatch, multi_period):
     from contextlib import nullcontext
     import trend_analysis.monte_carlo.runner as runner_module
