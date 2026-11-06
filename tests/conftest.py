@@ -31,6 +31,7 @@ try:
 except ImportError:
     yaml = None
 
+from . import _xdist_loadgroup_compat
 from ._autofix_diag import DiagnosticsRecorder, get_recorder
 
 # --- Ensure local ``src`` packages are importable ---------------------------------------
@@ -48,8 +49,10 @@ os.environ.setdefault("MPLCONFIGDIR", str(_MPL_CONFIG_DIR))
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_configure(config) -> None:  # noqa: ARG001
-    """Disable pytest-rerunfailures xdist sockets in restricted environments."""
+def pytest_configure(config) -> None:
+    """Register the xdist loadgroup shim; disable rerunfailures sockets when restricted."""
+    if not config.pluginmanager.has_plugin(_xdist_loadgroup_compat.PLUGIN_NAME):
+        config.pluginmanager.register(_xdist_loadgroup_compat, _xdist_loadgroup_compat.PLUGIN_NAME)
     try:
         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         probe.close()
