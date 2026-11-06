@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import List
 
@@ -178,11 +179,18 @@ class TestDemoGoldenMaster:
         # Set up reproducible environment
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"
-        env["PYTHONPATH"] = str(Path.cwd() / "src")
+        root = Path.cwd()
+        # ``trend`` lives under ``src``; legacy ``analysis`` is a repo-root package.  With
+        # ``PYTHONSAFEPATH=1``, script-directory shadowing of ``trend`` is disabled but the
+        # working directory is no longer auto-prepended for ``python -m``, so include both.
+        env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), str(root)])
+        # Python 3.11+ prepends the invoked script directory before PYTHONPATH.  Our
+        # ``scripts/trend`` bash wrapper then shadows the ``trend`` package on ``src``.
+        env["PYTHONSAFEPATH"] = "1"
 
         # Step 1: Generate demo data
         result = subprocess.run(
-            ["python", "scripts/generate_demo.py"],
+            [sys.executable, "scripts/generate_demo.py"],
             cwd=Path.cwd(),
             capture_output=True,
             text=True,
@@ -206,7 +214,7 @@ class TestDemoGoldenMaster:
         # Step 2: Run main demo analysis
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "trend.cli",
                 "run",
@@ -226,7 +234,7 @@ class TestDemoGoldenMaster:
         # Step 3: Run the multi-period demo so fixture-schema regressions fail
         # the golden contract instead of being silently ignored.
         result = subprocess.run(
-            ["python", "scripts/run_multi_demo.py"],
+            [sys.executable, "scripts/run_multi_demo.py"],
             cwd=Path.cwd(),
             capture_output=True,
             text=True,
@@ -309,7 +317,9 @@ class TestDemoGoldenMaster:
         # Set up reproducible environment
         env = os.environ.copy()
         env["PYTHONHASHSEED"] = "0"
-        env["PYTHONPATH"] = str(Path.cwd() / "src")
+        root = Path.cwd()
+        env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), str(root)])
+        env["PYTHONSAFEPATH"] = "1"
 
         def run_demo_and_get_hashes() -> dict:
             # Clean exports
@@ -319,7 +329,7 @@ class TestDemoGoldenMaster:
 
             # Generate demo data
             subprocess.run(
-                ["python", "scripts/generate_demo.py"],
+                [sys.executable, "scripts/generate_demo.py"],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -330,7 +340,7 @@ class TestDemoGoldenMaster:
             # Run demo analysis
             subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-m",
                     "trend.cli",
                     "run",
