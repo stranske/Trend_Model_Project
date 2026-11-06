@@ -15,6 +15,8 @@ supports the structured node id.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 PLUGIN_NAME = "trend-xdist-loadgroup-compat"
@@ -39,4 +41,7 @@ def restore_group_suffixes(items: list[pytest.Item]) -> int:
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    flag = os.environ.get("TREND_DISABLE_XDIST_LOADGROUP_COMPAT", "")
+    if flag.strip().lower() in {"1", "true", "yes"}:
+        return
     restore_group_suffixes(items)

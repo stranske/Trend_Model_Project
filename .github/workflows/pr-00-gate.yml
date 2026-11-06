@@ -147,6 +147,46 @@ jobs:
       enable-soft-gate: true
     secrets: inherit
 
+  xdist-loadgroup-matrix:
+    name: xdist loadgroup (pytest ${{ matrix.pytest-version }})
+    needs: detect
+    if: >-
+      ${{
+        needs.detect.outputs.is_docs_only != 'true' &&
+        needs.detect.outputs.is_python_code == 'true'
+      }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pytest-version: ["9.1.1", "9.2.0"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install project and pytest-xdist (matrix pytest)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,app]"
+          pip install --upgrade --force-reinstall "pytest==${{ matrix.pytest-version }}"
+          python -m pip install "pytest-xdist==3.8.0"
+
+      - name: Focused xdist loadgroup regression suite
+        run: |
+          python -m pytest tests/test_xdist_loadgroup_compat.py -q
+
+      - name: Golden demo under loadgroup (two workers)
+        run: |
+          python -m pytest tests/golden/test_demo.py -n 2 --dist loadgroup -v --tb short
+
   llm-deps:
     name: LLM Dependency Compatibility
     needs: detect
@@ -270,7 +310,16 @@ jobs:
 
   summary:
     name: gate-summary
-    needs: ["detect", "python-ci", "llm-deps", "legacy-surface", "config-coverage", "generated-delivery-seal"]
+    needs:
+      [
+        "detect",
+        "python-ci",
+        "xdist-loadgroup-matrix",
+        "llm-deps",
+        "legacy-surface",
+        "config-coverage",
+        "generated-delivery-seal",
+      ]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -295,6 +344,7 @@ jobs:
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'skipped' }}
           DETECT_RESULT: ${{ needs.detect.result || 'skipped' }}
           PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+          XDIST_LOADGROUP_RESULT: ${{ needs.xdist-loadgroup-matrix.result || 'skipped' }}
           LLM_DEPS_RESULT: ${{ needs.llm-deps.result || 'skipped' }}
           LEGACY_SURFACE_RESULT: ${{ needs.legacy-surface.result || 'skipped' }}
           CONFIG_COV_RESULT: ${{ needs.config-coverage.result || 'skipped' }}
@@ -302,6 +352,7 @@ jobs:
           set -euo pipefail
 
           python_result="${PYTHON_RESULT:-skipped}"
+          xdist_result="${XDIST_LOADGROUP_RESULT:-skipped}"
           llm_deps_result="${LLM_DEPS_RESULT:-skipped}"
           legacy_surface_result="${LEGACY_SURFACE_RESULT:-skipped}"
           config_cov_result="${CONFIG_COV_RESULT:-skipped}"
@@ -327,6 +378,28 @@ jobs:
               description="Python CI status unknown"
               ;;
           esac
+
+          # Check xdist loadgroup matrix (pytest 9.1 / 9.2 + pytest-xdist 3.8)
+          if [ "$state" = "success" ]; then
+            case "$xdist_result" in
+              success)
+                ;;
+              failure)
+                state="failure"
+                description="xdist loadgroup matrix failed"
+                ;;
+              cancelled)
+                state="error"
+                description="xdist loadgroup matrix was cancelled"
+                ;;
+              skipped)
+                ;;
+              *)
+                state="pending"
+                description="xdist loadgroup matrix status unknown"
+                ;;
+            esac
+          fi
 
           # Check LLM dependency validation
           if [ "$state" = "success" ]; then

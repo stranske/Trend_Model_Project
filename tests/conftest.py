@@ -110,6 +110,7 @@ def _isolate_nl_operation_logs(
     monkeypatch.setattr(nl_logging, "_NL_LOG_DIR", tmp_path / ".trend_nl_logs")
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config, items):
     qfile = pathlib.Path(__file__).with_name("quarantine.yml")
     if qfile.exists() and yaml is not None:
