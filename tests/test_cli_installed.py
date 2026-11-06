@@ -139,11 +139,14 @@ def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> No
     for command in REMOVED_COMMANDS:
         assert not (installed_bin / command).exists()
 
+    # scripts/run_tests.sh exports PYTHONPATH=./src, which would shadow the installed package.
+    env = {**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"}
+    env.pop("PYTHONPATH", None)
     result = subprocess.run(
         [installed_bin / "trend", "--help"],
         capture_output=True,
         text=True,
-        env={**os.environ, "PATH": f"{installed_bin}:{os.environ.get('PATH', '')}"},
+        env=env,
     )
     assert result.returncode == 0, result.stderr
     assert "usage: trend" in result.stdout.lower()
