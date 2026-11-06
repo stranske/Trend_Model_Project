@@ -10,28 +10,14 @@ Check date: 2026-11-06. Base: `main` at merge of PR **#6192** (`a2e82d2961823393
 
 ## Acceptance criteria
 
-- [x] Record runnable acceptance commands that the Evidence runner can discover (`scripts/runner_lib/acceptance_gate.py` reads backticks under **Acceptance criteria** only).
-- [x] Demonstrate the named gate on regenerated PR **#6187** and a passing local repository test command.
-- [x] Record a deliberate regression failure followed by restored success.
-- [x] Inspect both review threads on **#6192**; confirm disposition (see Review threads).
-- [x] Capture the next controller-owned sync-core classification round for this consumer without this finding (see Sync classification).
+Commands below use **Python 3.13** with `pytest==9.2.0` and `pytest-xdist==3.8.0` (matches Gate `xdist-loadgroup-matrix` pytest **9.2** leg). Install via `pip install -e ".[dev,app]"` then `pip install pytest==9.2.0 pytest-xdist==3.8.0`. (`requirements.lock` pins pytest **9.1.1**; use a dedicated venv for 9.2 parity.)
 
-## Runnable commands (Evidence runner)
+- [x] Evidence runner gates — `python -m pytest tests/test_xdist_loadgroup_compat.py -q`, `python -m pytest tests/golden/test_demo.py -n 2 --dist loadgroup -v --tb short`, deliberate break `TREND_DISABLE_XDIST_LOADGROUP_COMPAT=1 python -m pytest tests/test_xdist_loadgroup_compat.py::test_loadgroup_keeps_xdist_group_on_one_worker -q`, restore `python -m pytest tests/test_xdist_loadgroup_compat.py::test_loadgroup_keeps_xdist_group_on_one_worker -q`, documented script `TREND_SKIP_COVERAGE_REPORT=1 ./scripts/run_tests.sh tests/test_xdist_loadgroup_compat.py tests/golden/test_demo.py -n 0 -q`
+- [x] **`Gate / gate`** on PR **#6187** — recorded in this doc (`gh pr checks 6187`, `gh run view 41956109404`); **`Python CI / python 3.13`** failed on that head.
+- [x] Review threads **#6192** — both resolved; see table below.
+- [x] Sync classification — Health **68** run `42234189419` (controller-owned); drift compare **success**, alerts **skipped**.
 
-Use a **Python 3.13** interpreter with `pytest==9.2.0` and `pytest-xdist==3.8.0` (matches Gate job `xdist-loadgroup-matrix` for the 9.2 matrix leg). Example: create a local venv, `pip install -e ".[dev,app]"`, then `pip install pytest==9.2.0 pytest-xdist==3.8.0`.
-
-From the repository root (`PYTHONPATH` is not required for these; subprocesses in tests set it as needed):
-
-- `python -m pytest tests/test_xdist_loadgroup_compat.py -q`
-- `python -m pytest tests/golden/test_demo.py -n 2 --dist loadgroup -v --tb short`
-- Deliberate break (expect non-zero exit on pytest 9.2+): `TREND_DISABLE_XDIST_LOADGROUP_COMPAT=1 python -m pytest tests/test_xdist_loadgroup_compat.py::test_loadgroup_keeps_xdist_group_on_one_worker -q`
-- Restore: `python -m pytest tests/test_xdist_loadgroup_compat.py::test_loadgroup_keeps_xdist_group_on_one_worker -q`
-
-Documented test script (README / `AGENTS.md`): `./scripts/run_tests.sh`. That script normally measures coverage with `fail_under`; a **narrow** selection can pass pytest yet fail the **coverage report step** unless you opt out (this PR adds `TREND_SKIP_COVERAGE_REPORT=1` for focused gates only). Match the Gate matrix by using the same interpreter as for the pytest 9.2 commands above, then:
-
-`TREND_SKIP_COVERAGE_REPORT=1 ./scripts/run_tests.sh tests/test_xdist_loadgroup_compat.py tests/golden/test_demo.py -n 0 -q`
-
-(`-n 0` overrides the script’s default `-n auto` so golden subprocesses are not starved by xdist workers on the shared machine.)
+(Details and captured output: following sections.)
 
 ## Local run log (Python 3.13.13, pytest 9.2.0, pytest-xdist 3.8.0)
 
