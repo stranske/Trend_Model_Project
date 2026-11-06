@@ -40,12 +40,19 @@ if [[ ! -f ".coveragerc.${PROFILE}" ]]; then
 fi
 
 # Build pytest arguments
-PYTEST_ARGS=("--maxfail=1" "--disable-warnings" "--cov=src" "--cov-branch" "--cov-config=.coveragerc.${PROFILE}")
+if [[ -n "${TREND_SKIP_COVERAGE_REPORT:-}" ]]; then
+  # Narrow selections can satisfy pytest but not repository coverage thresholds; use for focused gates only.
+  PYTEST_ARGS=("--maxfail=1" "--disable-warnings")
+else
+  PYTEST_ARGS=("--maxfail=1" "--disable-warnings" "--cov=src" "--cov-branch" "--cov-config=.coveragerc.${PROFILE}")
+fi
 
 # Enable parallel execution if pytest-xdist is available
-if python -c "import xdist" 2>/dev/null; then
+if [[ -z "${TREND_SKIP_COVERAGE_REPORT:-}" ]] && python -c "import xdist" 2>/dev/null; then
   PYTEST_ARGS+=("-n" "auto")
   echo "Running tests in parallel with pytest-xdist..."
+elif [[ -n "${TREND_SKIP_COVERAGE_REPORT:-}" ]]; then
+  echo "Running tests sequentially (TREND_SKIP_COVERAGE_REPORT excludes parallel default)"
 else
   echo "Running tests sequentially (install pytest-xdist for parallel execution)"
 fi
@@ -61,7 +68,9 @@ if [[ "$status" -eq 5 ]]; then
   exit 1
 fi
 
-# Generate coverage report
-coverage report -m
+if [[ -z "${TREND_SKIP_COVERAGE_REPORT:-}" ]]; then
+  # Generate coverage report
+  coverage report -m
+fi
 
 exit "$status"

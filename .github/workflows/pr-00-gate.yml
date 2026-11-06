@@ -18,6 +18,10 @@
 #
 # Copy this file to: .github/workflows/pr-00-gate.yml
 #
+# Required merge / Evidence-runner gate (commit status context):
+#   `Gate / gate` — set in the `summary` job ("Report Gate commit status").
+# Consumer automation and branch protection SHOULD require that context by name.
+#
 # Required secrets: None (uses GITHUB_TOKEN)
 # Optional secrets: Passed via `secrets: inherit` to reusable workflow
 #

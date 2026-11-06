@@ -32,6 +32,8 @@ __pycache__/
 .coverage.*
 outputs/
 .venv/
+# Ephemeral evidence venv for issue #6188 closer repair (not committed)
+.venv-6188-evidence/
 .hypothesis/
 perf/runs/
 tmp_logs/
