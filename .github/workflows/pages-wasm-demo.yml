@@ -45,7 +45,7 @@ jobs:
         run: python scripts/build_wasm_site.py --output dist/wasm-demo
 
       - name: Install focused test tools
-        run: python -m pip install "pytest==9.1.1" "pytest-xdist==3.8.0"
+        run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"
 
       - name: Verify artifact contract
         run: pytest -q tests/wasm/test_build_wasm_site.py tests/wasm/test_demo_no_external_cdn.py
