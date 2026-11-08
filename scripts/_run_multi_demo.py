@@ -81,6 +81,7 @@ if consume_fast_sentinel(  # pragma: no cover - short-circuit path
     FAST_SENTINEL,
     release_verify=globals().get("RELEASE_VERIFY", False),
 ):
+    # Fast mode only guarantees the directory; the CSVs must come from the real CLI run.
     (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
 
