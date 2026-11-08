@@ -200,7 +200,17 @@ def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_pa
             monkeypatch.delenv(key, raising=False)
 
     assert exit_code == 1
-    assert not history_path.exists()
+    # Shared script versions may retain a diagnostic failure record. Neither
+    # contract may report success when metrics could not be loaded.
+    if history_path.exists():
+        records = [json.loads(line) for line in history_path.read_text().splitlines()]
+        assert len(records) == 1
+        record = records[0]
+        assert record["status"] == "observed-failure"
+        assert record["reason"] == "file-not-found"
+        assert record["error"] == "bad"
+        assert record["junit_path"] == str(junit_path)
+        assert record["metrics_path"] == str(tmp_path / "ci-metrics.json")
 
 
 def test_main_removes_existing_classification_when_disabled(
