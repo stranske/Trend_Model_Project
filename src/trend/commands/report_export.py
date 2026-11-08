@@ -111,8 +111,13 @@ def _resolved_export_settings(cfg: Any) -> tuple[str, list[str] | str, str] | No
     out_dir = export_cfg.get("directory")
     out_formats = export_cfg.get("formats")
     filename = export_cfg.get("filename", "analysis")
+    # Use defaults for any missing values, but prefer config values if present
     if not out_dir and not out_formats:
         out_dir = DEFAULT_OUTPUT_DIRECTORY
+        out_formats = DEFAULT_OUTPUT_FORMATS
+    elif not out_dir:
+        out_dir = DEFAULT_OUTPUT_DIRECTORY
+    elif not out_formats:
         out_formats = DEFAULT_OUTPUT_FORMATS
     if not out_dir or not out_formats:
         return None
