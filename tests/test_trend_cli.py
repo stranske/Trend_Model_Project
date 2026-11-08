@@ -1634,8 +1634,17 @@ def test_handle_exports_defaults_and_non_excel(monkeypatch, tmp_path: Path) -> N
     assert Path(recorded["path"]) == tmp_path / "exports" / "analysis"
 
 
-def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None:
-    cfg = SimpleNamespace(export={"directory": "", "formats": ["csv"]})
+@pytest.mark.parametrize(
+    "export_settings",
+    [
+        {"directory": "", "formats": ["csv"]},
+        {"directory": "configured", "formats": []},
+        {"directory": None, "formats": ["csv"]},
+        {"directory": "configured", "formats": None},
+    ],
+)
+def test_handle_exports_requires_both_directory_and_formats(monkeypatch, export_settings) -> None:
+    cfg = SimpleNamespace(export=export_settings)
     result = RunResult(pd.DataFrame(), {}, 1, {})
 
     events: list[str] = []
@@ -1644,6 +1653,30 @@ def test_handle_exports_requires_both_directory_and_formats(monkeypatch) -> None
     owned._handle_exports(cfg, result, structured_log=True, run_id="rid")
 
     assert events == []
+
+
+@pytest.mark.parametrize("supplied", ["directory", "formats"])
+def test_handle_exports_partial_settings_preserve_supplied_value(monkeypatch, tmp_path, supplied):
+    settings = {"directory": str(tmp_path / "configured"), "formats": ["json"]}
+    cfg = SimpleNamespace(export={supplied: settings[supplied]})
+    result = RunResult(pd.DataFrame({"value": [1.0]}), {}, 1, {})
+    default_directory = tmp_path / "default"
+    monkeypatch.setattr(owned, "DEFAULT_OUTPUT_DIRECTORY", str(default_directory))
+    monkeypatch.setattr(owned, "DEFAULT_OUTPUT_FORMATS", ("csv",))
+    recorded = {}
+
+    def fake_export_data(data, path, formats):
+        recorded.update(path=Path(path), formats=list(formats))
+
+    monkeypatch.setattr(owned.export, "export_data", fake_export_data)
+    owned._handle_exports(cfg, result, structured_log=False, run_id="partial")
+
+    expected_directory = (
+        Path(settings["directory"]) if supplied == "directory" else default_directory
+    )
+    assert recorded["path"] == expected_directory / "analysis"
+    assert recorded["formats"] == (["csv"] if supplied == "directory" else ["json"])
+    assert cfg.export == {supplied: settings[supplied]}
 
 
 def test_write_bundle_appends_filename(monkeypatch, tmp_path: Path, capsys) -> None:

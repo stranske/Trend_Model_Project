@@ -108,12 +108,10 @@ def get_last_perf_log_path() -> Path | None:
 
 def _resolved_export_settings(cfg: Any) -> tuple[str, list[str] | str, str] | None:
     export_cfg = getattr(cfg, "export", {}) or {}
-    out_dir = export_cfg.get("directory")
-    out_formats = export_cfg.get("formats")
+    out_dir = export_cfg.get("directory", DEFAULT_OUTPUT_DIRECTORY)
+    out_formats = export_cfg.get("formats", DEFAULT_OUTPUT_FORMATS)
     filename = export_cfg.get("filename", "analysis")
-    if not out_dir and not out_formats:
-        out_dir = DEFAULT_OUTPUT_DIRECTORY
-        out_formats = DEFAULT_OUTPUT_FORMATS
+    # Omitted settings inherit independently; explicit blanks disable export.
     if not out_dir or not out_formats:
         return None
     formats = cast(list[str] | str, out_formats)
