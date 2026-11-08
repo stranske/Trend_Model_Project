@@ -12,7 +12,9 @@ import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import List
 
 import pandas as pd
@@ -40,19 +42,57 @@ def _prepare_demo_environment(destination: Path) -> Path:
     return destination
 
 
-def test_demo_exports_survive_sibling_cleanup(tmp_path):
-    """Reproduce the sibling test's destructive cleanup without sharing its outputs."""
-    first = _prepare_demo_environment(tmp_path / "first")
-    sibling = _prepare_demo_environment(tmp_path / "sibling")
-    for root in (first, sibling):
-        exports = root / "demo/exports"
-        exports.mkdir(parents=True)
-        (exports / "analysis_metrics.csv").write_text("cagr\n0.12\n", encoding="utf-8")
-    original = (first / "demo/exports/analysis_metrics.csv").read_bytes()
+@pytest.mark.serial
+@pytest.mark.xdist_group(name="demo_pipeline")
+def test_demo_exports_survive_sibling_cleanup(tmp_path, monkeypatch):
+    """Run real CLI exports through both pipeline callers' actual cleanup fixture."""
+    golden = TestDemoGoldenMaster()
+    environment = contextmanager(TestDemoGoldenMaster.setup_clean_environment.__wrapped__)
+    first_request = SimpleNamespace(node=SimpleNamespace(name="test_demo_pipeline_end_to_end"))
+    sibling_request = SimpleNamespace(node=SimpleNamespace(name="test_demo_pipeline_deterministic"))
+    # A real project fallback keeps the deliberate no-isolation break inside tmp_path.
+    monkeypatch.chdir(_prepare_demo_environment(tmp_path / "shared"))
+    with monkeypatch.context() as first_patch:
+        with environment(golden, first_request, tmp_path / "first", first_patch):
+            first = Path.cwd()
+            env = os.environ.copy()
+            env["PYTHONHASHSEED"] = "0"
+            env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
+            env["PYTHONSAFEPATH"] = "1"
+            for command in (
+                [sys.executable, "scripts/generate_demo.py"],
+                [
+                    sys.executable,
+                    "-m",
+                    "trend.cli",
+                    "run",
+                    "-c",
+                    "config/demo.yml",
+                    "-i",
+                    "demo/demo_returns.csv",
+                    "--no-structured-log",
+                ],
+            ):
+                result = subprocess.run(
+                    command, cwd=first, env=env, capture_output=True, text=True, timeout=30
+                )
+                assert result.returncode == 0, result.stdout + result.stderr
 
-    shutil.rmtree(sibling / "demo/exports")
+            exports = first / "demo/exports"
+            demo_csv = first / "demo/demo_returns.csv"
+            original = golden.cli_csv_exports(exports, demo_csv)
+            assert not pd.read_csv(exports / "analysis_metrics.csv").empty
 
-    assert (first / "demo/exports/analysis_metrics.csv").read_bytes() == original
+            # Interleave the deterministic caller's real setup/teardown before the
+            # end-to-end caller checks its CSVs, reproducing the original race.
+            with monkeypatch.context() as sibling_patch:
+                with environment(golden, sibling_request, tmp_path / "sibling", sibling_patch):
+                    sibling_exports = Path.cwd() / "demo/exports"
+                    sibling_exports.mkdir(parents=True, exist_ok=True)
+                    (sibling_exports / "cleanup-probe").touch()
+            assert not sibling_exports.exists(), "Sibling fixture did not clean its exports"
+            assert (exports / "analysis_metrics.csv").exists(), "Sibling cleanup removed CLI CSV"
+            assert golden.cli_csv_exports(exports, demo_csv) == original
 
 
 @pytest.mark.serial
