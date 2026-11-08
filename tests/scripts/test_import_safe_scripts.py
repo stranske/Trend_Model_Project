@@ -79,3 +79,30 @@ def test_inner_demo_sentinel_handler_refuses_release_skip(tmp_path) -> None:
     with pytest.raises(SystemExit, match="refused to skip the real demo"):
         consume_fast_sentinel(sentinel, release_verify=True)
     assert sentinel.exists()
+
+
+def test_fast_sentinel_keeps_real_cli_exports_untouched(tmp_path) -> None:
+    """Fast mode must not delete, replace or invent the CLI's CSV exports."""
+
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    script = root / "scripts" / "_run_multi_demo.py"
+    script.write_text(
+        (Path(__file__).parents[2] / "scripts" / "_run_multi_demo.py").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    exports = root / "demo" / "exports"
+    exports.mkdir(parents=True)
+    real_metrics = exports / "analysis_metrics.csv"
+    real_metrics.write_text("cagr,vol\n0.0861,0.2124\n-0.1081,0.1489\n", encoding="utf-8")
+    before = {path.name: path.read_bytes() for path in exports.glob("*.csv")}
+    sentinel = root / "demo" / ".fast_demo_mode"
+    sentinel.write_text("fast\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_path(str(script), run_name="__main__")
+
+    assert excinfo.value.code == 0
+    assert not sentinel.exists()
+    after = {path.name: path.read_bytes() for path in exports.glob("*.csv")}
+    assert after == before
