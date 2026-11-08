@@ -46,6 +46,7 @@ _INSTALL_COPY_IGNORE = shutil.ignore_patterns(
     "build",
     "dist",
     "*.egg-info",
+    ".fast_demo_mode",  # other xdist workers create/remove this transient demo marker
 )
 
 
@@ -130,6 +131,30 @@ def test_install_source_copy_excludes_local_secrets(tmp_path: Path) -> None:
         assert not (source_copy / name).exists()
     assert (source_copy / "pyproject.toml").is_file()
     assert (source_copy / ".streamlit/config.toml").is_file()
+
+
+def test_install_source_copy_excludes_disappearing_demo_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = tmp_path / "project"
+    (project_root / "demo").mkdir(parents=True)
+    marker = project_root / "demo/.fast_demo_mode"
+    marker.write_text("transient", encoding="utf-8")
+    (project_root / "pyproject.toml").write_text("[project]", encoding="utf-8")
+    (project_root / "demo/demo_returns.csv").write_text("date,return\n", encoding="utf-8")
+    copyfile = shutil.copyfile
+
+    def remove_marker_before_copy(src, dst, **kwargs):
+        if Path(src) == marker:
+            marker.unlink()
+        return copyfile(src, dst, **kwargs)
+
+    monkeypatch.setattr(shutil, "copyfile", remove_marker_before_copy)
+    source_copy = tmp_path / "source-copy"
+    _copy_install_sources(project_root, source_copy)
+    assert not (source_copy / "demo/.fast_demo_mode").exists()
+    assert (source_copy / "pyproject.toml").is_file()
+    assert (source_copy / "demo/demo_returns.csv").is_file()
 
 
 def test_removed_compat_entrypoints_are_not_installed(installed_bin: Path) -> None:
