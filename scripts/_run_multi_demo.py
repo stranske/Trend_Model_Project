@@ -81,45 +81,8 @@ if consume_fast_sentinel(  # pragma: no cover - short-circuit path
     FAST_SENTINEL,
     release_verify=globals().get("RELEASE_VERIFY", False),
 ):
-    exports_dir = ROOT / "demo/exports"
-    exports_dir.mkdir(parents=True, exist_ok=True)
-    # Write minimal CSV exports to satisfy golden master tests.
-    # The golden test expects at least one CSV and at least one metrics file with
-    # reasonable values, so we create both.
-    import pandas as pd
-
-    # Create a minimal metrics file
-    metrics_df = pd.DataFrame(
-        {
-            "Manager": ["Mgr_01", "Mgr_02", "SPX"],
-            "CAGR": [0.05, 0.03, 0.04],
-            "Vol": [0.15, 0.12, 0.16],
-            "Sharpe": [0.33, 0.25, 0.25],
-            "Sortino": [0.40, 0.30, 0.30],
-            "Information_Ratio": [0.20, 0.15, 0.15],
-            "Max_Drawdown": [-0.10, -0.08, -0.12],
-        }
-    )
-    metrics_df.to_csv(exports_dir / "analysis_metrics.csv", index=False)
-
-    # Create a summary file
-    summary_df = pd.DataFrame(
-        {
-            "Metric": ["CAGR", "Vol", "Sharpe"],
-            "Value": [0.05, 0.15, 0.30],
-        }
-    )
-    summary_df.to_csv(exports_dir / "analysis_summary.csv", index=False)
-
-    # Create alias_demo.csv for backward compatibility
-    alias_df = pd.DataFrame(
-        {
-            "Date": pd.date_range("2020-01-01", periods=3, freq="ME"),
-            "Portfolio": [0.01, 0.02, -0.01],
-            "Benchmark": [0.015, 0.025, -0.005],
-        }
-    )
-    alias_df.to_csv(exports_dir / "alias_demo.csv", index=False)
+    # Fast mode only guarantees the directory; the CSVs must come from the real CLI run.
+    (ROOT / "demo/exports").mkdir(parents=True, exist_ok=True)
     sys.exit(0)
 
 setup_script_logging(app_name="multi-demo", module_file=__file__)

@@ -6,6 +6,7 @@ functionality.
 """
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -169,6 +170,31 @@ class TestDemoGoldenMaster:
         # Return sorted list, limit to most critical files
         return sorted(key_files)[:8]
 
+    def cli_csv_exports(self, demo_exports: Path, demo_csv: Path) -> dict[str, str]:
+        """Return the CLI's top-level CSV exports, proven to derive from ``demo_csv``.
+
+        The run manifest records the input's sha256 and each exported file's
+        sha256, so a CSV counts as genuine only when its bytes match that record.
+        """
+        manifests = sorted(demo_exports.glob("runs/*/manifest.json"))
+        assert len(manifests) == 1, f"Expected one CLI run manifest, found {manifests}"
+        manifest = json.loads(manifests[0].read_text(encoding="utf-8"))
+        input_sha = hashlib.sha256(demo_csv.read_bytes()).hexdigest()
+        assert manifest["input_sha256"] == input_sha, "CLI exports not derived from demo CSV"
+
+        recorded = {
+            Path(item["name"]).name: item["sha256"]
+            for item in manifest["artifacts"]
+            if str(item["name"]).endswith(".csv")
+        }
+        assert "analysis_metrics.csv" in recorded, f"CLI recorded no metrics CSV: {recorded}"
+        for name, sha in recorded.items():
+            path = demo_exports / name
+            assert path.exists(), f"CLI export {name} is missing"
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            assert actual == sha, f"CLI export {name} was replaced after the CLI run"
+        return recorded
+
     def test_demo_pipeline_end_to_end(self):
         """
         Golden master test: Run complete demo pipeline and validate outputs.
@@ -231,6 +257,9 @@ class TestDemoGoldenMaster:
         )
         assert result.returncode == 0, f"Demo analysis failed: {result.stderr}"
 
+        # The real CLI exports must exist before the optional multi-demo step runs.
+        cli_exports = self.cli_csv_exports(Path("demo/exports"), demo_csv)
+
         # Step 3: Run the multi-period demo so fixture-schema regressions fail
         # the golden contract instead of being silently ignored.
         result = subprocess.run(
@@ -249,6 +278,8 @@ class TestDemoGoldenMaster:
 
         csv_files = list(demo_exports.glob("*.csv"))
         assert len(csv_files) >= 1, f"Expected at least 1 CSV output, found {len(csv_files)}"
+        # Fast-sentinel mode must neither delete nor substitute the CLI's CSVs.
+        assert self.cli_csv_exports(demo_exports, demo_csv) == cli_exports
 
         # Step 5: Validate key output structure and content
         key_files = self.get_key_output_files(demo_exports)
