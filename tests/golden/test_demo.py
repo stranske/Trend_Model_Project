@@ -12,7 +12,9 @@ import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import List
 
 import pandas as pd
@@ -40,116 +42,57 @@ def _prepare_demo_environment(destination: Path) -> Path:
     return destination
 
 
-def test_demo_exports_survive_sibling_cleanup(tmp_path):
-    """Reproduce the sibling test's destructive cleanup without sharing its outputs.
+@pytest.mark.serial
+@pytest.mark.xdist_group(name="demo_pipeline")
+def test_demo_exports_survive_sibling_cleanup(tmp_path, monkeypatch):
+    """Run real CLI exports through both pipeline callers' actual cleanup fixture."""
+    golden = TestDemoGoldenMaster()
+    environment = contextmanager(TestDemoGoldenMaster.setup_clean_environment.__wrapped__)
+    first_request = SimpleNamespace(node=SimpleNamespace(name="test_demo_pipeline_end_to_end"))
+    sibling_request = SimpleNamespace(node=SimpleNamespace(name="test_demo_pipeline_deterministic"))
+    # A real project fallback keeps the deliberate no-isolation break inside tmp_path.
+    monkeypatch.chdir(_prepare_demo_environment(tmp_path / "shared"))
+    with monkeypatch.context() as first_patch:
+        with environment(golden, first_request, tmp_path / "first", first_patch):
+            first = Path.cwd()
+            env = os.environ.copy()
+            env["PYTHONHASHSEED"] = "0"
+            env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
+            env["PYTHONSAFEPATH"] = "1"
+            for command in (
+                [sys.executable, "scripts/generate_demo.py"],
+                [
+                    sys.executable,
+                    "-m",
+                    "trend.cli",
+                    "run",
+                    "-c",
+                    "config/demo.yml",
+                    "-i",
+                    "demo/demo_returns.csv",
+                    "--no-structured-log",
+                ],
+            ):
+                result = subprocess.run(
+                    command, cwd=first, env=env, capture_output=True, text=True, timeout=30
+                )
+                assert result.returncode == 0, result.stdout + result.stderr
 
-    This regression test exercises the actual demo pipeline isolation and CSV assertion,
-    ensuring that sibling cleanup cannot remove genuine CLI exports from an independent
-    project copy.
-    """
-    import subprocess
-    import sys
+            exports = first / "demo/exports"
+            demo_csv = first / "demo/demo_returns.csv"
+            original = golden.cli_csv_exports(exports, demo_csv)
+            assert not pd.read_csv(exports / "analysis_metrics.csv").empty
 
-    # Create two isolated demo environments
-    first = _prepare_demo_environment(tmp_path / "first")
-    sibling = _prepare_demo_environment(tmp_path / "sibling")
-
-    # Set up reproducible environment
-    env = os.environ.copy()
-    env["PYTHONHASHSEED"] = "0"
-    env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
-    env["PYTHONSAFEPATH"] = "1"
-
-    # Run pipeline in first environment
-    first_env = env.copy()
-    first_env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
-    result = subprocess.run(
-        [sys.executable, "scripts/generate_demo.py"],
-        cwd=first,
-        capture_output=True,
-        text=True,
-        env=first_env,
-    )
-    assert result.returncode == 0, f"Demo data generation failed in first: {result.stderr}"
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "trend.cli",
-            "run",
-            "-c",
-            "config/demo.yml",
-            "-i",
-            "demo/demo_returns.csv",
-            "--no-structured-log",
-        ],
-        cwd=first,
-        capture_output=True,
-        text=True,
-        env=first_env,
-    )
-    assert result.returncode == 0, f"Demo analysis failed in first: {result.stderr}"
-
-    # Verify CSV exports were created in first
-    first_exports = first / "demo/exports"
-    assert first_exports.exists(), "First exports directory not created"
-    first_csv_files = list(first_exports.glob("*.csv"))
-    assert len(first_csv_files) >= 1, f"No CSV files found in first: {first_csv_files}"
-
-    # Get the content of a CSV file from first
-    first_csv = first_csv_files[0]
-    original_content = first_csv.read_bytes()
-
-    # Run pipeline in sibling environment
-    sibling_env = env.copy()
-    sibling_env["PYTHONPATH"] = os.pathsep.join([str(sibling / "src"), str(sibling)])
-    result = subprocess.run(
-        [sys.executable, "scripts/generate_demo.py"],
-        cwd=sibling,
-        capture_output=True,
-        text=True,
-        env=sibling_env,
-    )
-    assert result.returncode == 0, f"Demo data generation failed in sibling: {result.stderr}"
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "trend.cli",
-            "run",
-            "-c",
-            "config/demo.yml",
-            "-i",
-            "demo/demo_returns.csv",
-            "--no-structured-log",
-        ],
-        cwd=sibling,
-        capture_output=True,
-        text=True,
-        env=sibling_env,
-    )
-    assert result.returncode == 0, f"Demo analysis failed in sibling: {result.stderr}"
-
-    # Verify CSV exports were created in sibling
-    sibling_exports = sibling / "demo/exports"
-    assert sibling_exports.exists(), "Sibling exports directory not created"
-    sibling_csv_files = list(sibling_exports.glob("*.csv"))
-    assert len(sibling_csv_files) >= 1, f"No CSV files found in sibling: {sibling_csv_files}"
-
-    # Now simulate the sibling cleanup that would have caused the bug
-    shutil.rmtree(sibling / "demo/exports")
-
-    # Verify that first's CSV exports still exist and are intact
-    assert first_csv.exists(), f"First CSV file {first_csv.name} was removed by sibling cleanup"
-    assert (
-        first_csv.read_bytes() == original_content
-    ), f"First CSV file {first_csv.name} content was modified"
-
-    # Verify all first CSV files still exist
-    for csv_file in first_csv_files:
-        assert csv_file.exists(), f"First CSV file {csv_file.name} was removed by sibling cleanup"
+            # Interleave the deterministic caller's real setup/teardown before the
+            # end-to-end caller checks its CSVs, reproducing the original race.
+            with monkeypatch.context() as sibling_patch:
+                with environment(golden, sibling_request, tmp_path / "sibling", sibling_patch):
+                    sibling_exports = Path.cwd() / "demo/exports"
+                    sibling_exports.mkdir(parents=True, exist_ok=True)
+                    (sibling_exports / "cleanup-probe").touch()
+            assert not sibling_exports.exists(), "Sibling fixture did not clean its exports"
+            assert (exports / "analysis_metrics.csv").exists(), "Sibling cleanup removed CLI CSV"
+            assert golden.cli_csv_exports(exports, demo_csv) == original
 
 
 @pytest.mark.serial
