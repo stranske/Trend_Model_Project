@@ -41,18 +41,115 @@ def _prepare_demo_environment(destination: Path) -> Path:
 
 
 def test_demo_exports_survive_sibling_cleanup(tmp_path):
-    """Reproduce the sibling test's destructive cleanup without sharing its outputs."""
+    """Reproduce the sibling test's destructive cleanup without sharing its outputs.
+
+    This regression test exercises the actual demo pipeline isolation and CSV assertion,
+    ensuring that sibling cleanup cannot remove genuine CLI exports from an independent
+    project copy.
+    """
+    import subprocess
+    import sys
+
+    # Create two isolated demo environments
     first = _prepare_demo_environment(tmp_path / "first")
     sibling = _prepare_demo_environment(tmp_path / "sibling")
-    for root in (first, sibling):
-        exports = root / "demo/exports"
-        exports.mkdir(parents=True)
-        (exports / "analysis_metrics.csv").write_text("cagr\n0.12\n", encoding="utf-8")
-    original = (first / "demo/exports/analysis_metrics.csv").read_bytes()
 
+    # Set up reproducible environment
+    env = os.environ.copy()
+    env["PYTHONHASHSEED"] = "0"
+    env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
+    env["PYTHONSAFEPATH"] = "1"
+
+    # Run pipeline in first environment
+    first_env = env.copy()
+    first_env["PYTHONPATH"] = os.pathsep.join([str(first / "src"), str(first)])
+    result = subprocess.run(
+        [sys.executable, "scripts/generate_demo.py"],
+        cwd=first,
+        capture_output=True,
+        text=True,
+        env=first_env,
+    )
+    assert result.returncode == 0, f"Demo data generation failed in first: {result.stderr}"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "trend.cli",
+            "run",
+            "-c",
+            "config/demo.yml",
+            "-i",
+            "demo/demo_returns.csv",
+            "--no-structured-log",
+        ],
+        cwd=first,
+        capture_output=True,
+        text=True,
+        env=first_env,
+    )
+    assert result.returncode == 0, f"Demo analysis failed in first: {result.stderr}"
+
+    # Verify CSV exports were created in first
+    first_exports = first / "demo/exports"
+    assert first_exports.exists(), "First exports directory not created"
+    first_csv_files = list(first_exports.glob("*.csv"))
+    assert len(first_csv_files) >= 1, f"No CSV files found in first: {first_csv_files}"
+
+    # Get the content of a CSV file from first
+    first_csv = first_csv_files[0]
+    original_content = first_csv.read_bytes()
+
+    # Run pipeline in sibling environment
+    sibling_env = env.copy()
+    sibling_env["PYTHONPATH"] = os.pathsep.join([str(sibling / "src"), str(sibling)])
+    result = subprocess.run(
+        [sys.executable, "scripts/generate_demo.py"],
+        cwd=sibling,
+        capture_output=True,
+        text=True,
+        env=sibling_env,
+    )
+    assert result.returncode == 0, f"Demo data generation failed in sibling: {result.stderr}"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "trend.cli",
+            "run",
+            "-c",
+            "config/demo.yml",
+            "-i",
+            "demo/demo_returns.csv",
+            "--no-structured-log",
+        ],
+        cwd=sibling,
+        capture_output=True,
+        text=True,
+        env=sibling_env,
+    )
+    assert result.returncode == 0, f"Demo analysis failed in sibling: {result.stderr}"
+
+    # Verify CSV exports were created in sibling
+    sibling_exports = sibling / "demo/exports"
+    assert sibling_exports.exists(), "Sibling exports directory not created"
+    sibling_csv_files = list(sibling_exports.glob("*.csv"))
+    assert len(sibling_csv_files) >= 1, f"No CSV files found in sibling: {sibling_csv_files}"
+
+    # Now simulate the sibling cleanup that would have caused the bug
     shutil.rmtree(sibling / "demo/exports")
 
-    assert (first / "demo/exports/analysis_metrics.csv").read_bytes() == original
+    # Verify that first's CSV exports still exist and are intact
+    assert first_csv.exists(), f"First CSV file {first_csv.name} was removed by sibling cleanup"
+    assert (
+        first_csv.read_bytes() == original_content
+    ), f"First CSV file {first_csv.name} content was modified"
+
+    # Verify all first CSV files still exist
+    for csv_file in first_csv_files:
+        assert csv_file.exists(), f"First CSV file {csv_file.name} was removed by sibling cleanup"
 
 
 @pytest.mark.serial
