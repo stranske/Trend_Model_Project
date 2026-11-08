@@ -22,14 +22,52 @@ import pytest
 pytest.importorskip("matplotlib")
 
 
+def _prepare_demo_environment(destination: Path) -> Path:
+    """Give each pipeline test its own scripts, input data and export directory."""
+    root = Path(__file__).resolve().parents[2]
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ("src", "analysis", "config"):
+        shutil.copytree(
+            root / name, destination / name, ignore=shutil.ignore_patterns("__pycache__")
+        )
+    # Path resolution in the CLI locates the project via pyproject.toml.
+    for name in ("pyproject.toml", "config.schema.json"):
+        shutil.copy2(root / name, destination / name)
+    scripts = destination / "scripts"
+    scripts.mkdir()
+    for name in ("generate_demo.py", "run_multi_demo.py", "_run_multi_demo.py"):
+        shutil.copy2(root / "scripts" / name, scripts / name)
+    return destination
+
+
+def test_demo_exports_survive_sibling_cleanup(tmp_path):
+    """Reproduce the sibling test's destructive cleanup without sharing its outputs."""
+    first = _prepare_demo_environment(tmp_path / "first")
+    sibling = _prepare_demo_environment(tmp_path / "sibling")
+    for root in (first, sibling):
+        exports = root / "demo/exports"
+        exports.mkdir(parents=True)
+        (exports / "analysis_metrics.csv").write_text("cagr\n0.12\n", encoding="utf-8")
+    original = (first / "demo/exports/analysis_metrics.csv").read_bytes()
+
+    shutil.rmtree(sibling / "demo/exports")
+
+    assert (first / "demo/exports/analysis_metrics.csv").read_bytes() == original
+
+
 @pytest.mark.serial
 @pytest.mark.xdist_group(name="demo_pipeline")
 class TestDemoGoldenMaster:
     """Golden master tests for demo pipeline outputs."""
 
     @pytest.fixture(autouse=True)
-    def setup_clean_environment(self):
+    def setup_clean_environment(self, request, tmp_path, monkeypatch):
         """Ensure clean demo environment for each test."""
+        if request.node.name in {
+            "test_demo_pipeline_end_to_end",
+            "test_demo_pipeline_deterministic",
+        }:
+            monkeypatch.chdir(_prepare_demo_environment(tmp_path / "demo-run"))
         # Clean up any existing demo exports
         demo_exports = Path("demo/exports")
         if demo_exports.exists():
