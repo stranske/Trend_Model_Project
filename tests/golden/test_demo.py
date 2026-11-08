@@ -609,3 +609,115 @@ class TestDemoGoldenMaster:
         print("  - Identical content → identical hashes")
         print("  - Modified data → different hashes")
         print("  - Timestamps normalized properly")
+
+    def test_cli_csv_substitution_detection(self):
+        """Test that substituting a CSV export after CLI execution is detected.
+
+        This test verifies the provenance protection introduced in #6191:
+        the run manifest records the SHA-256 of each CSV export, and
+        any subsequent modification will cause a hash mismatch.
+
+        Steps:
+        1. Run the CLI to generate exports and manifest
+        2. Record the original hash of analysis_metrics.csv
+        3. Substitute analysis_metrics.csv with modified content
+        4. Verify cli_csv_exports() raises AssertionError for hash mismatch
+        5. Restore the original file
+        6. Verify cli_csv_exports() passes again
+        """
+        import subprocess
+        import sys
+        from pathlib import Path
+        import shutil
+
+        # Set up reproducible environment
+        env = os.environ.copy()
+        env["PYTHONHASHSEED"] = "0"
+        root = Path.cwd()
+        env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), str(root)])
+        env["PYTHONSAFEPATH"] = "1"
+
+        # Clean exports
+        demo_exports = Path("demo/exports")
+        if demo_exports.exists():
+            shutil.rmtree(demo_exports)
+
+        try:
+            # Generate demo data
+            result = subprocess.run(
+                [sys.executable, "scripts/generate_demo.py"],
+                cwd=Path.cwd(),
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            assert result.returncode == 0, f"Demo data generation failed: {result.stderr}"
+
+            demo_csv = Path("demo/demo_returns.csv")
+            assert demo_csv.exists(), "Demo returns CSV not created"
+
+            # Run CLI to generate exports
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "trend.cli",
+                    "run",
+                    "-c",
+                    "config/demo.yml",
+                    "-i",
+                    "demo/demo_returns.csv",
+                    "--no-structured-log",
+                ],
+                cwd=Path.cwd(),
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            assert result.returncode == 0, f"Demo analysis failed: {result.stderr}"
+
+            # Step 1: Verify original exports pass the manifest check
+            original_exports = self.cli_csv_exports(demo_exports, demo_csv)
+            assert "analysis_metrics.csv" in original_exports
+            original_hash = original_exports["analysis_metrics.csv"]
+
+            # Step 2: Substitute analysis_metrics.csv with modified content
+            metrics_path = demo_exports / "analysis_metrics.csv"
+            assert metrics_path.exists(), "analysis_metrics.csv not found"
+
+            # Backup original
+            backup_path = metrics_path.with_suffix(".csv.bak")
+            shutil.copy2(metrics_path, backup_path)
+
+            # Read and modify content - use a value that exists in the file
+            original_content = metrics_path.read_text()
+            # Replace the first CAGR value with an obviously different value
+            modified_content = original_content.replace("0.0860970413963098", "0.9999999999999999")
+            metrics_path.write_text(modified_content)
+
+            # Step 3: Verify that cli_csv_exports now fails with hash mismatch
+            try:
+                self.cli_csv_exports(demo_exports, demo_csv)
+                pytest.fail("Expected AssertionError for substituted CSV, but check passed")
+            except AssertionError as e:
+                assert "was replaced after the CLI run" in str(e), f"Unexpected error: {e}"
+                print(f"✓ Substitution detected as expected: {e}")
+
+            # Step 4: Restore original file
+            shutil.copy2(backup_path, metrics_path)
+            backup_path.unlink()
+
+            # Step 5: Verify that cli_csv_exports passes again
+            restored_exports = self.cli_csv_exports(demo_exports, demo_csv)
+            assert restored_exports == original_exports
+            print("✓ Restored exports pass manifest verification")
+
+            print("\nCSV substitution detection test passed.")
+            print(f"  Original hash: {original_hash}")
+            print("  Modified hash detected and rejected")
+            print("  Restored hash matches original")
+
+        finally:
+            # Cleanup
+            if demo_exports.exists():
+                shutil.rmtree(demo_exports)
