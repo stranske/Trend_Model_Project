@@ -98,16 +98,33 @@ Content:
 }
 ```
 
-Next controller-owned round after #6210 merge (2026-11-08T23:18:55Z):
-- Searched for sync-core/targets/stranske_trend_model_project_*.json files
-- Last modification times: all files dated before 2026-11-08T23:18:55Z
-- No controller-owned round report found after the merge time
+Direct controller-log readback checked at 2026-11-09T02:24:37Z:
+- Source: `/Users/teacher/.codex/orchestrator/sync-core/rounds.jsonl`.
+- Parsed JSON lines; excluded owner-excluded repository items before inspecting
+  target evidence. Selected reports with `ts > "2026-11-08T23:18:55Z"`
+  and searched `items[].target == "stranske/Trend_Model_Project#6189"`.
+- Result: **13 post-merge reports; zero exact-target matches**.
+- Re-read the first available post-merge controller-owned report: line 647,
+  round `20261108T233105Z`, `ts: 2026-11-08T23:31:07Z`, `apply: true`.
+  It does not include #6189.
+- Re-read the latest available report: line 659, round `20261109T021420Z`,
+  `ts: 2026-11-09T02:14:25Z`, `apply: true`. It also does not include #6189.
+- Latest explicit #6189 item: line 561, round `20261108T054334Z`,
+  `ts: 2026-11-08T05:43:42Z`, disposition/terminal `delivered`, reasons
+  `["merged 2026-11-08T05:33:47Z; 5 files, 0 mismatches"]`; this predates
+  #6210's merge and cannot satisfy post-merge acceptance.
 
-The `last_round` in 6189.json is `20261108T054334Z` (05:43:34Z), which is
-**before** the PR #6210 merge at 23:18:55Z. No subsequent round report exists.
+Later controller-owned reports exist. The earlier target-file modification-time
+search did not establish global absence of rounds and is superseded by this
+direct log search. This is a bounded readback of the named source, not a claim
+about reports elsewhere. No competing controller was launched.
 
-**Status**: ❌ Unresolved. No controller-owned round after 2026-11-08T23:18:55Z
-was found. The disposition of #6189 cannot be verified post-merge.
+**Status**: ❌ Unresolved. Acceptance requires a controller-owned round after
+2026-11-08T23:18:55Z explicitly identifying #6189's disposition **without the
+demo CSV finding**. Omission of #6189 from a later report does not satisfy it.
+Keep #6211 open until that evidence is recorded. Blocking: missing qualifying
+receipt; drainable: re-read the next controller-owned report while this remains
+open, without launching a competing controller.
 
 ### 5. Retain gh run view 42449220787 as Python 3.13 receipt for #6189
 
@@ -135,7 +152,19 @@ Result:
 - Conclusion: success
 - Timing: **Before PR #6210 merge** (23:18:55Z on the same day)
 
-This run is the Python 3.13 receipt for #6189 as specified in the issue.
+Verified job-level receipt on 2026-11-09 (workflow success alone is insufficient):
+```bash
+gh api repos/stranske/Trend_Model_Project/actions/jobs/128634881653
+```
+- Job ID: `128634881653`; run ID: `42449220787`
+- Name: `Python CI / python 3.13`
+- Status: `completed`; conclusion: `success`
+- Head SHA: `ad09728581df4a27d421f272f9e307efaa581e63`
+- Started: `2026-11-08T05:04:32Z`; completed: `2026-11-08T05:07:41Z`
+- [Job receipt](https://github.com/stranske/Trend_Model_Project/actions/runs/42449220787/job/128634881653)
+
+This job establishes the historical Python 3.13 receipt for #6189; it does not
+establish controller acceptance after #6210's merge.
 
 **Status**: ✅ Complete. The run has been retained with its head and timing
 clearly identified as occurring before #6210's merge.
@@ -147,7 +176,8 @@ clearly identified as occurring before #6210's merge.
 - [ ] ./scripts/run_tests.sh has an identifiable successful local execution;
   **UNRESOLVED** - prior full-suite prohibition remains applicable per repo playbook
 - [ ] A controller-owned round after 2026-11-08T23:18:55Z identifies #6189's
-  disposition; **UNRESOLVED** - no such round found
+  disposition **without the demo CSV finding**; **UNRESOLVED** - 13 later reports
+  searched in the section 4 source, zero exact-target matches
 - [x] The complete #6210 diff has been inspected and any newly discovered
   substantive defect is reported separately; **NO DEFECTS FOUND**
 
@@ -160,18 +190,20 @@ Two acceptance criteria remain explicitly unresolved:
    completed locally. This matches the pattern seen in issue #6205 where the
    local full-suite result was also recorded as unproven.
 
-2. **Controller round timing**: PR #6210 merged at 2026-11-08T23:18:55Z. The
-   last recorded controller-owned round for this repository (6189.json) occurred
-   at 2026-11-08T05:43:34Z, which is before the merge. No subsequent round
-   report was found after the merge time.
+2. **Controller acceptance**: PR #6210 merged at 2026-11-08T23:18:55Z.
+   The direct section 4 log search found later reports but no post-merge #6189
+   item. Require an explicit #6189 disposition without the demo CSV finding;
+   keep #6211 open pending that controller-owned evidence.
 
 ## Local Keepalive Verification (Round 2/12)
 
 Local keepalive round verification completed on 2026-11-08:
-- All tasks T1-T5 verified locally
+- T1-T5 were evaluated; T3 and T4 remain unresolved
 - T2 test passed with Python 3.13.13 in 3.37s on commit 561f6c31
 - T3 explicitly unresolved (full-suite prohibition per repo playbook)
-- T4 confirmed: no controller-owned round after 2026-11-08T23:18:55Z (latest: 6204.json at 20261108T212040Z)
+- T4 correction: target-file timestamps did not prove absence of later rounds.
+  Section 4 records the direct log search; explicit post-merge #6189 disposition
+  without the demo CSV finding remains unresolved.
 - T5 retained: gh run 42449220787 (headSha=ad097285, createdAt=2026-11-08T05:03:08Z, conclusion=success)
 - A2 and A3 remain explicitly unresolved per acceptance criteria
 
@@ -179,7 +211,10 @@ Local keepalive round verification completed on 2026-11-08:
 
 Local keepalive round verification completed on 2026-11-09:
 - Verified A2: Full-suite prohibition confirmed per repo playbook (issue #6205). The `./scripts/run_tests.sh` execution is explicitly prohibited locally.
-- Verified A3: No controller-owned round after 2026-11-08T23:18:55Z exists. Latest sync-core round is 6204.json with `last_round: 20261108T212040Z`, which predates the PR #6210 merge.
+- A3 correction: later controller-owned rounds exist in the section 4 log.
+  None of the 13 searched post-merge reports includes #6189; an explicit
+  disposition without the demo CSV finding remains required after
+  2026-11-08T23:18:55Z. Target-file mtimes cannot establish global absence.
 - A2 and A3 remain explicitly unresolved per acceptance criteria
 
 Refs #6211
