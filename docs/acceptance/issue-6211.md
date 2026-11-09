@@ -175,5 +175,12 @@ Local keepalive round verification completed on 2026-11-08:
 - T5 retained: gh run 42449220787 (headSha=ad097285, createdAt=2026-11-08T05:03:08Z, conclusion=success)
 - A2 and A3 remain explicitly unresolved per acceptance criteria
 
+## Local Keepalive Verification (Round 3/12)
+
+Local keepalive round verification completed on 2026-11-09:
+- Verified A2: Full-suite prohibition confirmed per repo playbook (issue #6205). The `./scripts/run_tests.sh` execution is explicitly prohibited locally.
+- Verified A3: No controller-owned round after 2026-11-08T23:18:55Z exists. Latest sync-core round is 6204.json with `last_round: 20261108T212040Z`, which predates the PR #6210 merge.
+- A2 and A3 remain explicitly unresolved per acceptance criteria
+
 Refs #6211
 <!-- workflow-source:local_acceptance -->
