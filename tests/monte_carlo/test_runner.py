@@ -2598,3 +2598,29 @@ def test_nav_extract_receives_gross_returns_when_scenario_costs_absent(
     for returns in captured:
         assert isinstance(returns, pd.Series)
         assert not returns.empty
+
+
+def test_nav_user_weighted_named_regression_fails_when_returns_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deliberate-break guard: pre-fix passes only net_returns (None) into NAV extraction."""
+
+    original = MonteCarloRunner._extract_nav_series
+
+    def legacy_nav_extract(
+        self: MonteCarloRunner,
+        run_result: Any,
+        context: Any,
+        *,
+        returns: pd.Series | None = None,
+    ) -> pd.Series | None:
+        # Ignore the explicit user-weighted stream; mirror returns=net_returns only.
+        return original(self, run_result, context, returns=None)
+
+    monkeypatch.setattr(MonteCarloRunner, "_extract_nav_series", legacy_nav_extract)
+    results, sim_runs = _run_weighted_nav_scenario()
+    with pytest.raises(AssertionError, match="Series are different"):
+        for evaluation, run_result in zip(results.evaluations, sim_runs, strict=True):
+            user_weighted = run_result.details["portfolio_user_weight"]
+            expected_nav = _expected_nav_from_returns(user_weighted)
+            pd.testing.assert_series_equal(evaluation.nav_series, expected_nav)
