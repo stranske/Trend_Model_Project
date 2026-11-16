@@ -2572,3 +2572,29 @@ def test_nav_uses_user_weighted_returns_without_scenario_costs(tmp_path: Path) -
     for free, costly in zip(base_free.evaluations, base_costly.evaluations, strict=True):
         assert free.nav_series is not None and costly.nav_series is not None
         assert costly.nav_series.iloc[-1] < free.nav_series.iloc[-1]
+
+
+def test_nav_extract_receives_gross_returns_when_scenario_costs_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression guard: passing only net_returns (None) falls back to equal-weight NAV."""
+
+    captured: list[pd.Series | None] = []
+    original = MonteCarloRunner._extract_nav_series
+
+    def spy_extract(
+        self: MonteCarloRunner,
+        run_result: Any,
+        context: Any,
+        *,
+        returns: pd.Series | None = None,
+    ) -> pd.Series | None:
+        captured.append(returns)
+        return original(self, run_result, context, returns=returns)
+
+    monkeypatch.setattr(MonteCarloRunner, "_extract_nav_series", spy_extract)
+    _run_weighted_nav_scenario()
+    assert len(captured) == 2
+    for returns in captured:
+        assert isinstance(returns, pd.Series)
+        assert not returns.empty
