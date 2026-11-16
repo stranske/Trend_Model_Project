@@ -4,6 +4,7 @@ import logging
 import random
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -2572,6 +2573,40 @@ def test_nav_uses_user_weighted_returns_without_scenario_costs(tmp_path: Path) -
     for free, costly in zip(base_free.evaluations, base_costly.evaluations, strict=True):
         assert free.nav_series is not None and costly.nav_series is not None
         assert costly.nav_series.iloc[-1] < free.nav_series.iloc[-1]
+
+
+def test_scenario_costs_clear_engine_base_trading_costs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """runner.py zeroes engine cost_model when a scenario cost process is active."""
+    observed_cost_models: list[dict[str, float]] = []
+    original = runner_module.run_simulation
+
+    def capture(config_arg: Any, returns: pd.DataFrame) -> RunResult:
+        portfolio = getattr(config_arg, "portfolio", None)
+        if isinstance(portfolio, Mapping):
+            cost_model = portfolio.get("cost_model")
+            if isinstance(cost_model, Mapping):
+                observed_cost_models.append(
+                    {
+                        "per_trade_bps": float(cost_model.get("per_trade_bps", -1.0)),
+                        "half_spread_bps": float(cost_model.get("half_spread_bps", -1.0)),
+                    }
+                )
+        return original(config_arg, returns)
+
+    monkeypatch.setattr(runner_module, "run_simulation", capture)
+    _run_weighted_nav_scenario(
+        base_bps=40.0,
+        scenario_costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {"trade_cost_bps": {"kind": "fixed", "value": 0.0}},
+        },
+    )
+    assert observed_cost_models
+    assert all(
+        entry["per_trade_bps"] == 0.0 and entry["half_spread_bps"] == 0.0
+        for entry in observed_cost_models
+    )
 
 
 def test_nav_extract_receives_gross_returns_when_scenario_costs_absent(
