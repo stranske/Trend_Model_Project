@@ -2439,3 +2439,136 @@ def test_audit_shared_scores_and_sampled_costs_reach_real_strategy_outputs(monke
         assert evaluation.metrics["cagr"] == pytest.approx(
             float((1.0 + net).prod() ** (12.0 / len(net)) - 1.0)
         )
+
+
+def _divergent_weighted_price_history() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=24, freq="ME")
+    asset_a = np.linspace(100.0, 120.0, len(dates))
+    asset_b = 100.0 * np.cumprod(1.0 + np.resize([0.03, -0.01, 0.02, -0.02], len(dates)))
+    return pd.DataFrame({"AssetA": asset_a, "AssetB": asset_b}, index=dates)
+
+
+def _user_weighted_strategy_variants() -> list[StrategyVariant]:
+    return [
+        StrategyVariant(
+            name="w80",
+            curated=True,
+            overrides={
+                "portfolio": {
+                    "weighting": {"name": "custom"},
+                    "custom_weights": {"AssetA": 80.0, "AssetB": 20.0},
+                },
+            },
+        ),
+        StrategyVariant(
+            name="w20",
+            curated=True,
+            overrides={
+                "portfolio": {
+                    "weighting": {"name": "custom"},
+                    "custom_weights": {"AssetA": 20.0, "AssetB": 80.0},
+                },
+            },
+        ),
+    ]
+
+
+def _run_weighted_nav_scenario(
+    *,
+    scenario_costs: dict[str, Any] | None = None,
+    base_bps: float = 0.0,
+    monthly_cost: float = 0.0,
+) -> tuple[MonteCarloResults, list[RunResult]]:
+    scenario = _scenario("two_layer")
+    scenario.monte_carlo.n_paths = 1
+    scenario.monte_carlo.horizon_years = 2.0
+    scenario.strategy_set["curated"] = _user_weighted_strategy_variants()
+    if scenario_costs is not None:
+        scenario.costs = scenario_costs
+
+    config = _base_config()
+    config["portfolio"]["weighting"] = {"name": "custom"}
+    config["portfolio"]["custom_weights"] = {"AssetA": 80.0, "AssetB": 20.0}
+    config["portfolio"]["cost_model"] = {
+        "per_trade_bps": base_bps,
+        "half_spread_bps": base_bps,
+    }
+    config["run"]["monthly_cost"] = monthly_cost
+
+    captured: list[RunResult] = []
+    original = runner_module.run_simulation
+
+    def capture(config_arg: Any, returns: pd.DataFrame) -> RunResult:
+        result = original(config_arg, returns)
+        captured.append(result)
+        return result
+
+    runner = MonteCarloRunner(
+        scenario,
+        base_config=config,
+        price_history=_divergent_weighted_price_history(),
+    )
+    runner_module.run_simulation = capture
+    try:
+        results = runner.run(jobs=1)
+    finally:
+        runner_module.run_simulation = original
+
+    assert not results.errors, results.errors
+    assert len(captured) == 2
+    return results, captured
+
+
+def _expected_nav_from_returns(user_returns: pd.Series) -> pd.Series:
+    nav = (1.0 + user_returns.astype(float)).cumprod()
+    nav = nav / nav.iloc[0]
+    nav.name = "NAV"
+    return nav
+
+
+def test_nav_uses_user_weighted_returns_without_scenario_costs(tmp_path: Path) -> None:
+    from tests.monte_carlo.test_results import _has_parquet_engine
+
+    no_cost, sim_runs = _run_weighted_nav_scenario()
+    assert len(no_cost.evaluations) == 2
+
+    by_strategy = {evaluation.strategy_name: evaluation for evaluation in no_cost.evaluations}
+    w80 = by_strategy["w80"]
+    w20 = by_strategy["w20"]
+    assert w80.path_id == w20.path_id
+    assert w80.nav_series is not None and w20.nav_series is not None
+    assert not np.allclose(w80.nav_series.to_numpy(), w20.nav_series.to_numpy())
+
+    for evaluation, run_result in zip(no_cost.evaluations, sim_runs, strict=True):
+        user_weighted = run_result.details["portfolio_user_weight"]
+        assert isinstance(user_weighted, pd.Series) and not user_weighted.empty
+        expected_nav = _expected_nav_from_returns(user_weighted)
+        pd.testing.assert_series_equal(evaluation.nav_series, expected_nav)
+
+    nav_paths = no_cost.metadata["nav_paths"]
+    assert isinstance(nav_paths, pd.DataFrame) and not nav_paths.empty
+    pd.testing.assert_series_equal(nav_paths.iloc[:, 0], w80.nav_series, check_names=False)
+
+    if _has_parquet_engine():
+        from trend_analysis.monte_carlo.results import export_results
+
+        exported = export_results(no_cost, tmp_path, formats=["csv"])
+        loaded = pd.read_parquet(exported["nav_paths_parquet"])
+        pd.testing.assert_frame_equal(loaded, nav_paths, check_freq=False, check_names=False)
+
+    zero_bps, _ = _run_weighted_nav_scenario(
+        scenario_costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {"trade_cost_bps": {"kind": "fixed", "value": 0.0}},
+        }
+    )
+    for baseline, adjusted in zip(no_cost.evaluations, zero_bps.evaluations, strict=True):
+        assert baseline.strategy_name == adjusted.strategy_name
+        pd.testing.assert_series_equal(baseline.nav_series, adjusted.nav_series)
+
+    base_free, _ = _run_weighted_nav_scenario(base_bps=0.0)
+    base_costly, _ = _run_weighted_nav_scenario(base_bps=40.0)
+    for free, costly in zip(base_free.evaluations, base_costly.evaluations, strict=True):
+        assert free.nav_series is not None and costly.nav_series is not None
+        assert costly.nav_series.iloc[-1] < free.nav_series.iloc[-1]
