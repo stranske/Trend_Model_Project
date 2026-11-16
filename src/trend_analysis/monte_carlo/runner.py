@@ -794,7 +794,8 @@ class MonteCarloRunner:
                 diagnostic["costs"]["applied_debits"] = debits
         nav_series = None
         try:
-            nav_series = self._extract_nav_series(run_result, context, returns=net_returns)
+            nav_returns = net_returns if net_returns is not None else gross_returns
+            nav_series = self._extract_nav_series(run_result, context, returns=nav_returns)
         except Exception as exc:
             self._logger.debug(
                 "Failed to extract NAV series for path %s (%s): %s",
