@@ -623,6 +623,41 @@ def _regime_mapped_cost_run(*, jobs: int = 1):
     ).run(jobs=jobs)
 
 
+def test_resolve_regime_labels_maps_production_labels_to_cost_regimes() -> None:
+    scenario = MonteCarloScenario(
+        name="regime_label_map",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 1,
+            "horizon_years": 1,
+            "frequency": "M",
+            "seed": 1,
+        },
+        strategy_set={"curated": [StrategyVariant(name="RegimeCostStrategy")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {
+                "trade_cost_bps": {"kind": "fixed", "value": 5.0},
+                "slippage_multiplier": 1.0,
+            },
+            "stress": {
+                "trade_cost_bps": {"kind": "fixed", "value": 100.0},
+                "slippage_multiplier": 2.0,
+            },
+        },
+    )
+    runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=_price_history())
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    labels = pd.Series(["Risk-On", "Risk-Off", "calm"], index=dates, dtype="string")
+    run_result = type("RunStub", (), {"details": {"regime_labels_out": labels}})()
+    mapped = runner._resolve_regime_labels(run_result, dates)
+    assert mapped is not None
+    assert mapped.tolist() == ["calm", "stress", "calm"]
+
+
 def test_real_runner_maps_risk_off_to_stress_costs() -> None:
     for jobs in (1, 2):
         result = _regime_mapped_cost_run(jobs=jobs)
