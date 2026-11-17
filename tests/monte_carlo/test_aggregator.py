@@ -24,7 +24,8 @@ from trend_analysis.monte_carlo.aggregator import (
     quantiles_frame_schema,
 )
 from trend_analysis.monte_carlo.export import export_aggregation_results
-from trend_analysis.monte_carlo.results import build_summary_frame
+from trend_analysis.monte_carlo.results import build_results_frame, build_summary_frame
+from tests.monte_carlo.test_runner import _COST_TERMINAL_WEALTH, _evaluate_with_scenario_costs
 
 
 def _sample_results_frame() -> pd.DataFrame:
@@ -2511,3 +2512,35 @@ def test_export_aggregation_results_dedupes_formats(tmp_path, monkeypatch) -> No
     assert len(calls) == 14
     assert exported["path_summary_csv"].exists()
     assert exported["path_summary_parquet"].exists()
+
+
+def test_path_frame_and_aggregation_exports_keep_nav_path_metrics_with_costs(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evaluation = _evaluate_with_scenario_costs(monkeypatch)
+    results_frame = build_results_frame([evaluation])
+
+    path_frame = build_path_frame(results_frame)
+
+    path_schema = path_frame_schema(results_frame)
+    assert {"terminal_wealth", "time_underwater"} <= set(path_schema)
+    assert list(path_frame.columns) == list(path_schema)
+    assert path_frame.loc[0, "time_underwater"] == 2
+    assert path_frame.loc[0, "terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)
+
+    aggregation = aggregate_monte_carlo_results(
+        results_frame,
+        quantiles=[0.5],
+        breach_spec={"terminal_wealth": [1.0]},
+        expected_shortfall_spec={"terminal_wealth": 0.5},
+    )
+    quantile_metrics = set(aggregation.quantiles_frame["metric"])
+    assert {"terminal_wealth", "time_underwater"} <= quantile_metrics
+
+    formats = ["csv", "parquet"] if export_module._supports_parquet() else ["csv"]
+    exported = export_aggregation_results(aggregation, tmp_path, formats=formats)
+    readers = {"csv": pd.read_csv, "parquet": pd.read_parquet}
+    for fmt in formats:
+        loaded = readers[fmt](exported[f"path_summary_{fmt}"])
+        assert loaded.loc[0, "time_underwater"] == 2
+        assert loaded.loc[0, "terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)

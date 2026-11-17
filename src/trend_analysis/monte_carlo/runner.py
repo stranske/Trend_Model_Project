@@ -803,6 +803,9 @@ class MonteCarloRunner:
                 strategy.name,
                 exc,
             )
+        if nav_series is not None:
+            metrics = dict(metrics)
+            metrics.update(self._nav_path_metrics(nav_series))
         return StrategyEvaluation(
             fold_id=context.fold_id,
             fold_label=context.fold_label,
@@ -1859,6 +1862,19 @@ class MonteCarloRunner:
         nav = nav / first
         nav.name = "NAV"
         return nav
+
+    @staticmethod
+    def _nav_path_metrics(nav: pd.Series) -> dict[str, float]:
+        """Return terminal wealth and time underwater for an evaluated NAV path.
+
+        ``terminal_wealth`` is the final NAV normalised by the first NAV so the
+        initial wealth is 1.0. ``time_underwater`` counts evaluation periods whose
+        NAV is strictly below the running peak (``nav.cummax()``).
+        """
+        values = nav.astype(float)
+        terminal_wealth = float(values.iloc[-1] / values.iloc[0])
+        time_underwater = int((values < values.cummax()).sum())
+        return {"terminal_wealth": terminal_wealth, "time_underwater": time_underwater}
 
     def _resolve_turnover_diagnostics(
         self,
