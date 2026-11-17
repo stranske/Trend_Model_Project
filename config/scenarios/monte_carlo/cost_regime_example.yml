@@ -20,6 +20,19 @@ metrics:
   rf_override_enabled: true
   rf_rate_annual: 0.03
 
+# Deterministic regime proxy so out-of-sample labels include Risk-On and Risk-Off,
+# which the Monte Carlo runner maps to calm/stress cost regimes when costs define
+# those keys.
+regime:
+  enabled: true
+  proxy: AssetA
+  method: rolling_return
+  lookback: 2
+  smoothing: 1
+  threshold: 0.0
+  neutral_band: 0.0
+  min_observations: 1
+
 monte_carlo:
   mode: two_layer
   n_paths: 20
