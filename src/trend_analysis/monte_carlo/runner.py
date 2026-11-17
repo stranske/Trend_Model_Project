@@ -1716,17 +1716,43 @@ class MonteCarloRunner:
 
     def _resolve_regime_labels(self, run_result: Any, out_index: pd.Index) -> pd.Series | None:
         details = getattr(run_result, "details", None)
+        raw: pd.Series | None = None
         if isinstance(details, Mapping):
             labels = details.get("regime_labels_out")
             if isinstance(labels, pd.Series):
-                return labels.reindex(out_index)
-            labels = details.get("regime_labels")
-            if isinstance(labels, pd.Series):
-                return labels.reindex(out_index)
-            period_labels = self._period_results_regimes(details.get("period_results"), out_index)
-            if period_labels is not None:
-                return period_labels
-        return None
+                raw = labels
+            if raw is None:
+                labels = details.get("regime_labels")
+                if isinstance(labels, pd.Series):
+                    raw = labels
+            if raw is None:
+                raw = self._period_results_regimes(details.get("period_results"), out_index)
+        if raw is None:
+            return None
+        aligned = raw.reindex(out_index)
+        cost_process = self._get_cost_process()
+        if cost_process is None:
+            return aligned
+        regime_keys = set(cost_process._regimes)
+        regime_cfg = (
+            self.base_config.get("regime") if isinstance(self.base_config, Mapping) else None
+        )
+        settings = normalise_settings(regime_cfg) if isinstance(regime_cfg, Mapping) else None
+        if settings is None:
+            settings = normalise_settings(None)
+
+        def _map_label(label: object) -> str:
+            text = str(label).strip() if label is not None else ""
+            if text in regime_keys:
+                return text
+            if text == settings.risk_on_label and "calm" in regime_keys:
+                return "calm"
+            if text == settings.risk_off_label and "stress" in regime_keys:
+                return "stress"
+            return text
+
+        mapped = aligned.map(_map_label)
+        return mapped.astype("string")
 
     def _resolve_turnover_series(
         self, run_result: Any, out_index: pd.Index | None

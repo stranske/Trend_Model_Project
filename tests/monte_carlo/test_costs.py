@@ -543,6 +543,119 @@ def test_runner_net_nav_falls_with_costs() -> None:
         assert net.metrics["max_drawdown"] > gross.metrics["max_drawdown"]
 
 
+def _regime_proxy_price_history() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=24, freq="ME")
+    proxy_levels = np.array(
+        [
+            100,
+            102,
+            101,
+            99,
+            98,
+            97,
+            96,
+            95,
+            94,
+            93,
+            92,
+            91,
+            90,
+            89,
+            88,
+            87,
+            86,
+            85,
+            84,
+            83,
+            82,
+            81,
+            80,
+            79,
+        ],
+        dtype=float,
+    )
+    asset_levels = 100.0 * np.cumprod(1.0 + np.resize([0.01, -0.005, 0.02, -0.01], len(dates)))
+    return pd.DataFrame({"AssetA": asset_levels, "RegimeProxy": proxy_levels}, index=dates)
+
+
+def _regime_mapped_cost_run(*, jobs: int = 1):
+    scenario = MonteCarloScenario(
+        name="regime_cost_mapping",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 2,
+            "horizon_years": 2.0,
+            "frequency": "M",
+            "seed": 312,
+            "jobs": jobs,
+        },
+        strategy_set={"curated": [StrategyVariant(name="RegimeCostStrategy")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {
+                "trade_cost_bps": {"kind": "fixed", "value": 5.0},
+                "slippage_multiplier": 1.0,
+            },
+            "stress": {
+                "trade_cost_bps": {"kind": "fixed", "value": 100.0},
+                "slippage_multiplier": 2.0,
+            },
+        },
+    )
+    config = _base_config()
+    config["regime"] = {
+        "enabled": True,
+        "proxy": "RegimeProxy",
+        "method": "rolling_return",
+        "lookback": 2,
+        "smoothing": 1,
+        "threshold": 0.0,
+        "neutral_band": 0.0,
+        "min_observations": 1,
+    }
+    return MonteCarloRunner(
+        scenario,
+        base_config=config,
+        price_history=_regime_proxy_price_history(),
+    ).run(jobs=jobs)
+
+
+def test_real_runner_maps_risk_off_to_stress_costs() -> None:
+    for jobs in (1, 2):
+        result = _regime_mapped_cost_run(jobs=jobs)
+        assert not result.errors, result.errors
+        for evaluation in result.evaluations:
+            costs = evaluation.diagnostic["costs"]
+            regimes = costs["regimes"].astype("string")
+            cost_bps = pd.to_numeric(costs["cost_bps"], errors="coerce")
+            slippage = pd.to_numeric(costs["slippage_multiplier"], errors="coerce")
+            assert set(regimes.unique()) <= {"calm", "stress"}
+            assert {5.0, 100.0}.issubset(set(cost_bps.unique()))
+            assert {1.0, 2.0}.issubset(set(slippage.unique()))
+            calm_mask = regimes == "calm"
+            stress_mask = regimes == "stress"
+            assert (cost_bps[calm_mask] == 5.0).all()
+            assert (slippage[calm_mask] == 1.0).all()
+            assert (cost_bps[stress_mask] == 100.0).all()
+            assert (slippage[stress_mask] == 2.0).all()
+            expected = costs["turnover"] * cost_bps / 10000.0 * slippage
+            pd.testing.assert_series_equal(costs["transaction_costs"], expected)
+
+    serial = _regime_mapped_cost_run(jobs=1)
+    parallel = _regime_mapped_cost_run(jobs=2)
+    pd.testing.assert_frame_equal(
+        serial.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
+        parallel.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
+    )
+    pd.testing.assert_frame_equal(
+        serial.metadata["nav_paths"].sort_index(axis=1),
+        parallel.metadata["nav_paths"].sort_index(axis=1),
+    )
+
+
 def test_cost_debits_reconcile_to_turnover() -> None:
     result = _real_net_cost_run(100.0)
     for evaluation in result.evaluations:

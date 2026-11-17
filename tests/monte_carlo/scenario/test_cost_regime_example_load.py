@@ -14,3 +14,9 @@ def test_cost_regime_example_loads_without_exception() -> None:
     assert scenario.costs is not None
     assert isinstance(scenario.costs, Mapping)
     assert scenario.costs.get("kind") == "regime_stochastic"
+    raw = scenario.raw
+    assert isinstance(raw, Mapping)
+    regime = raw.get("regime")
+    assert isinstance(regime, Mapping)
+    assert regime.get("enabled") is True
+    assert regime.get("proxy") == "AssetA"
