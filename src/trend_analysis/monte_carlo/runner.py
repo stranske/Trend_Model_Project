@@ -67,6 +67,7 @@ from trend_analysis.regimes import compute_regimes, normalise_settings
 from trend_analysis.risk import periods_per_year_from_code
 from trend_analysis.stages.portfolio import _compute_stats
 from trend_analysis.stages.selection import single_period_run
+from trend_analysis.time_utils import resolve_period_bound
 
 from .aggregator import aggregate_monte_carlo_results
 from .cache import PathContextCache
@@ -874,14 +875,16 @@ class MonteCarloRunner:
         settings = normalise_settings(regime_cfg)
         if not settings.enabled or not settings.proxy:
             return max_turnover
+        split_cfg = getattr(config, "sample_split", None)
+        in_sample_returns = self._in_sample_returns(context.returns, split_cfg)
         proxy_col = self._resolve_regime_proxy_column(
-            context.returns,
+            in_sample_returns,
             settings.proxy,
             getattr(config, "benchmarks", None),
         )
         if proxy_col is None:
             return max_turnover
-        proxy_series = self._build_regime_proxy_series(context.returns, proxy_col)
+        proxy_series = self._build_regime_proxy_series(in_sample_returns, proxy_col)
         if proxy_series is None or proxy_series.empty:
             return max_turnover
         data_cfg = getattr(config, "data", None)
@@ -890,7 +893,13 @@ class MonteCarloRunner:
             freq = data_cfg.get("frequency")
         freq_label = str(freq or "M")
         periods_per_year = periods_per_year_from_code(freq_label)
-        proxy_window = (proxy_series.index[0], proxy_series.index[-1], len(proxy_series))
+        proxy_values = tuple(float(value) for value in proxy_series.to_numpy())
+        proxy_window = (
+            proxy_series.index[0],
+            proxy_series.index[-1],
+            len(proxy_series),
+            proxy_values,
+        )
         cache_key = self._regime_cache_key(
             context,
             proxy_col,
@@ -955,7 +964,7 @@ class MonteCarloRunner:
         self,
         context: _PathContext,
         proxy_col: str,
-        proxy_window: tuple[object, object, int],
+        proxy_window: tuple[object, ...],
         freq_label: str,
         periods_per_year: float,
         settings: Any,
@@ -977,6 +986,20 @@ class MonteCarloRunner:
             getattr(settings, "default_label", None),
             getattr(settings, "annualise_volatility", None),
         )
+
+    @staticmethod
+    def _in_sample_returns(returns: pd.DataFrame, split_cfg: Any) -> pd.DataFrame:
+        """Restrict returns to the resolved in-sample window for regime proxies."""
+        split = _resolve_sample_split(returns, split_cfg or {})
+        if "Date" not in returns.columns:
+            return returns
+        dates = pd.to_datetime(returns["Date"], errors="coerce")
+        in_start = resolve_period_bound(split["in_start"], bound="start")
+        in_end = resolve_period_bound(split["in_end"], bound="end")
+        mask = (dates >= in_start) & (dates <= in_end)
+        if not mask.any():
+            return returns
+        return returns.loc[mask].reset_index(drop=True)
 
     def _resolve_regime_proxy_column(
         self,

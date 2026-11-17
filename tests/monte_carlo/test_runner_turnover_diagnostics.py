@@ -9,7 +9,7 @@ import pytest
 
 import trend_analysis.multi_period.engine as mp_engine
 from trend.config_schema import CoreConfigError
-from trend_analysis.api import RunResult
+from trend_analysis.api import RunResult, run_simulation
 from trend_analysis.monte_carlo.results import (
     StrategyEvaluation,
     build_diagnostics_frame,
@@ -25,6 +25,7 @@ def _base_config(
     max_turnover: object | None = None,
     *,
     regime_cfg: dict[str, object] | None = None,
+    sample_split: dict[str, str] | None = None,
 ) -> dict[str, object]:
     portfolio: dict[str, object] = {"cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0}}
     if max_turnover is not None:
@@ -40,7 +41,7 @@ def _base_config(
         },
         "preprocessing": {},
         "vol_adjust": {},
-        "sample_split": {},
+        "sample_split": sample_split if sample_split is not None else {},
         "portfolio": portfolio,
         "metrics": {},
         "regime": regime_payload,
@@ -497,6 +498,133 @@ def test_runner_run_exposes_realized_turnover(monkeypatch) -> None:
     pdt.assert_series_equal(evaluation_by_path[1].turnover, expected_b, check_freq=False)
 
 
+def test_single_period_cap_ignores_out_of_sample_proxy() -> None:
+    """Regime turnover caps must follow in-sample proxy data, not future path tail."""
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    fund_a = [0.02, -0.01, 0.03, 0.01, 0.15, -0.15]
+    fund_b = [-0.01, 0.02, -0.01, 0.02, -0.15, 0.15]
+    in_calm = [0.08, 0.08, 0.08, 0.08]
+    oos_stress_tail = [-0.40, -0.40]
+    oos_calm_tail = [0.40, 0.40]
+    in_stress = [0.08, 0.08, -0.40, -0.40]
+
+    def _returns_frame(regime_proxy: list[float]) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "FundA": fund_a,
+                "FundB": fund_b,
+                "RegimeProxy": regime_proxy,
+                "RF": np.zeros(len(dates)),
+            }
+        )
+
+    base_config = {
+        "version": "1",
+        "data": {
+            "date_column": "Date",
+            "frequency": "M",
+            "risk_free_column": "RF",
+            "allow_risk_free_fallback": False,
+        },
+        "preprocessing": {},
+        "vol_adjust": {},
+        "sample_split": {"method": "ratio", "ratio": 0.7},
+        "portfolio": {
+            "cost_model": {"per_trade_bps": 0.0, "half_spread_bps": 0.0},
+            "max_turnover": {"calm": 0.80, "stress": 0.05},
+            "selection_mode": "all",
+            "weighting": {"name": "equal"},
+            "custom_weights": {"FundA": 70.0, "FundB": 30.0},
+            "previous_weights": {"FundA": 30.0, "FundB": 70.0},
+        },
+        "metrics": {},
+        "regime": {
+            "enabled": True,
+            "proxy": "RegimeProxy",
+            "method": "rolling_return",
+            "lookback": 1,
+            "smoothing": 1,
+            "threshold": 0.0,
+            "neutral_band": 0.0,
+            "risk_on_label": "calm",
+            "risk_off_label": "stress",
+            "default_label": "calm",
+        },
+        "export": {},
+        "run": {},
+        "benchmarks": {},
+    }
+    runner = MonteCarloRunner(
+        _scenario(),
+        base_config=base_config,
+    )
+
+    def _simulate_path(
+        regime_proxy: list[float], path_id: int
+    ) -> tuple[float, float, Mapping[str, float]]:
+        returns = _returns_frame(regime_proxy)
+        context = _PathContext(
+            path_id=path_id,
+            prices=pd.DataFrame(),
+            returns=returns,
+            score_frame=pd.DataFrame(),
+            path_hash=f"path-{path_id}",
+            seed=path_id,
+        )
+        config = runner._build_strategy_config(
+            StrategyVariant(name="base"), seed=1, context=context
+        )
+        runner._apply_regime_turnover_caps(config, context)
+        cap = config.portfolio["max_turnover"]
+        assert isinstance(cap, (int, float))
+        result = run_simulation(config, returns)
+        turnover = result.turnover
+        assert turnover is not None and not turnover.empty
+        details = result.details or {}
+        weights = details.get("fund_weights")
+        assert isinstance(weights, Mapping)
+        return float(cap), float(turnover.iloc[0]), weights
+
+    cap_a, turnover_a, weights_a = _simulate_path(in_calm + oos_stress_tail, path_id=0)
+    cap_b, turnover_b, weights_b = _simulate_path(in_calm + oos_calm_tail, path_id=1)
+    cap_ctl, turnover_ctl, weights_ctl = _simulate_path(
+        in_stress + oos_stress_tail,
+        path_id=2,
+    )
+
+    assert cap_a == pytest.approx(0.80)
+    assert cap_b == pytest.approx(0.80)
+    assert cap_ctl == pytest.approx(0.05)
+    assert turnover_a == pytest.approx(turnover_b)
+    assert dict(weights_a) == dict(weights_b)
+    assert turnover_ctl == pytest.approx(0.05)
+    assert turnover_ctl < turnover_a
+
+
+def test_in_sample_returns_slices_resolved_window() -> None:
+    """Regime proxy inputs must match the canonical in-sample window only."""
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": list(range(6))})
+
+    ratio_slice = MonteCarloRunner._in_sample_returns(returns, {"method": "ratio", "ratio": 0.5})
+    assert len(ratio_slice) == 3
+    assert list(ratio_slice["Date"]) == list(dates[:3])
+
+    explicit_slice = MonteCarloRunner._in_sample_returns(
+        returns,
+        {
+            "in_start": "2020-02",
+            "in_end": "2020-04",
+            "out_start": "2020-05",
+            "out_end": "2020-06",
+        },
+    )
+    assert list(explicit_slice["Asset"]) == [1, 2, 3]
+    assert explicit_slice["Date"].iloc[0] == pd.Timestamp("2020-02-29")
+    assert explicit_slice["Date"].iloc[-1] == pd.Timestamp("2020-04-30")
+
+
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, -0.02, -0.03]})
@@ -537,6 +665,12 @@ def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
                 "risk_off_label": "stress",
                 "default_label": "calm",
             },
+            sample_split={
+                "in_start": "2021-01",
+                "in_end": "2021-03",
+                "out_start": "2021-03",
+                "out_end": "2021-03",
+            },
         ),
     )
     context = _PathContext(
@@ -567,11 +701,9 @@ def test_runner_caches_regime_labels(monkeypatch) -> None:
 
     def _fake_compute_regimes(series, settings, *, freq, periods_per_year):
         call_count["count"] += 1
-        return pd.Series(
-            ["calm", "stress", "stress"],
-            index=series.index,
-            name="regime",
-        )
+        template = ["calm", "stress", "stress"]
+        labels = template[: len(series)]
+        return pd.Series(labels, index=series.index, name="regime")
 
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.compute_regimes",
@@ -593,6 +725,12 @@ def test_runner_caches_regime_labels(monkeypatch) -> None:
                 "risk_on_label": "calm",
                 "risk_off_label": "stress",
                 "default_label": "calm",
+            },
+            sample_split={
+                "in_start": "2023-01",
+                "in_end": "2023-03",
+                "out_start": "2023-03",
+                "out_end": "2023-03",
             },
         ),
     )
@@ -621,8 +759,11 @@ def test_resolve_turnover_cap_for_context_selects_regime(monkeypatch) -> None:
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, -0.02]})
 
     def _fake_compute_regimes(series, _settings, *, freq, periods_per_year):
-        del series, freq, periods_per_year
-        return pd.Series(["calm", "stress"], index=dates, name="regime")
+        del freq, periods_per_year
+        labels = ["calm", "stress"][: len(series)]
+        if len(labels) == 1:
+            labels = ["stress"]
+        return pd.Series(labels, index=series.index, name="regime")
 
     monkeypatch.setattr(
         "trend_analysis.monte_carlo.runner.compute_regimes",
@@ -645,6 +786,7 @@ def test_resolve_turnover_cap_for_context_selects_regime(monkeypatch) -> None:
                 "risk_off_label": "stress",
                 "default_label": "calm",
             },
+            sample_split={"method": "ratio", "ratio": 0.7},
         ),
     )
     context = _PathContext(
@@ -655,7 +797,7 @@ def test_resolve_turnover_cap_for_context_selects_regime(monkeypatch) -> None:
         path_hash="hash",
         seed=123,
     )
-    config = runner._build_strategy_config(StrategyVariant(name="base"), seed=1)
+    config = runner._build_strategy_config(StrategyVariant(name="base"), seed=1, context=context)
 
     resolved = runner._resolve_turnover_cap_for_context(
         config,
@@ -718,7 +860,7 @@ def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
     dates_a = pd.date_range("2020-01-31", periods=3, freq="ME")
     dates_b = pd.date_range("2021-01-31", periods=3, freq="ME")
     returns_a = pd.DataFrame({"Date": dates_a, "Asset": [0.01, 0.02, 0.03]})
-    returns_b = pd.DataFrame({"Date": dates_b, "Asset": [0.01, 0.02, -0.03]})
+    returns_b = pd.DataFrame({"Date": dates_b, "Asset": [-0.03, 0.02, 0.01]})
 
     calls: list[pd.Timestamp] = []
 
@@ -746,9 +888,10 @@ def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
             "risk_off_label": "stress",
             "default_label": "calm",
         },
+        sample_split={"method": "ratio", "ratio": 0.7},
     )
     runner = MonteCarloRunner(_scenario(), base_config=base_config)
-    config = runner._build_strategy_config(StrategyVariant(name="base"), seed=1)
+    split_cfg = {"method": "ratio", "ratio": 0.7}
 
     context_a = _PathContext(
         path_id=0,
@@ -767,19 +910,41 @@ def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
         seed=123,
     )
 
-    max_turnover = config.portfolio["max_turnover"]
-    runner._resolve_turnover_cap_for_context(config, context_a, max_turnover)
-    runner._resolve_turnover_cap_for_context(config, context_b, max_turnover)
+    config_a = runner._build_strategy_config(
+        StrategyVariant(name="base"), seed=1, context=context_a
+    )
+    config_b = runner._build_strategy_config(
+        StrategyVariant(name="base"), seed=2, context=context_b
+    )
+    max_turnover = config_a.portfolio["max_turnover"]
+    runner._resolve_turnover_cap_for_context(config_a, context_a, max_turnover)
+    runner._resolve_turnover_cap_for_context(config_b, context_b, max_turnover)
 
     assert len(calls) == 2
 
-    proxy_a = runner._build_regime_proxy_series(context_a.returns, "Asset")
-    proxy_b = runner._build_regime_proxy_series(context_b.returns, "Asset")
-    settings = normalise_settings(config.regime)
+    proxy_a = runner._build_regime_proxy_series(
+        runner._in_sample_returns(context_a.returns, split_cfg),
+        "Asset",
+    )
+    proxy_b = runner._build_regime_proxy_series(
+        runner._in_sample_returns(context_b.returns, split_cfg),
+        "Asset",
+    )
+    assert proxy_a is not None and proxy_b is not None
+    settings = normalise_settings(config_a.regime)
+
+    def _proxy_window(proxy: pd.Series) -> tuple[object, ...]:
+        return (
+            proxy.index[0],
+            proxy.index[-1],
+            len(proxy),
+            tuple(float(value) for value in proxy.to_numpy()),
+        )
+
     key_a = runner._regime_cache_key(
         context_a,
         "Asset",
-        (proxy_a.index[0], proxy_a.index[-1], len(proxy_a)),
+        _proxy_window(proxy_a),
         "M",
         periods_per_year_from_code("M"),
         settings,
@@ -787,13 +952,59 @@ def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
     key_b = runner._regime_cache_key(
         context_b,
         "Asset",
-        (proxy_b.index[0], proxy_b.index[-1], len(proxy_b)),
+        _proxy_window(proxy_b),
         "M",
         periods_per_year_from_code("M"),
         settings,
     )
 
     assert key_a != key_b
+
+    calls.clear()
+    shared_dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    returns_calm = pd.DataFrame({"Date": shared_dates, "Asset": [0.01, 0.02, 0.03]})
+    returns_stress = pd.DataFrame({"Date": shared_dates, "Asset": [-0.03, -0.02, -0.01]})
+
+    def _classify_regimes(series, settings, *, freq, periods_per_year):
+        del freq, periods_per_year
+        label = settings.risk_on_label if float(series.iloc[-1]) > 0 else settings.risk_off_label
+        calls.append(label)
+        return pd.Series([label] * len(series), index=series.index, dtype="string")
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.compute_regimes",
+        _classify_regimes,
+    )
+
+    for idx, frame in enumerate((returns_calm, returns_stress)):
+        ctx = _PathContext(
+            path_id=idx,
+            prices=pd.DataFrame(),
+            returns=frame,
+            score_frame=pd.DataFrame(),
+            path_hash="same-dates",
+            seed=123,
+        )
+        cfg = runner._build_strategy_config(StrategyVariant(name="base"), seed=1, context=ctx)
+        runner._resolve_turnover_cap_for_context(cfg, ctx, cfg.portfolio["max_turnover"])
+
+    assert calls == ["calm", "stress"]
+
+    ctx_repeat = _PathContext(
+        path_id=2,
+        prices=pd.DataFrame(),
+        returns=returns_calm,
+        score_frame=pd.DataFrame(),
+        path_hash="same-dates",
+        seed=123,
+    )
+    cfg_repeat = runner._build_strategy_config(
+        StrategyVariant(name="base"), seed=1, context=ctx_repeat
+    )
+    runner._resolve_turnover_cap_for_context(
+        cfg_repeat, ctx_repeat, cfg_repeat.portfolio["max_turnover"]
+    )
+    assert calls == ["calm", "stress"]
 
 
 def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch) -> None:
