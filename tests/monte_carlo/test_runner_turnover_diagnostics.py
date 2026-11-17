@@ -602,6 +602,29 @@ def test_single_period_cap_ignores_out_of_sample_proxy() -> None:
     assert turnover_ctl < turnover_a
 
 
+def test_in_sample_returns_slices_resolved_window() -> None:
+    """Regime proxy inputs must match the canonical in-sample window only."""
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    returns = pd.DataFrame({"Date": dates, "Asset": list(range(6))})
+
+    ratio_slice = MonteCarloRunner._in_sample_returns(returns, {"method": "ratio", "ratio": 0.5})
+    assert len(ratio_slice) == 3
+    assert list(ratio_slice["Date"]) == list(dates[:3])
+
+    explicit_slice = MonteCarloRunner._in_sample_returns(
+        returns,
+        {
+            "in_start": "2020-02",
+            "in_end": "2020-04",
+            "out_start": "2020-05",
+            "out_end": "2020-06",
+        },
+    )
+    assert list(explicit_slice["Asset"]) == [1, 2, 3]
+    assert explicit_slice["Date"].iloc[0] == pd.Timestamp("2020-02-29")
+    assert explicit_slice["Date"].iloc[-1] == pd.Timestamp("2020-04-30")
+
+
 def test_runner_resolves_regime_turnover_caps(monkeypatch) -> None:
     dates = pd.date_range("2021-01-31", periods=3, freq="ME")
     returns = pd.DataFrame({"Date": dates, "Asset": [0.01, -0.02, -0.03]})
