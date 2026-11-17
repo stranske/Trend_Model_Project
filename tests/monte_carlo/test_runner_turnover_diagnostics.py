@@ -960,6 +960,52 @@ def test_runner_regime_cache_key_includes_proxy_window(monkeypatch) -> None:
 
     assert key_a != key_b
 
+    calls.clear()
+    shared_dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    returns_calm = pd.DataFrame({"Date": shared_dates, "Asset": [0.01, 0.02, 0.03]})
+    returns_stress = pd.DataFrame({"Date": shared_dates, "Asset": [-0.03, -0.02, -0.01]})
+
+    def _classify_regimes(series, settings, *, freq, periods_per_year):
+        del freq, periods_per_year
+        label = settings.risk_on_label if float(series.iloc[-1]) > 0 else settings.risk_off_label
+        calls.append(label)
+        return pd.Series([label] * len(series), index=series.index, dtype="string")
+
+    monkeypatch.setattr(
+        "trend_analysis.monte_carlo.runner.compute_regimes",
+        _classify_regimes,
+    )
+
+    for idx, frame in enumerate((returns_calm, returns_stress)):
+        ctx = _PathContext(
+            path_id=idx,
+            prices=pd.DataFrame(),
+            returns=frame,
+            score_frame=pd.DataFrame(),
+            path_hash="same-dates",
+            seed=123,
+        )
+        cfg = runner._build_strategy_config(StrategyVariant(name="base"), seed=1, context=ctx)
+        runner._resolve_turnover_cap_for_context(cfg, ctx, cfg.portfolio["max_turnover"])
+
+    assert calls == ["calm", "stress"]
+
+    ctx_repeat = _PathContext(
+        path_id=2,
+        prices=pd.DataFrame(),
+        returns=returns_calm,
+        score_frame=pd.DataFrame(),
+        path_hash="same-dates",
+        seed=123,
+    )
+    cfg_repeat = runner._build_strategy_config(
+        StrategyVariant(name="base"), seed=1, context=ctx_repeat
+    )
+    runner._resolve_turnover_cap_for_context(
+        cfg_repeat, ctx_repeat, cfg_repeat.portfolio["max_turnover"]
+    )
+    assert calls == ["calm", "stress"]
+
 
 def test_multi_period_turnover_caps_and_binding(monkeypatch: pytest.MonkeyPatch) -> None:
     history_dates = pd.date_range("2019-06-30", periods=7, freq="ME")

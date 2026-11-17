@@ -990,10 +990,7 @@ class MonteCarloRunner:
     @staticmethod
     def _in_sample_returns(returns: pd.DataFrame, split_cfg: Any) -> pd.DataFrame:
         """Restrict returns to the resolved in-sample window for regime proxies."""
-        try:
-            split = _resolve_sample_split(returns, split_cfg or {})
-        except (ValueError, TypeError):
-            return returns
+        split = _resolve_sample_split(returns, split_cfg or {})
         if "Date" not in returns.columns:
             return returns
         dates = pd.to_datetime(returns["Date"], errors="coerce")
