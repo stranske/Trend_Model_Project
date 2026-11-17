@@ -2541,6 +2541,7 @@ def test_path_frame_and_aggregation_exports_keep_nav_path_metrics_with_costs(
     exported = export_aggregation_results(aggregation, tmp_path, formats=formats)
     readers = {"csv": pd.read_csv, "parquet": pd.read_parquet}
     for fmt in formats:
-        loaded = readers[fmt](exported[f"path_summary_{fmt}"])
-        assert loaded.loc[0, "time_underwater"] == 2
-        assert loaded.loc[0, "terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)
+        for key in (f"path_summary_{fmt}", f"per_strategy_stats_{fmt}"):
+            loaded = readers[fmt](exported[key])
+            assert loaded.loc[0, "time_underwater"] == 2
+            assert loaded.loc[0, "terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)
