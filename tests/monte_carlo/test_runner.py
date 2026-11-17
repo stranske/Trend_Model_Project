@@ -15,6 +15,7 @@ import trend_analysis.monte_carlo.folds as folds_module
 import trend_analysis.monte_carlo.runner as runner_module
 from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.config import RiskFreeResolution
+from trend_analysis.monte_carlo.costs import CostProcessOutput
 from trend_analysis.monte_carlo.results import (
     MonteCarloPathError,
     MonteCarloResults,
@@ -2659,3 +2660,123 @@ def test_nav_user_weighted_named_regression_fails_when_returns_omitted(
             user_weighted = run_result.details["portfolio_user_weight"]
             expected_nav = _expected_nav_from_returns(user_weighted)
             pd.testing.assert_series_equal(evaluation.nav_series, expected_nav)
+
+
+def test_nav_path_metrics_counts_periods_strictly_below_running_peak() -> None:
+    dates = pd.date_range("2024-01-31", periods=7, freq="ME")
+    # A return to exactly the prior peak (1.2) is not underwater.
+    nav = pd.Series([1.0, 1.2, 1.1, 1.2, 0.9, 1.0, 1.3], index=dates)
+
+    metrics = MonteCarloRunner._nav_path_metrics(nav)
+
+    assert metrics["time_underwater"] == 3
+    assert isinstance(metrics["time_underwater"], int)
+    assert metrics["terminal_wealth"] == pytest.approx(1.3)
+
+
+def test_nav_path_metrics_normalises_by_initial_nav_and_monotone_is_never_underwater() -> None:
+    dates = pd.date_range("2024-01-31", periods=4, freq="ME")
+    nav = pd.Series([2.0, 2.2, 2.4, 3.0], index=dates)
+
+    metrics = MonteCarloRunner._nav_path_metrics(nav)
+
+    assert metrics == {"terminal_wealth": pytest.approx(1.5), "time_underwater": 0}
+
+
+_COST_DATES = pd.date_range("2024-01-31", periods=4, freq="ME")
+# Gross returns never draw down; the 3% debit in March pushes net NAV below its peak.
+_COST_GROSS_RETURNS = pd.Series([0.0, 0.02, 0.01, 0.01], index=_COST_DATES)
+_COST_DEBITS = pd.Series([0.0, 0.0, 0.03, 0.0], index=_COST_DATES)
+_COST_TERMINAL_WEALTH = 1.02 * 0.98 * 1.01
+
+
+def _evaluate_with_scenario_costs(monkeypatch: pytest.MonkeyPatch) -> StrategyEvaluation:
+    runner = MonteCarloRunner(
+        _scenario("two_layer"), base_config=_base_config(), price_history=_price_history()
+    )
+
+    def _fake_run_simulation(_config: Any, _returns: pd.DataFrame) -> RunResult:
+        return RunResult(
+            metrics=pd.DataFrame({"cagr": [0.2]}, index=["user_weight"]),
+            details={
+                "portfolio_user_weight": _COST_GROSS_RETURNS,
+                "periods_per_year": 12.0,
+                "risk_free_out_sample": pd.Series(0.0, index=_COST_DATES),
+            },
+            seed=0,
+            environment={},
+        )
+
+    def _fake_costs(*_args: Any) -> CostProcessOutput:
+        zeros = pd.Series(0.0, index=_COST_DATES)
+        return CostProcessOutput(
+            regimes=pd.Series("calm", index=_COST_DATES),
+            cost_bps=zeros,
+            slippage_multiplier=pd.Series(1.0, index=_COST_DATES),
+            turnover=zeros,
+            transaction_costs=_COST_DEBITS,
+            cost_drag=_COST_DEBITS,
+            total_cost_drag=float(_COST_DEBITS.sum()),
+        )
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+    monkeypatch.setattr(runner, "_maybe_sample_costs", _fake_costs)
+    context = runner_module._PathContext(
+        path_id=3,
+        prices=pd.DataFrame(),
+        returns=pd.DataFrame({"AssetA": _COST_GROSS_RETURNS.to_numpy()}, index=_COST_DATES),
+        score_frame=pd.DataFrame(),
+        path_hash="cost-hash",
+        seed=5,
+    )
+    return runner._evaluate_strategy(StrategyVariant(name="StrategyA"), context)
+
+
+def test_evaluate_strategy_nav_metrics_use_net_returns_with_scenario_costs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evaluation = _evaluate_with_scenario_costs(monkeypatch)
+
+    assert evaluation.metric_source == "scenario_cost_net"
+    assert evaluation.metrics["total_cost_drag"] == pytest.approx(0.03)
+    # Net NAV: 1.0, 1.02, 0.9996, 1.009596 -> two periods below the 1.02 peak.
+    assert evaluation.metrics["time_underwater"] == 2
+    assert evaluation.metrics["terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)
+    assert evaluation.nav_series is not None
+    assert evaluation.metrics["terminal_wealth"] == pytest.approx(evaluation.nav_series.iloc[-1])
+
+    frame = build_results_frame([evaluation])
+    assert frame.loc[0, "time_underwater"] == 2
+    assert frame.loc[0, "terminal_wealth"] == pytest.approx(_COST_TERMINAL_WEALTH)
+
+
+def test_evaluate_strategy_omits_nav_metrics_when_nav_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = MonteCarloRunner(
+        _scenario("two_layer"), base_config=_base_config(), price_history=_price_history()
+    )
+
+    def _fake_run_simulation(_config: Any, _returns: pd.DataFrame) -> RunResult:
+        return RunResult(
+            metrics=pd.DataFrame({"cagr": [0.2]}, index=["user_weight"]),
+            details={},
+            seed=0,
+            environment={},
+        )
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+    context = runner_module._PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=pd.DataFrame({"AssetA": [0.01, 0.02]}, index=_COST_DATES[:2]),
+        score_frame=pd.DataFrame(),
+        path_hash="hash",
+        seed=1,
+    )
+
+    evaluation = runner._evaluate_strategy(StrategyVariant(name="StrategyA"), context)
+
+    assert evaluation.nav_series is None
+    assert "terminal_wealth" not in evaluation.metrics
+    assert "time_underwater" not in evaluation.metrics

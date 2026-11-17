@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 import pytest
 
+import trend_analysis.monte_carlo.runner as runner_module
+from tests.monte_carlo.test_runner import _base_config, _price_history, _scenario
+from trend_analysis.api import RunResult
 from trend_analysis.monte_carlo.results import (
     RESULT_BASE_COLUMNS,
     MonteCarloResults,
@@ -15,6 +20,8 @@ from trend_analysis.monte_carlo.results import (
     build_summary_frame,
     export_results,
 )
+from trend_analysis.monte_carlo.runner import MonteCarloRunner, _PathContext
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def _has_parquet_engine() -> bool:
@@ -570,3 +577,85 @@ def test_build_diagnostics_frame_uses_evaluation_binding_when_missing_in_diagnos
 
     assert diagnostics["turnover"].tolist() == [0.11, 0.09]
     assert diagnostics["turnover_cap_binding"].tolist() == [True, False]
+
+
+_NAV_DATES = pd.date_range("2024-01-31", periods=6, freq="ME")
+# The first return is non-zero so normalising by ``nav.iloc[0]`` is observable.
+_DRAWDOWN_RETURNS = pd.Series([0.05, 0.10, -0.20, 0.05, 0.25, 0.02], index=_NAV_DATES)
+_MONOTONE_RETURNS = pd.Series([0.01] * 6, index=_NAV_DATES)
+
+
+def _evaluate_with_user_returns(
+    monkeypatch: pytest.MonkeyPatch, user_returns: pd.Series, name: str
+) -> StrategyEvaluation:
+    runner = MonteCarloRunner(
+        _scenario("two_layer"), base_config=_base_config(), price_history=_price_history()
+    )
+
+    def _fake_run_simulation(_config: Any, _returns: pd.DataFrame) -> RunResult:
+        return RunResult(
+            metrics=pd.DataFrame({"cagr": [0.1]}, index=["user_weight"]),
+            details={"portfolio_user_weight": user_returns},
+            seed=0,
+            environment={},
+        )
+
+    monkeypatch.setattr(runner_module, "run_simulation", _fake_run_simulation)
+    context = _PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=pd.DataFrame({"AssetA": user_returns.to_numpy()}, index=_NAV_DATES),
+        score_frame=pd.DataFrame(),
+        path_hash=f"hash-{name}",
+        seed=1,
+    )
+    return runner._evaluate_strategy(StrategyVariant(name=name), context)
+
+
+def test_results_frame_includes_terminal_wealth_and_time_underwater(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drawdown = _evaluate_with_user_returns(monkeypatch, _DRAWDOWN_RETURNS, "drawdown")
+    monotone = _evaluate_with_user_returns(monkeypatch, _MONOTONE_RETURNS, "monotone")
+
+    frame = build_results_frame([drawdown, monotone]).set_index("strategy")
+
+    assert {"terminal_wealth", "time_underwater"} <= set(frame.columns)
+    # Normalised NAV: 1.0, 1.10, 0.88, 0.924, 1.155, 1.1781. The peak of 1.10 is
+    # breached for exactly two periods (0.88, 0.924) before recovering to 1.155.
+    assert frame.loc["drawdown", "time_underwater"] == 2
+    assert frame.loc["drawdown", "terminal_wealth"] == pytest.approx(
+        1.10 * 0.80 * 1.05 * 1.25 * 1.02
+    )
+    assert drawdown.nav_series is not None
+    assert frame.loc["drawdown", "terminal_wealth"] == pytest.approx(
+        drawdown.nav_series.iloc[-1] / drawdown.nav_series.iloc[0]
+    )
+    assert frame.loc["monotone", "time_underwater"] == 0
+    assert frame.loc["monotone", "terminal_wealth"] == pytest.approx(1.01**5)
+
+
+@pytest.mark.parametrize("fmt", ["csv", "json", "parquet"])
+def test_export_results_round_trips_terminal_wealth_and_time_underwater(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    if fmt == "parquet" and not _has_parquet_engine():
+        pytest.skip("parquet engine not available")
+    evaluation = _evaluate_with_user_returns(monkeypatch, _DRAWDOWN_RETURNS, "drawdown")
+    results_frame = build_results_frame([evaluation])
+    results = MonteCarloResults(
+        mode="two_layer",
+        evaluations=[evaluation],
+        errors=[],
+        results_frame=results_frame,
+        summary_frame=build_summary_frame(results_frame),
+    )
+
+    exported = export_results(results, tmp_path, formats=[fmt])
+
+    readers = {"csv": pd.read_csv, "json": pd.read_json, "parquet": pd.read_parquet}
+    loaded = readers[fmt](exported[f"results_{fmt}"])
+    summary = readers[fmt](exported[f"summary_{fmt}"])
+    for frame in (loaded, summary):
+        assert frame.loc[0, "time_underwater"] == 2
+        assert frame.loc[0, "terminal_wealth"] == pytest.approx(1.1781)
