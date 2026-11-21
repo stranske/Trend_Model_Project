@@ -400,6 +400,14 @@ def test_default_start_has_feasible_calibration_history() -> None:
     assert [fold.forecast_start for fold in explicit_rolling_folds] == [pd.Timestamp("2020-02-29")]
     assert explicit_rolling_folds[0].calibration_start == pd.Timestamp("2020-01-31")
     assert explicit_rolling_folds[0].calibration_end == pd.Timestamp("2020-01-31")
+    # Pin why the default start cannot stop at the second date (2020-02-29): a single-row
+    # calibration slice has zero returns and cannot fit the bootstrap model.
+    single_row_window = history.loc[
+        explicit_rolling_folds[0].calibration_start : explicit_rolling_folds[0].calibration_end
+    ]
+    assert len(single_row_window) == 1
+    with pytest.raises(ValueError, match="at least two usable observations"):
+        StationaryBootstrapModel().fit(single_row_window)
 
     explicit_spaced_gen = FoldGenerator.from_config(
         {"enabled": True, "mode": "count_spaced", "start": "2020-04-30", "n_folds": 2}
@@ -461,6 +469,15 @@ def test_default_start_has_feasible_calibration_history() -> None:
         for token in expected_tokens:
             assert token.lower() in message.lower(), f"Missing {token!r} in {message!r}"
 
+    # Runner entry point propagates the same actionable insufficient-history error.
+    with pytest.raises(
+        ValueError, match=r"Insufficient calibration history.*2020-02-29.*2020-03-31"
+    ):
+        _runner_for_folds(
+            fixture_path,
+            {"enabled": True, "mode": "rolling", "end": "2020-02-29"},
+        ).run(jobs=1)
+
 
 def test_default_start_on_minimal_three_point_checked_in_series() -> None:
     sample_path = Path("data/raw/managers/sample_manager.csv")
@@ -510,3 +527,61 @@ def test_rolling_default_start_respects_calibration_lookback_years() -> None:
     ]
     assert folds[0].calibration_start == pd.Timestamp("2020-01-31")
     assert folds[0].calibration_end == pd.Timestamp("2020-12-31")
+
+
+def test_default_start_advances_past_single_observation_lookback_window() -> None:
+    gapped_index = pd.DatetimeIndex(
+        [
+            "2020-01-31",
+            "2020-07-31",
+            "2020-08-31",
+            "2020-09-30",
+        ]
+    )
+
+    for cfg in (
+        {"enabled": True, "mode": "rolling", "calibration_lookback_years": 0.25},
+        {"enabled": True, "mode": "count_spaced", "n_folds": 1, "calibration_lookback_years": 0.25},
+    ):
+        gen = FoldGenerator.from_config(cfg)
+        assert gen is not None
+        folds = gen.generate(gapped_index)
+        assert [fold.forecast_start for fold in folds] == [pd.Timestamp("2020-09-30")]
+        assert folds[0].calibration_start == pd.Timestamp("2020-07-31")
+        assert folds[0].calibration_end == pd.Timestamp("2020-08-31")
+
+
+def test_default_start_raises_when_lookback_window_never_has_two_observations() -> None:
+    quarterly_index = pd.date_range("2020-03-31", periods=4, freq="QE")
+
+    for cfg in (
+        {"enabled": True, "mode": "rolling", "calibration_lookback_years": 0.08},
+        {"enabled": True, "mode": "count_spaced", "n_folds": 1, "calibration_lookback_years": 0.08},
+    ):
+        gen = FoldGenerator.from_config(cfg)
+        assert gen is not None
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Insufficient calibration history for calibration_lookback_years=0\.08.*"
+                r"at least 2 distinct calibration observations.*2020-03-31 to 2020-12-31"
+            ),
+        ):
+            gen.generate(quarterly_index)
+
+
+def test_explicit_bounds_normalize_timezone_aware_timestamps() -> None:
+    index = pd.date_range("2020-01-31", periods=6, freq="ME")
+    generator = FoldGenerator(
+        mode="rolling",
+        start="2020-03-31T00:00:00Z",
+        end="2020-06-30T00:00:00Z",
+        step_months=3,
+    )
+
+    folds = generator.generate(index)
+
+    assert [fold.forecast_start for fold in folds] == [
+        pd.Timestamp("2020-03-31"),
+        pd.Timestamp("2020-06-30"),
+    ]

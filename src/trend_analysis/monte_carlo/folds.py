@@ -171,7 +171,25 @@ class FoldGenerator:
                 f"earliest feasible fold start is {lookback_start.date()}, "
                 f"after available history ({unique_dates[0].date()} to {unique_dates[-1].date()})"
             )
-        return max(earliest_feasible, _align_to_index(lookback_start, index))
+        candidate = max(earliest_feasible, _align_to_index(lookback_start, unique_dates))
+        start_pos = int(unique_dates.searchsorted(candidate, side="left"))
+        for pos in range(start_pos, len(unique_dates)):
+            forecast_start = pd.Timestamp(unique_dates[pos])
+            calibration_end = pd.Timestamp(unique_dates[pos - 1])
+            calibration_start = _resolve_calibration_start(
+                calibration_end, unique_dates, self.calibration_lookback_years
+            )
+            window_start_pos = int(unique_dates.searchsorted(calibration_start, side="left"))
+            if pos - window_start_pos >= _MIN_CALIBRATION_OBSERVATIONS:
+                return forecast_start
+
+        raise ValueError(
+            "Insufficient calibration history for "
+            f"calibration_lookback_years={self.calibration_lookback_years}: "
+            f"no fold start has at least {_MIN_CALIBRATION_OBSERVATIONS} distinct "
+            f"calibration observations within the {lookback_months}-month lookback window "
+            f"(available history: {unique_dates[0].date()} to {unique_dates[-1].date()})"
+        )
 
     def _resolve_implicit_bounds(
         self,
@@ -350,9 +368,14 @@ def _coerce_timestamp(value: object, field: str) -> pd.Timestamp:
     if value is None:
         raise ValueError(f"{field} must be a valid date")
     try:
-        return pd.Timestamp(value)
+        ts = pd.Timestamp(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field} must be a valid date") from exc
+    if pd.isna(ts):
+        raise ValueError(f"{field} must be a valid date")
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert("UTC").tz_localize(None)
+    return ts
 
 
 def _coerce_index(history_index: Iterable[object]) -> pd.DatetimeIndex:
