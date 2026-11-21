@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -398,6 +399,14 @@ def test_hf_macro_curated_docs_has_10_rows_with_intent_and_rationale() -> None:
         assert rationale.strip()
 
 
+def _legacy_curated_only_pack_error(payload: Mapping[str, object]) -> str | None:
+    """Pre-fix gate: only the `curated` top-level key was accepted."""
+
+    if payload.get("curated") is None:
+        return "strategy_pack.curated is required"
+    return None
+
+
 def test_shipped_hf_macro_pack_normalizes_strategies_list_before_validation() -> None:
     """Pin strategies-only pack shape: legacy validation required `curated` and failed here."""
     macro_pack = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
@@ -405,6 +414,8 @@ def test_shipped_hf_macro_pack_normalizes_strategies_list_before_validation() ->
     assert isinstance(payload, dict)
     assert "strategies" in payload
     assert "curated" not in payload
+
+    assert _legacy_curated_only_pack_error(payload) == "strategy_pack.curated is required"
 
     resolved, pack_error = _resolve_pack_curated(payload)
     assert pack_error is None
