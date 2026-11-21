@@ -456,6 +456,21 @@ def test_validate_strategy_pack_does_not_mutate_base_config(
     assert base_config == base_snapshot
 
 
+def test_validate_strategy_pack_accepts_hf_macro_curated_strategies_pack() -> None:
+    pack_path = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    errors = validate_strategy_pack(pack_path)
+    assert errors == []
+
+
+def test_validate_strategy_pack_rejects_non_list_strategies(tmp_path: Path) -> None:
+    pack_path = tmp_path / "invalid_pack.yml"
+    pack_path.write_text(yaml.safe_dump({"strategies": "not-a-list"}), encoding="utf-8")
+
+    errors = validate_strategy_pack(pack_path)
+
+    assert errors == ["strategy_pack.strategies must be a list"]
+
+
 def test_validate_strategy_pack_rejects_non_list_curated(tmp_path: Path) -> None:
     pack_path = tmp_path / "invalid_pack.yml"
     pack_path.write_text(yaml.safe_dump({"curated": "not-a-list"}), encoding="utf-8")
