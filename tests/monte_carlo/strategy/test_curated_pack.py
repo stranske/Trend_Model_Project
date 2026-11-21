@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from scripts import validate_strategy_pack
 from trend_analysis.config.model import TrendConfig
 from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.monte_carlo.registry import load_scenario
@@ -391,6 +392,44 @@ def test_hf_macro_curated_docs_has_10_rows_with_intent_and_rationale() -> None:
         assert name.strip()
         assert intent.strip()
         assert rationale.strip()
+
+
+def test_cli_validates_shipped_hf_macro_pack(capsys, tmp_path: Path) -> None:
+    macro_pack = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    payload = yaml.safe_load(macro_pack.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    assert "strategies" in payload
+    assert "curated" not in payload
+
+    exit_code = validate_strategy_pack.main([str(macro_pack)])
+    shipped_output = capsys.readouterr()
+    assert exit_code == 0, shipped_output.out + shipped_output.err
+    assert "Strategy pack is valid." in shipped_output.out
+
+    equity_pack = Path("config/scenarios/monte_carlo/strategies/hf_equity_curated.yml")
+    assert validate_strategy_pack.main([str(equity_pack)]) == 0
+
+    malformed_pack = tmp_path / "malformed_hf_macro_pack.yml"
+    malformed_pack.write_text(
+        yaml.safe_dump(
+            {
+                "strategies": [
+                    {
+                        "identifier": "macro_bad_extra",
+                        "name": "BadExtra",
+                        "tags": ["macro"],
+                        "overrides": {},
+                        "rogue_field": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    malformed_exit = validate_strategy_pack.main([str(malformed_pack)])
+    malformed_output = capsys.readouterr()
+    assert malformed_exit == 1
+    assert "rogue_field" in malformed_output.out
 
 
 def test_hf_macro_20y_loads_curated_pack_variants() -> None:
