@@ -282,7 +282,8 @@ class FoldGenerator:
         if raw_start <= index[0]:
             raise ValueError(
                 f"Insufficient calibration history for fold start {raw_start.date()}: "
-                f"fold_start must be after the earliest history date ({index[0].date()})"
+                f"fold_start must be after the earliest history date ({index[0].date()}; "
+                f"available history: {index[0].date()} to {index[-1].date()})"
             )
         if raw_start > index[-1]:
             raise ValueError(

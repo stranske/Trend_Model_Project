@@ -344,6 +344,25 @@ def test_default_start_has_feasible_calibration_history() -> None:
     fixture_path = Path("tests/fixtures/regime_lookback_sensitive.csv")
     history = load_price_history(fixture_path)
 
+    # Pin the previous implicit-start behavior (defaulting omitted start to index.min()):
+    # using the earliest history date (2020-01-31) fails in both rolling and count_spaced modes,
+    # whereas omitting start now derives 2020-03-31 on the exact same fixture.
+    legacy_default_start = str(history.index.min().date())
+    for legacy_cfg in (
+        {"enabled": True, "mode": "rolling", "start": legacy_default_start, "step_months": 3},
+        {"enabled": True, "mode": "count_spaced", "start": legacy_default_start, "n_folds": 2},
+    ):
+        legacy_gen = FoldGenerator.from_config(legacy_cfg)
+        assert legacy_gen is not None
+        with pytest.raises(
+            ValueError,
+            match=(
+                r"Insufficient calibration history.*2020-01-31.*"
+                r"available history: 2020-01-31 to 2020-08-31"
+            ),
+        ):
+            legacy_gen.generate(history.index)
+
     # Both implicit-date modes derive the earliest start with >= 2 calibration observations.
     rolling_cfg = {"enabled": True, "mode": "rolling", "step_months": 3}
     rolling_gen = FoldGenerator.from_config(rolling_cfg)
@@ -383,14 +402,17 @@ def test_default_start_has_feasible_calibration_history() -> None:
         assert results.metadata["folds"][0]["forecast_start"].startswith("2020-03-31")
 
     # Compatibility controls: supported explicit dates and calibration windows are retained.
-    explicit_gen = FoldGenerator.from_config(
-        {"enabled": True, "mode": "explicit", "fold_starts": ["2020-05-31"]}
-    )
+    explicit_cfg = {"enabled": True, "mode": "explicit", "fold_starts": ["2020-05-31"]}
+    explicit_gen = FoldGenerator.from_config(explicit_cfg)
     assert explicit_gen is not None
     explicit_folds = explicit_gen.generate(history.index)
     assert [fold.forecast_start for fold in explicit_folds] == [pd.Timestamp("2020-05-31")]
     assert explicit_folds[0].calibration_start == pd.Timestamp("2020-01-31")
     assert explicit_folds[0].calibration_end == pd.Timestamp("2020-04-30")
+    explicit_results = _runner_for_folds(fixture_path, explicit_cfg).run(jobs=1)
+    assert explicit_results.errors == []
+    assert explicit_results.metadata["n_folds"] == 1
+    assert explicit_results.metadata["folds"][0]["forecast_start"].startswith("2020-05-31")
 
     explicit_rolling_gen = FoldGenerator.from_config(
         {"enabled": True, "mode": "rolling", "start": "2020-02-29", "n_folds": 1}
@@ -469,14 +491,23 @@ def test_default_start_has_feasible_calibration_history() -> None:
         for token in expected_tokens:
             assert token.lower() in message.lower(), f"Missing {token!r} in {message!r}"
 
-    # Runner entry point propagates the same actionable insufficient-history error.
-    with pytest.raises(
-        ValueError, match=r"Insufficient calibration history.*2020-02-29.*2020-03-31"
-    ):
-        _runner_for_folds(
-            fixture_path,
+    # Runner entry point propagates the same actionable insufficient-history errors across modes.
+    for runner_impossible_cfg, runner_pattern in (
+        (
             {"enabled": True, "mode": "rolling", "end": "2020-02-29"},
-        ).run(jobs=1)
+            r"Insufficient calibration history.*2020-02-29.*2020-03-31",
+        ),
+        (
+            {"enabled": True, "mode": "count_spaced", "start": "2020-01-31", "n_folds": 2},
+            r"Insufficient calibration history.*2020-01-31.*2020-01-31 to 2020-08-31",
+        ),
+        (
+            {"enabled": True, "mode": "explicit", "fold_starts": ["2020-01-31"]},
+            r"Insufficient calibration history.*2020-01-31.*2020-01-31 to 2020-08-31",
+        ),
+    ):
+        with pytest.raises(ValueError, match=runner_pattern):
+            _runner_for_folds(fixture_path, runner_impossible_cfg).run(jobs=1)
 
 
 def test_default_start_on_minimal_three_point_checked_in_series() -> None:
@@ -486,6 +517,7 @@ def test_default_start_on_minimal_three_point_checked_in_series() -> None:
     for cfg in (
         {"enabled": True, "mode": "rolling"},
         {"enabled": True, "mode": "count_spaced", "n_folds": 1},
+        {"enabled": True, "mode": "count_spaced", "n_folds": 2},
     ):
         gen = FoldGenerator.from_config(cfg)
         assert gen is not None
