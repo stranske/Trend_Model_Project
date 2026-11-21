@@ -29,6 +29,10 @@ _MODE_ALIASES = {
     "spaced": "count_spaced",
 }
 
+# Calculating returns for bootstrap calibration requires at least two distinct
+# price observations strictly before the forecast start date.
+_MIN_CALIBRATION_OBSERVATIONS = 2
+
 
 @dataclass(frozen=True)
 class Fold:
@@ -142,12 +146,88 @@ class FoldGenerator:
             starts.append(start)
         return _dedupe_sorted(starts)
 
-    def _rolling_starts(self, index: pd.DatetimeIndex) -> list[pd.Timestamp]:
-        start = self.start or index.min()
-        end = self.end or index.max()
-        if start > end:
+    def _default_start(self, index: pd.DatetimeIndex) -> pd.Timestamp:
+        unique_dates = index.unique()
+        required_dates = _MIN_CALIBRATION_OBSERVATIONS + 1
+        if len(unique_dates) < required_dates:
+            raise ValueError(
+                "Insufficient calibration history to derive default fold start: "
+                f"requires at least {required_dates} distinct history dates "
+                f"({_MIN_CALIBRATION_OBSERVATIONS} calibration observations before "
+                f"forecast start), got {len(unique_dates)} "
+                f"({unique_dates[0].date()} to {unique_dates[-1].date()})"
+            )
+
+        earliest_feasible = pd.Timestamp(unique_dates[_MIN_CALIBRATION_OBSERVATIONS])
+        if self.calibration_lookback_years is None:
+            return earliest_feasible
+
+        lookback_months = _years_to_months(self.calibration_lookback_years)
+        lookback_start = pd.Timestamp(unique_dates[0]) + pd.DateOffset(months=lookback_months)
+        if lookback_start > unique_dates[-1]:
+            raise ValueError(
+                "Insufficient calibration history for "
+                f"calibration_lookback_years={self.calibration_lookback_years}: "
+                f"earliest feasible fold start is {lookback_start.date()}, "
+                f"after available history ({unique_dates[0].date()} to {unique_dates[-1].date()})"
+            )
+        return max(earliest_feasible, _align_to_index(lookback_start, index))
+
+    def _resolve_implicit_bounds(
+        self,
+        index: pd.DatetimeIndex,
+        *,
+        apply_lookback_to_explicit_start: bool,
+    ) -> tuple[pd.Timestamp, pd.Timestamp]:
+        if self.start is not None and self.end is not None and self.start > self.end:
             raise ValueError("fold start must be before fold end")
 
+        if self.end is not None and self.end <= index[0]:
+            raise ValueError(
+                f"Insufficient calibration history before fold end {self.end.date()}: "
+                f"available history starts at {index[0].date()} "
+                f"({index[0].date()} to {index[-1].date()})"
+            )
+
+        end = self.end if self.end is not None else index[-1]
+
+        if self.start is None:
+            start = self._default_start(index)
+            if start > end:
+                raise ValueError(
+                    f"Insufficient calibration history before fold end {end.date()}: "
+                    f"earliest feasible fold start is {start.date()} "
+                    f"(available history: {index[0].date()} to {index[-1].date()})"
+                )
+            return start, end
+
+        start = self.start
+        if start > index[-1]:
+            raise ValueError(
+                f"Insufficient calibration history for fold start {start.date()}: "
+                f"available history ends at {index[-1].date()} "
+                f"({index[0].date()} to {index[-1].date()})"
+            )
+
+        if apply_lookback_to_explicit_start and self.calibration_lookback_years is not None:
+            min_allowed = index[0] + pd.DateOffset(
+                months=_years_to_months(self.calibration_lookback_years)
+            )
+            if min_allowed > start:
+                start = min_allowed
+            if start > end:
+                raise ValueError(
+                    "Insufficient calibration history for "
+                    f"calibration_lookback_years={self.calibration_lookback_years}: "
+                    f"earliest feasible fold start is {start.date()}, "
+                    f"after fold end {end.date()} "
+                    f"(available history: {index[0].date()} to {index[-1].date()})"
+                )
+
+        return start, end
+
+    def _rolling_starts(self, index: pd.DatetimeIndex) -> list[pd.Timestamp]:
+        start, end = self._resolve_implicit_bounds(index, apply_lookback_to_explicit_start=False)
         step_months = self._rolling_step_months(index)
         starts: list[pd.Timestamp] = []
         current = start
@@ -172,18 +252,7 @@ class FoldGenerator:
         if self.n_folds is None:
             raise ValueError("n_folds is required for count_spaced mode")
 
-        start = self.start or index.min()
-        end = self.end or index.max()
-
-        if self.calibration_lookback_years is not None:
-            min_allowed = index.min() + pd.DateOffset(
-                months=_years_to_months(self.calibration_lookback_years)
-            )
-            if min_allowed > start:
-                start = min_allowed
-
-        if start > end:
-            raise ValueError("fold start must be before fold end")
+        start, end = self._resolve_implicit_bounds(index, apply_lookback_to_explicit_start=True)
 
         if self.n_folds == 1:
             return [start]
@@ -192,6 +261,17 @@ class FoldGenerator:
         return _dedupe_sorted(list(spaced))
 
     def _build_fold(self, fold_id: int, raw_start: pd.Timestamp, index: pd.DatetimeIndex) -> Fold:
+        if raw_start <= index[0]:
+            raise ValueError(
+                f"Insufficient calibration history for fold start {raw_start.date()}: "
+                f"fold_start must be after the earliest history date ({index[0].date()})"
+            )
+        if raw_start > index[-1]:
+            raise ValueError(
+                f"Insufficient calibration history for fold start {raw_start.date()}: "
+                f"available history ends at {index[-1].date()} "
+                f"({index[0].date()} to {index[-1].date()})"
+            )
         forecast_start = _align_to_index(raw_start, index)
         calibration_end = _previous_in_index(forecast_start, index)
         calibration_start = _resolve_calibration_start(
@@ -303,7 +383,10 @@ def _previous_in_index(target: pd.Timestamp, index: pd.DatetimeIndex) -> pd.Time
         raise ValueError("history_index must contain at least one date")
     pos = index.searchsorted(target, side="left")
     if pos == 0:
-        raise ValueError("fold_start must be after the earliest history date")
+        raise ValueError(
+            f"Insufficient calibration history before {target.date()}: "
+            f"fold_start must be after the earliest history date ({index[0].date()})"
+        )
     return index[pos - 1]
 
 
