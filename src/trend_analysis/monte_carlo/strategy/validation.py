@@ -12,7 +12,7 @@ from trend_analysis.config.model import TrendConfig
 from trend_analysis.config.schema_validation import load_schema, validate_config_data
 from trend_analysis.monte_carlo.strategy.variant import StrategyVariant
 
-_ALLOWED_ENTRY_KEYS = {"name", "overrides", "tags"}
+_ALLOWED_ENTRY_KEYS = {"name", "overrides", "tags", "identifier"}
 
 
 def _load_yaml_mapping(path: Path, label: str) -> Mapping[str, Any]:
@@ -20,6 +20,23 @@ def _load_yaml_mapping(path: Path, label: str) -> Mapping[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} must be a mapping")
     return payload
+
+
+def _resolve_pack_curated(payload: Mapping[str, Any]) -> tuple[list[Any] | None, str | None]:
+    """Resolve the curated strategy list using registry pack key normalization."""
+
+    strategies = payload.get("strategies")
+    if strategies is not None:
+        if not isinstance(strategies, list):
+            return None, "strategy_pack.strategies must be a list"
+        return strategies, None
+
+    curated = payload.get("curated")
+    if curated is None:
+        return None, "strategy_pack.curated is required"
+    if not isinstance(curated, list):
+        return None, "strategy_pack.curated must be a list"
+    return curated, None
 
 
 def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) -> list[str]:
@@ -41,12 +58,10 @@ def validate_strategy_pack(path: Path, *, base_config_path: Path | None = None) 
     except (OSError, ValueError) as exc:
         return [f"strategy_pack: {exc}"]
 
-    if "curated" not in payload:
-        return ["strategy_pack.curated is required"]
-
-    curated = payload.get("curated")
-    if not isinstance(curated, list):
-        return ["strategy_pack.curated must be a list"]
+    curated, pack_error = _resolve_pack_curated(payload)
+    if pack_error is not None:
+        return [pack_error]
+    assert curated is not None
 
     schema = load_schema()
 
