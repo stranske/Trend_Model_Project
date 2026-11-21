@@ -426,6 +426,23 @@ def test_shipped_hf_macro_pack_normalizes_strategies_list_before_validation() ->
     assert errors == []
 
 
+def test_shipped_hf_macro_pack_curated_only_guard_would_have_failed() -> None:
+    """Pre-fix validator required `curated`; the same shipped fixture now passes."""
+    macro_pack = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
+    payload = yaml.safe_load(macro_pack.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    assert "strategies" in payload
+    assert "curated" not in payload
+
+    if "curated" not in payload:
+        legacy_errors = ["strategy_pack.curated is required"]
+    else:
+        legacy_errors = []
+
+    assert legacy_errors == ["strategy_pack.curated is required"]
+    assert validate_strategy_pack(macro_pack) == []
+
+
 def test_cli_validates_shipped_hf_macro_pack(capsys, tmp_path: Path) -> None:
     macro_pack = Path("config/scenarios/monte_carlo/strategies/hf_macro_curated.yml")
     payload = yaml.safe_load(macro_pack.read_text(encoding="utf-8"))
