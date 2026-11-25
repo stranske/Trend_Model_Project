@@ -21,7 +21,154 @@ __all__ = [
     "_prepare_input_data",
     "_prepare_preprocess_stage",
     "_preprocessing_summary",
+    "_apply_winsorise",
+    "_apply_winsorise_causal_windows",
+    "_resolve_winsorise_settings",
 ]
+
+WINSORISE_ATTR = "winsorise_settings"
+
+
+def _setting_get(section: Any, key: str, default: Any = None) -> Any:
+    if section is None:
+        return default
+    if isinstance(section, Mapping):
+        return section.get(key, default)
+    return getattr(section, key, default)
+
+
+def _resolve_winsorise_settings(preprocessing_cfg: Any) -> dict[str, Any]:
+    """Normalise ``preprocessing.winsorise`` into ``{"enabled", "limits"}``.
+
+    ``limits`` are two-sided quantiles ``[lower, upper]`` with
+    ``0 <= lower < upper <= 1``. Invalid limits raise ``ValueError`` when
+    winsorisation is enabled so a mis-specified config fails loudly instead of
+    silently skipping the clip.
+    """
+
+    section = _setting_get(preprocessing_cfg, "winsorise")
+    if section is None:
+        return {"enabled": False, "limits": None}
+    if isinstance(section, bool):
+        section = {"enabled": section}
+    enabled = bool(_setting_get(section, "enabled", False))
+    raw_limits = _setting_get(section, "limits")
+    if not enabled:
+        return {"enabled": False, "limits": None}
+    if raw_limits is None:
+        raw_limits = (0.01, 0.99)
+    try:
+        lower, upper = (float(v) for v in raw_limits)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "preprocessing.winsorise.limits must be a two-item list of quantiles"
+        ) from exc
+    if not (math.isfinite(lower) and math.isfinite(upper)) or not (0.0 <= lower < upper <= 1.0):
+        raise ValueError(
+            "preprocessing.winsorise.limits must satisfy 0 <= lower < upper <= 1; "
+            f"got [{lower}, {upper}]"
+        )
+    return {"enabled": True, "limits": (lower, upper)}
+
+
+def _apply_winsorise(
+    df: pd.DataFrame,
+    *,
+    date_col: str,
+    settings: Mapping[str, Any] | None,
+    bounds: tuple[pd.Series, pd.Series] | None = None,
+    fit_frame: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Clip each return column to its own ``limits`` quantiles."""
+
+    info: dict[str, Any] = {"enabled": False, "limits": None, "clipped_cells": 0}
+    if not settings or not settings.get("enabled"):
+        return df, info
+    limits = settings.get("limits")
+    if limits is None:
+        return df, info
+    lower_q, upper_q = limits
+    info.update(enabled=True, limits=[lower_q, upper_q])
+    value_cols = [c for c in df.columns if c != date_col]
+    if not value_cols:
+        return df, info
+    out = df.copy()
+    values = out[value_cols].apply(pd.to_numeric, errors="coerce")
+    if bounds is not None:
+        lower, upper = bounds
+    else:
+        fit_values = (
+            fit_frame[value_cols].apply(pd.to_numeric, errors="coerce")
+            if fit_frame is not None
+            else values
+        )
+        lower = fit_values.quantile(lower_q)
+        upper = fit_values.quantile(upper_q)
+    clipped = values.clip(lower=lower, upper=upper, axis=1)
+    changed = (clipped != values) & values.notna()
+    info["clipped_cells"] = int(changed.to_numpy().sum())
+    info["clipped_by_column"] = {
+        str(col): int(count) for col, count in changed.sum().items() if int(count)
+    }
+    out[value_cols] = clipped
+    return out, info
+
+
+def _apply_winsorise_causal_windows(
+    in_df: pd.DataFrame,
+    out_df: pd.DataFrame,
+    *,
+    date_col: str = "Date",
+    settings: Mapping[str, Any] | None,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    """Fit winsorise bounds on ``in_df`` only, then clip in- and out-of-sample rows."""
+
+    if not settings or not settings.get("enabled"):
+        info: dict[str, Any] = {"enabled": False, "limits": None, "clipped_cells": 0}
+        return in_df, out_df, info
+    limits = settings.get("limits")
+    if limits is None:
+        return in_df, out_df, {"enabled": False, "limits": None, "clipped_cells": 0}
+
+    value_cols = [c for c in in_df.columns if c != date_col]
+    if not value_cols:
+        lower_q, upper_q = limits
+        return (
+            in_df,
+            out_df,
+            {
+                "enabled": True,
+                "limits": [lower_q, upper_q],
+                "clipped_cells": 0,
+            },
+        )
+
+    fit_values = in_df[value_cols].apply(pd.to_numeric, errors="coerce")
+    lower_q, upper_q = limits
+    bounds = (fit_values.quantile(lower_q), fit_values.quantile(upper_q))
+
+    in_clipped, info_in = _apply_winsorise(
+        in_df,
+        date_col=date_col,
+        settings=settings,
+        bounds=bounds,
+    )
+    out_clipped, info_out = _apply_winsorise(
+        out_df,
+        date_col=date_col,
+        settings=settings,
+        bounds=bounds,
+    )
+    merged: dict[str, Any] = dict(info_in)
+    merged["clipped_cells"] = int(info_in.get("clipped_cells", 0)) + int(
+        info_out.get("clipped_cells", 0)
+    )
+    by_col: dict[str, int] = dict(info_in.get("clipped_by_column") or {})
+    for col, count in (info_out.get("clipped_by_column") or {}).items():
+        by_col[str(col)] = int(by_col.get(str(col), 0)) + int(count)
+    if by_col:
+        merged["clipped_by_column"] = by_col
+    return in_clipped, out_clipped, merged
 
 
 def _frequency_label(code: str) -> str:
@@ -55,6 +202,8 @@ class _PreprocessStage:
     warmup: int
     value_cols_all: list[str]
     df_original: pd.DataFrame
+    df_unwinsorised: pd.DataFrame
+    winsorise_settings: dict[str, Any] | None
     periods_per_year: float
 
 
@@ -156,6 +305,16 @@ def _prepare_preprocess_stage(
                 "dropped_assets": list(getattr(missing_result, "dropped_assets", ())),
             },
         )
+    prepared_attrs_pre = dict(getattr(df_prepared, "attrs", {}))
+    winsorise_settings = attrs_copy.get(WINSORISE_ATTR)
+    df_unwinsorised = df_prepared.copy()
+    df_prepared, winsorise_info = _apply_winsorise(
+        df_prepared,
+        date_col=date_col,
+        settings=winsorise_settings,
+    )
+    if prepared_attrs_pre:
+        df_prepared.attrs = prepared_attrs_pre
     initial_value_cols = [c for c in df_prepared.columns if c != date_col]
     df_original = df_prepared.copy()
     prepared_attrs = dict(getattr(df_prepared, "attrs", {}))
@@ -220,6 +379,7 @@ def _prepare_preprocess_stage(
         missing_summary=missing_result.summary,
     )
     preprocess_info["calendar_alignment"] = alignment_info
+    preprocess_info["winsorise"] = winsorise_info
 
     return _PreprocessStage(
         df=df,
@@ -234,6 +394,8 @@ def _prepare_preprocess_stage(
         warmup=warmup,
         value_cols_all=value_cols_all,
         df_original=df_original,
+        df_unwinsorised=df_unwinsorised,
+        winsorise_settings=winsorise_settings,
         periods_per_year=periods_per_year,
     )
 
@@ -348,7 +510,12 @@ def _build_sample_windows(
     out_sdate = _resolve_bound(out_start, bound="start")
     out_edate = _resolve_bound(out_end, bound="end")
 
-    date_series = preprocess.df[preprocess.date_col]
+    use_causal = bool(
+        preprocess.winsorise_settings and preprocess.winsorise_settings.get("enabled")
+    )
+    source_df = preprocess.df_unwinsorised if use_causal else preprocess.df
+
+    date_series = source_df[preprocess.date_col]
     if pd.DatetimeTZDtype.is_dtype(date_series.dtype):
         tz = date_series.dt.tz
         in_sdate = in_sdate.tz_localize(tz)
@@ -356,14 +523,14 @@ def _build_sample_windows(
         out_sdate = out_sdate.tz_localize(tz)
         out_edate = out_edate.tz_localize(tz)
 
-    in_mask = (preprocess.df[preprocess.date_col] >= in_sdate) & (
-        preprocess.df[preprocess.date_col] <= in_edate
+    in_mask = (source_df[preprocess.date_col] >= in_sdate) & (
+        source_df[preprocess.date_col] <= in_edate
     )
-    out_mask = (preprocess.df[preprocess.date_col] >= out_sdate) & (
-        preprocess.df[preprocess.date_col] <= out_edate
+    out_mask = (source_df[preprocess.date_col] >= out_sdate) & (
+        source_df[preprocess.date_col] <= out_edate
     )
-    in_df_raw = preprocess.df.loc[in_mask].set_index(preprocess.date_col)
-    out_df_raw = preprocess.df.loc[out_mask].set_index(preprocess.date_col)
+    in_df_raw = source_df.loc[in_mask].set_index(preprocess.date_col)
+    out_df_raw = source_df.loc[out_mask].set_index(preprocess.date_col)
 
     # Ensure monthly continuity inside each window.
     # If one side of the split is empty but the other has data, allow reindexing
@@ -402,6 +569,25 @@ def _build_sample_windows(
                 "out_rows": int(out_df.shape[0]),
             },
         )
+
+    if use_causal:
+        fit_df = in_df
+        in_df, out_df, winsorise_info = _apply_winsorise_causal_windows(
+            in_df,
+            out_df,
+            settings=preprocess.winsorise_settings,
+        )
+        preprocess.preprocess_info["winsorise"] = winsorise_info
+        # Selection ranking, score frames and signal inputs read ``preprocess.df``
+        # directly, so replace the full-frame clip with the in-sample-fitted one.
+        causal_df, _ = _apply_winsorise(
+            preprocess.df_unwinsorised,
+            date_col=preprocess.date_col,
+            settings=preprocess.winsorise_settings,
+            fit_frame=fit_df,
+        )
+        causal_df.attrs = dict(getattr(preprocess.df, "attrs", {}))
+        preprocess.df = causal_df
 
     return _WindowStage(
         in_df=in_df,

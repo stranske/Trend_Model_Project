@@ -55,7 +55,6 @@ DYNAMIC_VALUE_SECTIONS: frozenset[str] = frozenset(
 # future *different* key sharing a leaf name is still caught.
 ALLOWLIST_PATHS: dict[str, str] = {
     # Declared feature flags retained as config surface (not in A2's enumerated set).
-    "preprocessing.winsorise.limits": "Declared winsorisation settings; not in A2's enumerated inert set.",
     "preprocessing.de_duplicate": "Declared preprocessing flag; not in A2's enumerated inert set.",
     "preprocessing.log_prices": "Declared preprocessing flag; not in A2's enumerated inert set.",
     "preprocessing.resample.business_only": "Declared resample flag; not in A2's enumerated inert set.",
