@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -12,9 +13,11 @@ import yaml
 from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig, clear_window_metric_cache
 from trend_analysis.multi_period import run as run_mp
+from trend_analysis.multi_period.engine import _build_rebalance_frame
 from trend_analysis.pipeline_helpers import _attach_calendar_settings
 from trend_analysis.pipeline_runner import _run_analysis_with_diagnostics
 from trend_analysis.diagnostics import PipelineResult
+from trend_analysis.weighting import EqualWeight
 from trend_analysis.stages.preprocessing import (
     _PreprocessStage,
     _WindowStage,
@@ -300,6 +303,61 @@ def test_threshold_hold_winsorise_changes_scores_weights_and_metrics() -> None:
         off[0]["fund_weights"] != on[0]["fund_weights"]
         or off[0]["in_sample_stats"] != on[0]["in_sample_stats"]
     )
+
+
+def test_rebalance_window_weights_use_clipped_returns() -> None:
+    dates = pd.date_range("2021-01-31", periods=4, freq="ME")
+    returns = pd.DataFrame(
+        {"A": [0.01, 0.02, OUTLIER, 0.015], "B": [0.03, 0.01, 0.02, 0.025]},
+        index=dates,
+    )
+
+    def _rebalance_cov(winsorise_settings: dict | None) -> pd.DataFrame:
+        seen: list[pd.DataFrame] = []
+
+        class _RecordingEngine:
+            def weight(self, cov: pd.DataFrame) -> pd.Series:
+                seen.append(cov)
+                return pd.Series(0.5, index=cov.index)
+
+        frame = _build_rebalance_frame(
+            SimpleNamespace(
+                portfolio={"rebalance_freq": "ME"},
+                multi_period={"in_sample_len": 1},
+            ),
+            out_df=returns.iloc[[-1]],
+            df_indexed=returns,
+            realised_holdings=["A", "B"],
+            effective_w=pd.Series({"A": 0.5, "B": 0.5}),
+            rf_override=None,
+            periods_per_year=12,
+            metric="Sharpe",
+            weighting=EqualWeight(),
+            weighting_scheme="risk_parity",
+            use_risk_weighting=True,
+            risk_weight_engine=_RecordingEngine(),
+            min_w_bound=0.0,
+            max_w_bound=1.0,
+            max_active_positions=None,
+            min_tenure_guard=set(),
+            score_frame_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+            ensure_zscore_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+            apply_policy_to_weights_fn=lambda *_args, **_kwargs: pytest.fail("score path used"),
+            winsorise_settings=winsorise_settings,
+        )
+        assert frame is not None and len(seen) == 1
+        return seen[0]
+
+    limits = (0.05, 0.95)
+    cov_off = _rebalance_cov(None)
+    cov_on = _rebalance_cov({"enabled": True, "limits": limits})
+
+    # The 12-month lookback spans every row, so bounds are fitted on the whole window.
+    expected = returns.clip(
+        lower=returns.quantile(limits[0]), upper=returns.quantile(limits[1]), axis=1
+    ).cov()
+    pd.testing.assert_frame_equal(cov_on, expected)
+    assert cov_on.loc["A", "A"] < cov_off.loc["A", "A"]
 
 
 @pytest.mark.parametrize("limits", [[0.9, 0.1], [0.5], [-0.1, 0.9], ["a", "b"]])
