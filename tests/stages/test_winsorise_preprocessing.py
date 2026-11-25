@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
+from trend_analysis.config import Config
 from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.multi_period import run as run_mp
 from trend_analysis.pipeline_helpers import _attach_calendar_settings
+from trend_analysis.pipeline_runner import _run_analysis_with_diagnostics
+from trend_analysis.diagnostics import PipelineResult
 from trend_analysis.stages.preprocessing import (
     _PreprocessStage,
+    _WindowStage,
+    _build_sample_windows,
     _prepare_preprocess_stage,
     _resolve_winsorise_settings,
 )
 
 OUTLIER = 5.0  # +500% monthly return
+_UNSET = object()
 
 
 def _frame() -> pd.DataFrame:
@@ -26,12 +36,16 @@ def _frame() -> pd.DataFrame:
     return pd.DataFrame({"Date": dates, "FundA": fund_a, "FundB": fund_b})
 
 
-def _run(enabled: bool, limits: list[float] | None = None) -> _PreprocessStage:
+def _run(
+    enabled: bool,
+    limits: list[float] | object = _UNSET,
+) -> _PreprocessStage:
+    winsorise: dict[str, object] = {"enabled": enabled}
+    if limits is not _UNSET:
+        winsorise["limits"] = limits
     cfg = {
         "data": {"frequency": "M", "timezone": "UTC"},
-        "preprocessing": {
-            "winsorise": {"enabled": enabled, "limits": limits or [0.05, 0.95]},
-        },
+        "preprocessing": {"winsorise": winsorise},
     }
     df = _frame()
     _attach_calendar_settings(df, cfg)
@@ -51,7 +65,7 @@ def _run(enabled: bool, limits: list[float] | None = None) -> _PreprocessStage:
 
 def test_winsorise_limits_clip_outlier_returns() -> None:
     off = _run(enabled=False)
-    on = _run(enabled=True)
+    on = _run(enabled=True, limits=[0.05, 0.95])
 
     tip_off = float(off.df["FundA"].iloc[-1])
     tip_on = float(on.df["FundA"].iloc[-1])
@@ -72,10 +86,160 @@ def test_winsorise_limits_clip_outlier_returns() -> None:
     assert off.preprocess_info["winsorise"]["clipped_cells"] == 0
 
 
+def test_omitted_limits_default_quantiles_clip_outliers() -> None:
+    resolved = _resolve_winsorise_settings({"winsorise": {"enabled": True}})
+    assert resolved == {"enabled": True, "limits": (0.01, 0.99)}
+
+    off = _run(enabled=False)
+    on = _run(enabled=True)
+    assert float(on.df["FundA"].iloc[-1]) < float(off.df["FundA"].iloc[-1])
+    cap = float(off.df["FundA"].quantile(0.99))
+    assert float(on.df["FundA"].iloc[-1]) == pytest.approx(cap)
+
+
 def test_shipped_default_limits_still_clip_tip_outlier() -> None:
     off = _run(enabled=False)
     on = _run(enabled=True, limits=[0.01, 0.99])
     assert float(on.df["FundA"].iloc[-1]) < float(off.df["FundA"].iloc[-1])
+
+
+def _causal_frame(*, out_may_return: float) -> pd.DataFrame:
+    dates = pd.date_range("2019-01-31", periods=24, freq="ME")
+    rng = np.random.default_rng(11)
+    body = rng.normal(0.01, 0.02, len(dates))
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": body,
+            "FundB": rng.normal(0.005, 0.015, len(dates)),
+        }
+    )
+    df.loc[df["Date"] == pd.Timestamp("2020-05-31"), "FundA"] = out_may_return
+    return df
+
+
+def test_out_of_sample_change_does_not_alter_in_sample_window() -> None:
+    cfg = {
+        "data": {"frequency": "M", "timezone": "UTC", "allow_risk_free_fallback": True},
+        "preprocessing": {"winsorise": {"enabled": True, "limits": [0.05, 0.95]}},
+    }
+
+    def _in_sample_col(frame: pd.DataFrame) -> pd.Series:
+        stage = _prepare_preprocess_stage(
+            frame,
+            floor_vol=None,
+            warmup_periods=0,
+            missing_policy=None,
+            missing_limit=None,
+            stats_cfg=RiskStatsConfig(risk_free=0.0),
+            periods_per_year_override=None,
+            allow_risk_free_fallback=True,
+        )
+        assert isinstance(stage, _PreprocessStage)
+        window = _build_sample_windows(
+            stage,
+            in_start="2019-01",
+            in_end="2020-04",
+            out_start="2020-05",
+            out_end="2020-06",
+        )
+        assert not isinstance(window, PipelineResult)
+        assert isinstance(window, _WindowStage)
+        return window.in_df["FundA"].copy()
+
+    mild = _causal_frame(out_may_return=0.04)
+    extreme = _causal_frame(out_may_return=5.0)
+    _attach_calendar_settings(mild, cfg)
+    _attach_calendar_settings(extreme, cfg)
+
+    in_mild = _in_sample_col(mild)
+    in_extreme = _in_sample_col(extreme)
+    pd.testing.assert_series_equal(in_mild, in_extreme)
+
+
+def test_pipeline_causal_invariance_via_run_analysis_with_diagnostics() -> None:
+    cfg = {
+        "data": {"frequency": "M", "timezone": "UTC", "allow_risk_free_fallback": True},
+        "preprocessing": {"winsorise": {"enabled": True, "limits": [0.05, 0.95]}},
+    }
+
+    def _run_diag(frame: pd.DataFrame) -> pd.DataFrame:
+        _attach_calendar_settings(frame, cfg)
+        result = _run_analysis_with_diagnostics(
+            frame,
+            in_start="2019-01",
+            in_end="2020-04",
+            out_start="2020-05",
+            out_end="2020-06",
+            target_vol=None,
+            monthly_cost=0.0,
+            stats_cfg=RiskStatsConfig(risk_free=0.0),
+            allow_risk_free_fallback=True,
+            manual_funds=["FundA"],
+            selection_mode="manual",
+        )
+        assert isinstance(result, PipelineResult) and result.value is not None
+        scaled = result.value.get("in_sample_scaled")
+        assert isinstance(scaled, pd.DataFrame)
+        return scaled
+
+    mild = _causal_frame(out_may_return=0.04)
+    extreme = _causal_frame(out_may_return=5.0)
+    s_mild = _run_diag(mild)
+    s_extreme = _run_diag(extreme)
+    if "FundA" in s_mild.columns and "FundA" in s_extreme.columns:
+        pd.testing.assert_series_equal(
+            s_mild["FundA"],
+            s_extreme["FundA"],
+            check_names=False,
+        )
+
+
+def _threshold_hold_config(*, winsorise_enabled: bool) -> Config:
+    cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
+    cfg_data.setdefault("data", {})["allow_risk_free_fallback"] = True
+    cfg_data["preprocessing"] = {
+        "winsorise": {"enabled": winsorise_enabled, "limits": [0.05, 0.95]},
+    }
+    cfg_data["multi_period"] = {
+        "frequency": "M",
+        "in_sample_len": 3,
+        "out_sample_len": 1,
+        "start": "2020-01",
+        "end": "2020-04",
+    }
+    portfolio = cfg_data.setdefault("portfolio", {})
+    portfolio["policy"] = "threshold_hold"
+    portfolio["max_turnover"] = 1.0
+    portfolio.setdefault("threshold_hold", {}).update({"target_n": 2, "metric": "Sharpe"})
+    portfolio.setdefault("constraints", {}).update(
+        {"max_funds": 2, "min_weight": 0.05, "max_weight": 0.95}
+    )
+    portfolio["weighting"] = {"name": "adaptive_bayes", "params": {}}
+    return Config(**cfg_data)
+
+
+def _threshold_hold_df() -> pd.DataFrame:
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "Alpha": [OUTLIER, 0.02, 0.021, 0.02],
+            "Beta": [0.01, 0.011, 0.012, 0.013],
+            "Gamma": [0.015, 0.016, 0.017, 0.018],
+        }
+    )
+
+
+def test_threshold_hold_winsorise_changes_scores_weights_and_metrics() -> None:
+    df = _threshold_hold_df()
+    off = run_mp(_threshold_hold_config(winsorise_enabled=False), df=df.copy())
+    on = run_mp(_threshold_hold_config(winsorise_enabled=True), df=df.copy())
+    assert off and on
+    assert (
+        off[0]["fund_weights"] != on[0]["fund_weights"]
+        or off[0]["in_sample_stats"] != on[0]["in_sample_stats"]
+    )
 
 
 @pytest.mark.parametrize("limits", [[0.9, 0.1], [0.5], [-0.1, 0.9], ["a", "b"]])

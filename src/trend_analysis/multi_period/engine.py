@@ -64,7 +64,11 @@ from ..regimes import compute_regimes, normalise_settings
 from ..risk import periods_per_year_from_code
 from ..schedules import get_rebalance_dates
 from ..stages.portfolio import _compute_stats
-from ..stages.preprocessing import WINSORISE_ATTR, _resolve_winsorise_settings
+from ..stages.preprocessing import (
+    WINSORISE_ATTR,
+    _apply_winsorise_causal_windows,
+    _resolve_winsorise_settings,
+)
 from ..stages.selection import _resolve_risk_free_column
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..universe import (
@@ -1611,6 +1615,7 @@ def _build_rebalance_frame(
     score_frame_fn: Callable[..., pd.DataFrame],
     ensure_zscore_fn: Callable[[pd.DataFrame, str], pd.DataFrame],
     apply_policy_to_weights_fn: Callable[[pd.DataFrame, pd.Series | None], pd.Series],
+    winsorise_settings: Mapping[str, Any] | None = None,
 ) -> pd.DataFrame | None:
     try:
         rebalance_freq = str(cfg.portfolio.get("rebalance_freq", "") or "").strip()
@@ -1642,18 +1647,25 @@ def _build_rebalance_frame(
                 w_row = prev_reb_w
             else:
                 try:
+                    rolling_window = window
+                    if winsorise_settings and winsorise_settings.get("enabled"):
+                        rolling_window, _, _ = _apply_winsorise_causal_windows(
+                            rolling_window,
+                            rolling_window,
+                            settings=winsorise_settings,
+                        )
                     if weighting_scheme == "custom":
                         w_series = effective_w.reindex(realised_holdings).fillna(0.0)
                     elif use_risk_weighting and risk_weight_engine is not None:
-                        prepared = _prepare_returns_frame(window)
+                        prepared = _prepare_returns_frame(rolling_window)
                         cov = prepared.cov()
                         w_series = risk_weight_engine.weight(cov)
                     else:
                         rf_aligned = rf_override
-                        if isinstance(rf_override, pd.Series) and not window.empty:
-                            rf_aligned = rf_override.reindex(window.index)
+                        if isinstance(rf_override, pd.Series) and not rolling_window.empty:
+                            rf_aligned = rf_override.reindex(rolling_window.index)
                         sf_roll = score_frame_fn(
-                            window,
+                            rolling_window,
                             realised_holdings,
                             risk_free_override=rf_aligned,
                             periods_per_year=int(periods_per_year),
@@ -2070,6 +2082,9 @@ def _run_threshold_hold_multi_periods(
     """Run the threshold-hold multi-period path."""
     # Threshold-hold path with Bayesian weighting
     periods = generate_periods(cfg.model_dump())
+    winsorise_settings = (
+        df.attrs.get(WINSORISE_ATTR) if isinstance(getattr(df, "attrs", None), dict) else None
+    )
 
     # Multi-period engine normalizes data to month-end cadence.
     # Keep metric annualisation consistent with monthly returns.
@@ -2232,6 +2247,12 @@ def _run_threshold_hold_multi_periods(
                 fund_cols = [c for c in fund_cols if bool(active.get(c, False))]
             except Exception:  # pragma: no cover - defensive
                 pass
+        if winsorise_settings and winsorise_settings.get("enabled"):
+            in_df, out_df, _ = _apply_winsorise_causal_windows(
+                in_df,
+                out_df,
+                settings=winsorise_settings,
+            )
         return in_df, out_df, fund_cols, resolved_rf_col
 
     def _score_frame(
@@ -4449,6 +4470,7 @@ def _run_threshold_hold_multi_periods(
             score_frame_fn=_score_frame,
             ensure_zscore_fn=_ensure_zscore,
             apply_policy_to_weights_fn=_apply_policy_to_weights,
+            winsorise_settings=winsorise_settings,
         )
         if rebalance_frame is not None:
             res_dict["rebalance_weights"] = rebalance_frame
