@@ -179,6 +179,9 @@ def _turnover_config(max_turnover: float) -> Config:
     data_cfg.setdefault("date_column", "Date")
     data_cfg.setdefault("frequency", "M")
     data_cfg["allow_risk_free_fallback"] = True
+    # Four synthetic rows: per-column quantile clipping would rewrite the
+    # hand-picked returns this turnover regression depends on.
+    cfg_data.setdefault("preprocessing", {})["winsorise"] = {"enabled": False}
     portfolio_cfg = cfg_data.setdefault("portfolio", {})
     portfolio_cfg["policy"] = ""
     portfolio_cfg["selection_mode"] = "rank"

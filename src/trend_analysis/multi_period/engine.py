@@ -64,6 +64,7 @@ from ..regimes import compute_regimes, normalise_settings
 from ..risk import periods_per_year_from_code
 from ..schedules import get_rebalance_dates
 from ..stages.portfolio import _compute_stats
+from ..stages.preprocessing import WINSORISE_ATTR, _resolve_winsorise_settings
 from ..stages.selection import _resolve_risk_free_column
 from ..timefreq import MONTHLY_DATE_FREQ
 from ..universe import (
@@ -2007,6 +2008,7 @@ def run(
         "timezone": data_settings.get("timezone", "UTC"),
         "holiday_calendar": preprocessing_cfg.get("holiday_calendar"),
     }
+    df.attrs[WINSORISE_ATTR] = _resolve_winsorise_settings(preprocessing_cfg)
 
     # If policy is not threshold-hold, use the Phase‑1 style per-period runs.
     missing_policy_metadata = {

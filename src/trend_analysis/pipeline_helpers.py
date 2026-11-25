@@ -12,7 +12,12 @@ from . import signals
 from .regime_utils import alias_regime_key, normalize_regime_key
 from .regimes import compute_regimes, normalise_settings
 from .signals import TrendSpec, trend_spec_from_mapping
-from .stages.preprocessing import _PreprocessStage, _WindowStage
+from .stages.preprocessing import (
+    WINSORISE_ATTR,
+    _PreprocessStage,
+    _resolve_winsorise_settings,
+    _WindowStage,
+)
 
 logger = logging.getLogger("trend_analysis.pipeline")
 
@@ -735,3 +740,4 @@ def _attach_calendar_settings(df: pd.DataFrame, cfg: Any) -> None:
         "timezone": data_timezone,
         "holiday_calendar": holiday_calendar,
     }
+    df.attrs[WINSORISE_ATTR] = _resolve_winsorise_settings(preprocessing_section)
