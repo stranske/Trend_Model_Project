@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from trend_analysis.config import Config
-from trend_analysis.core.rank_selection import RiskStatsConfig
+from trend_analysis.core.rank_selection import RiskStatsConfig, clear_window_metric_cache
 from trend_analysis.multi_period import run as run_mp
 from trend_analysis.pipeline_helpers import _attach_calendar_settings
 from trend_analysis.pipeline_runner import _run_analysis_with_diagnostics
@@ -195,6 +195,60 @@ def test_pipeline_causal_invariance_via_run_analysis_with_diagnostics() -> None:
         )
 
 
+def _rank_causal_frame(*, out_return: float) -> pd.DataFrame:
+    dates = pd.date_range("2019-01-31", periods=26, freq="ME")
+    rng = np.random.default_rng(23)
+    df = pd.DataFrame(
+        {
+            "Date": dates,
+            "FundA": rng.normal(0.012, 0.02, len(dates)),
+            "FundB": rng.normal(0.010, 0.02, len(dates)),
+            "FundC": rng.normal(0.008, 0.02, len(dates)),
+            "FundD": rng.normal(0.006, 0.02, len(dates)),
+        }
+    )
+    # Only the out-of-sample rows differ between scenarios.
+    out_mask = df["Date"] >= pd.Timestamp("2021-01-31")
+    df.loc[out_mask, ["FundA", "FundB", "FundC", "FundD"]] = out_return
+    return df
+
+
+def test_rank_selection_scores_and_weights_ignore_out_of_sample_returns() -> None:
+    cfg = {
+        "data": {"frequency": "M", "timezone": "UTC", "allow_risk_free_fallback": True},
+        "preprocessing": {"winsorise": {"enabled": True, "limits": [0.1, 0.9]}},
+    }
+
+    def _run_rank(frame: pd.DataFrame) -> dict:
+        clear_window_metric_cache()
+        _attach_calendar_settings(frame, cfg)
+        result = _run_analysis_with_diagnostics(
+            frame,
+            in_start="2019-01",
+            in_end="2020-12",
+            out_start="2021-01",
+            out_end="2021-02",
+            target_vol=None,
+            monthly_cost=0.0,
+            stats_cfg=RiskStatsConfig(risk_free=0.0),
+            allow_risk_free_fallback=True,
+            selection_mode="rank",
+            rank_kwargs={"inclusion_approach": "top_n", "n": 2, "score_by": "Sharpe"},
+            weighting_scheme="score_prop",
+        )
+        assert isinstance(result, PipelineResult) and result.value is not None
+        return result.value
+
+    mild = _run_rank(_rank_causal_frame(out_return=0.01))
+    extreme = _run_rank(_rank_causal_frame(out_return=-0.5))
+    clear_window_metric_cache()
+
+    pd.testing.assert_frame_equal(mild["score_frame"], extreme["score_frame"])
+    assert mild["selected_funds"] == extreme["selected_funds"]
+    assert mild["fund_weights"] == pytest.approx(extreme["fund_weights"])
+    pd.testing.assert_frame_equal(mild["in_sample_scaled"], extreme["in_sample_scaled"])
+
+
 def _threshold_hold_config(*, winsorise_enabled: bool) -> Config:
     cfg_data = yaml.safe_load(Path("config/defaults.yml").read_text())
     cfg_data.setdefault("data", {})["allow_risk_free_fallback"] = True
@@ -236,6 +290,12 @@ def test_threshold_hold_winsorise_changes_scores_weights_and_metrics() -> None:
     off = run_mp(_threshold_hold_config(winsorise_enabled=False), df=df.copy())
     on = run_mp(_threshold_hold_config(winsorise_enabled=True), df=df.copy())
     assert off and on
+    # The selection score frame is computed from ``_valid_universe`` output before the
+    # pipeline call, so it only changes if threshold-hold inputs are clipped.
+    sf_off = off[0]["selection_score_frame"]
+    sf_on = on[0]["selection_score_frame"]
+    assert "Alpha" in sf_off.index and "Alpha" in sf_on.index
+    assert not sf_off.loc["Alpha"].equals(sf_on.loc["Alpha"])
     assert (
         off[0]["fund_weights"] != on[0]["fund_weights"]
         or off[0]["in_sample_stats"] != on[0]["in_sample_stats"]

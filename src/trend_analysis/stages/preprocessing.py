@@ -571,12 +571,23 @@ def _build_sample_windows(
         )
 
     if use_causal:
+        fit_df = in_df
         in_df, out_df, winsorise_info = _apply_winsorise_causal_windows(
             in_df,
             out_df,
             settings=preprocess.winsorise_settings,
         )
         preprocess.preprocess_info["winsorise"] = winsorise_info
+        # Selection ranking, score frames and signal inputs read ``preprocess.df``
+        # directly, so replace the full-frame clip with the in-sample-fitted one.
+        causal_df, _ = _apply_winsorise(
+            preprocess.df_unwinsorised,
+            date_col=preprocess.date_col,
+            settings=preprocess.winsorise_settings,
+            fit_frame=fit_df,
+        )
+        causal_df.attrs = dict(getattr(preprocess.df, "attrs", {}))
+        preprocess.df = causal_df
 
     return _WindowStage(
         in_df=in_df,
