@@ -190,12 +190,12 @@ def test_pipeline_causal_invariance_via_run_analysis_with_diagnostics() -> None:
     extreme = _causal_frame(out_may_return=5.0)
     s_mild = _run_diag(mild)
     s_extreme = _run_diag(extreme)
-    if "FundA" in s_mild.columns and "FundA" in s_extreme.columns:
-        pd.testing.assert_series_equal(
-            s_mild["FundA"],
-            s_extreme["FundA"],
-            check_names=False,
-        )
+    assert "FundA" in s_mild.columns and "FundA" in s_extreme.columns
+    pd.testing.assert_series_equal(
+        s_mild["FundA"],
+        s_extreme["FundA"],
+        check_names=False,
+    )
 
 
 def _rank_causal_frame(*, out_return: float) -> pd.DataFrame:
