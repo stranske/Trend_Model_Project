@@ -144,9 +144,13 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert "gate: ⏳ pending" in body
     assert "**Latest Runs:** ⏳ pending — Gate" in body
     assert "**Required contexts:** Gate / gate, guard, Health 45 Agents Guard / guard" in body
-    assert "_Updated automatically; will refresh" in body
     # When no jobs exist the fallback table entry is rendered
     assert "_(no jobs reported)_" in body
+    # The managed summary publisher and this receiver-owned test ship separately.
+    assert body.rstrip().splitlines()[-1] in {
+        "_Updated automatically; will refresh on subsequent CI/Docker completions._",
+        "_Snapshot at publication. See the linked run and required checks for final results._",
+    }
 
 
 def test_docs_only_fast_pass_includes_context() -> None:
