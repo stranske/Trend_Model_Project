@@ -821,7 +821,7 @@ New tab: **Monte Carlo Simulation**
 For feasible runtimes:
 1. Path context computed **once** per path
 2. Strategy evaluation is **lightweight** (uses cached score frames)
-3. Parallelization over paths (configurable `jobs` parameter)
+3. Parallelization over paths (configurable `jobs` parameter), with lock-protected lazy scenario cost-process initialization so concurrent path workers observe the same constructed `CostProcess` (or the same configuration error) and produce identical net results regardless of worker count
 
 ### Estimated Runtime (8-core machine)
 

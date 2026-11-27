@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -209,6 +210,7 @@ class MonteCarloRunner:
         self._seed_manager_init = False
         self._cost_process: CostProcess | None = None
         self._cost_process_init = False
+        self._cost_process_lock = threading.Lock()
         self._regime_cache: dict[tuple[object, ...], pd.Series] = {}
         self._path_generation_mode: str | None = None
 
@@ -2488,15 +2490,19 @@ class MonteCarloRunner:
         return self._seed_manager
 
     def _get_cost_process(self) -> CostProcess | None:
-        if self._cost_process_init:
+        with self._cost_process_lock:
+            if self._cost_process_init:
+                return self._cost_process
+            config = getattr(self.scenario, "costs", None)
+            if config is not None and not isinstance(config, Mapping):
+                raise ValueError("costs must be a mapping or None")
+            if config is not None:
+                cost_process = CostProcess.from_config(config)
+            else:
+                cost_process = None
+            self._cost_process = cost_process
+            self._cost_process_init = True
             return self._cost_process
-        self._cost_process_init = True
-        config = getattr(self.scenario, "costs", None)
-        if isinstance(config, Mapping):
-            self._cost_process = CostProcess.from_config(config)
-        else:
-            self._cost_process = None
-        return self._cost_process
 
     def _strategy_seed(self, path_id: int, strategy_name: str) -> int | None:
         manager = self._get_seed_manager()

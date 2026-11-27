@@ -4,10 +4,17 @@ import json
 import os
 import subprocess
 import sys
+import threading
+from typing import Any
 
 import numpy as np
+import pandas as pd
 
+from trend_analysis.monte_carlo.costs import CostProcess
+from trend_analysis.monte_carlo.runner import MonteCarloRunner
+from trend_analysis.monte_carlo.scenario import MonteCarloScenario
 from trend_analysis.monte_carlo.seed import SeedManager
+from trend_analysis.monte_carlo.strategy import StrategyVariant
 
 
 def test_path_seed_is_deterministic() -> None:
@@ -137,3 +144,97 @@ def test_common_random_numbers_reduce_variance() -> None:
     assert common_variance < independent_variance * 0.75
     assert variance_ratio < 0.05
     assert np.isclose(variance_ratio, expected_ratio, rtol=0.25)
+
+
+def test_runner_seeded_streams_unchanged_by_cost_process_initialization() -> None:
+    base_kwargs: dict[str, Any] = {
+        "base_config": "config/defaults.yml",
+        "monte_carlo": {
+            "mode": "mixture",
+            "n_paths": 4,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 312,
+            "jobs": 2,
+        },
+        "strategy_set": {
+            "curated": [
+                StrategyVariant(name="strategy_a"),
+                StrategyVariant(name="strategy_b"),
+            ]
+        },
+        "return_model": {"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+    }
+    plain_scenario = MonteCarloScenario(name="seeded_plain", **base_kwargs)
+    cost_scenario = MonteCarloScenario(
+        name="seeded_with_costs",
+        **base_kwargs,
+        costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {
+                "trade_cost_bps": {"kind": "lognormal", "mean": 100.0, "sigma": 0.35},
+                "slippage_multiplier": 2.0,
+            },
+        },
+    )
+    plain_runner = MonteCarloRunner(plain_scenario)
+    cost_runner = MonteCarloRunner(cost_scenario)
+
+    barrier = threading.Barrier(2)
+    processes: list[CostProcess | None] = [None, None]
+    errors: list[BaseException] = []
+
+    def init_worker(slot: int) -> None:
+        try:
+            barrier.wait(timeout=5.0)
+            processes[slot] = cost_runner._get_cost_process()
+        except BaseException as exc:  # pragma: no cover - failure capture
+            errors.append(exc)
+
+    threads = [threading.Thread(target=init_worker, args=(idx,)) for idx in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5.0)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert not errors, errors
+    assert processes[0] is not None
+    assert processes[1] is processes[0]
+
+    assert cost_runner._build_seeds() == plain_runner._build_seeds()
+    manager = SeedManager(312)
+    path_seeds, _ = cost_runner._build_seeds()
+    assert path_seeds == [manager.get_path_seed(path_id) for path_id in range(4)]
+
+    dates = pd.date_range("2020-01-31", periods=6, freq="ME")
+    regimes = pd.Series(["calm"] * len(dates), index=dates)
+    turnover = pd.Series([0.1, 0.25, 0.0, 0.15, 0.3, 0.2], index=dates)
+    cost_process = processes[0]
+
+    for path_id in range(4):
+        for strategy_name in ("strategy_a", "strategy_b"):
+            assert cost_runner._strategy_seed(path_id, strategy_name) == manager.get_strategy_seed(
+                path_id, strategy_name
+            )
+            np.testing.assert_allclose(
+                cost_runner._cost_rng(path_id, strategy_name).random(6),
+                manager.get_strategy_rng(path_id, strategy_name).random(6),
+            )
+            runner_sample = cost_process.sample(
+                regimes=regimes,
+                turnover=turnover,
+                index=dates,
+                rng=cost_runner._cost_rng(path_id, strategy_name),
+            )
+            expected_sample = cost_process.sample(
+                regimes=regimes,
+                turnover=turnover,
+                index=dates,
+                rng=manager.get_strategy_rng(path_id, strategy_name),
+            )
+            pd.testing.assert_series_equal(runner_sample.cost_bps, expected_sample.cost_bps)
+            pd.testing.assert_series_equal(
+                runner_sample.transaction_costs, expected_sample.transaction_costs
+            )
