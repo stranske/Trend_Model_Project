@@ -725,6 +725,22 @@ def test_net_nav_costs_replace_base_trading_costs_once() -> None:
             pd.testing.assert_series_equal(left.nav_series, right.nav_series)
 
 
+class _SignalingLock:
+    """Wrap a lock to release a blocked initializer once contention occurs."""
+
+    def __init__(self, lock: Any, on_contended: threading.Event) -> None:
+        self._lock = lock
+        self._on_contended = on_contended
+
+    def __enter__(self) -> bool:
+        if self._lock.locked():
+            self._on_contended.set()
+        return bool(self._lock.acquire())
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self._lock.release()
+
+
 def test_cold_cost_process_initialization_is_atomic_across_workers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -772,19 +788,6 @@ def test_cold_cost_process_initialization_is_atomic_across_workers(
 
     monkeypatch.setattr(CostProcess, "from_config", staticmethod(controlled_from_config))
 
-    class _SignalingLock:
-        def __init__(self, lock: Any, on_contended: threading.Event) -> None:
-            self._lock = lock
-            self._on_contended = on_contended
-
-        def __enter__(self) -> bool:
-            if self._lock.locked():
-                self._on_contended.set()
-            return bool(self._lock.acquire())
-
-        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-            self._lock.release()
-
     real_lock = getattr(runner, "_cost_process_lock", None)
     if real_lock is not None:
         monkeypatch.setattr(runner, "_cost_process_lock", _SignalingLock(real_lock, release_first))
@@ -821,16 +824,20 @@ def test_cold_cost_process_initialization_is_atomic_across_workers(
     assert results[0] is not None
     assert results[1] is results[0]
 
-    monkeypatch.setattr(CostProcess, "from_config", real_from_config)
+
+def test_cold_cost_process_parser_failure_surfaces_from_every_caller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     invalid_scenario = MonteCarloScenario(
         name="invalid_cost_process_not_cached",
         base_config="config/defaults.yml",
         monte_carlo={
             "mode": "mixture",
-            "n_paths": 1,
-            "horizon_years": 1.0,
+            "n_paths": 2,
+            "horizon_years": 2.0,
             "frequency": "M",
-            "seed": 1,
+            "seed": 312,
+            "jobs": 2,
         },
         strategy_set={"curated": [StrategyVariant(name="NetCostStrategy")]},
         return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
@@ -863,10 +870,103 @@ def test_cold_cost_process_initialization_is_atomic_across_workers(
     strategy = StrategyVariant(name="NetCostStrategy")
     with pytest.raises(ValueError, match="regime mapping"):
         invalid_runner._evaluate_strategy(strategy, context)
+    assert invalid_runner._cost_process_init is False
     with pytest.raises(ValueError, match="regime mapping"):
         invalid_runner._maybe_sample_costs(run_stub, context, strategy)
+    assert invalid_runner._cost_process_init is False
     with pytest.raises(ValueError, match="regime mapping"):
         invalid_runner._resolve_regime_labels(run_stub, dates)
+    assert invalid_runner._cost_process_init is False
+
+    # A non-mapping truthy costs value mutated onto a scenario must also surface
+    # ValueError from CostProcess.from_config rather than being cached as None.
+    mutated_runner = MonteCarloRunner(
+        invalid_scenario, base_config=_base_config(), price_history=_price_history()
+    )
+    mutated_runner.scenario.costs = "invalid_costs_shape"  # type: ignore[assignment]
+    try:
+        with pytest.raises(ValueError, match="must be a mapping"):
+            mutated_runner._get_cost_process()
+        assert mutated_runner._cost_process_init is False
+    finally:
+        mutated_runner.scenario.costs = {"kind": "regime_stochastic", "calm": 5}
+
+    # Concurrent cold-start callers must both receive ValueError (never cached None).
+    concurrent_runner = MonteCarloRunner(
+        invalid_scenario, base_config=_base_config(), price_history=_price_history()
+    )
+    real_from_config = CostProcess.from_config
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    calls = 0
+    calls_lock = threading.Lock()
+
+    def failing_from_config(config: Any) -> CostProcess | None:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+            call_index = calls
+        if call_index == 1:
+            first_entered.set()
+            assert release_first.wait(timeout=5.0)
+        else:
+            release_first.set()
+        return real_from_config(config)
+
+    monkeypatch.setattr(CostProcess, "from_config", staticmethod(failing_from_config))
+
+    real_lock = getattr(concurrent_runner, "_cost_process_lock", None)
+    if real_lock is not None:
+        monkeypatch.setattr(
+            concurrent_runner, "_cost_process_lock", _SignalingLock(real_lock, release_first)
+        )
+
+    caught: list[BaseException | None] = [None, None]
+    returned: list[object] = [object(), object()]
+
+    def first_worker() -> None:
+        try:
+            returned[0] = concurrent_runner._get_cost_process()
+        except BaseException as exc:
+            caught[0] = exc
+        finally:
+            release_first.set()
+
+    def second_worker() -> None:
+        assert first_entered.wait(timeout=5.0)
+        try:
+            returned[1] = concurrent_runner._get_cost_process()
+        except BaseException as exc:
+            caught[1] = exc
+        finally:
+            release_first.set()
+
+    t1 = threading.Thread(target=first_worker)
+    t2 = threading.Thread(target=second_worker)
+    t1.start()
+    t2.start()
+    t1.join(timeout=5.0)
+    t2.join(timeout=5.0)
+
+    assert not t1.is_alive() and not t2.is_alive()
+    assert isinstance(caught[0], ValueError)
+    assert isinstance(caught[1], ValueError)
+    assert "regime mapping" in str(caught[0])
+    assert "regime mapping" in str(caught[1])
+    assert concurrent_runner._cost_process_init is False
+
+    # Full serial and parallel runs must fail every path consistently instead of
+    # letting subsequent paths silently succeed with a cached None cost process.
+    monkeypatch.undo()
+    for jobs in (1, 2):
+        run_runner = MonteCarloRunner(
+            invalid_scenario, base_config=_base_config(), price_history=_price_history()
+        )
+        result = run_runner.run(jobs=jobs)
+        assert len(result.evaluations) == 0
+        assert len(result.errors) == 2
+        assert all(err.error_type == "ValueError" for err in result.errors)
+        assert all("regime mapping" in err.message for err in result.errors)
 
 
 def test_net_nav_costs_are_identical_in_serial_and_parallel() -> None:
