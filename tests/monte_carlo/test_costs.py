@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -724,17 +726,184 @@ def test_net_nav_costs_replace_base_trading_costs_once() -> None:
             pd.testing.assert_series_equal(left.nav_series, right.nav_series)
 
 
+def test_cold_cost_process_initialization_is_atomic_across_workers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario = MonteCarloScenario(
+        name="cold_cost_process_atomicity",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 2,
+            "horizon_years": 2.0,
+            "frequency": "M",
+            "seed": 312,
+            "jobs": 2,
+        },
+        strategy_set={"curated": [StrategyVariant(name="NetCostStrategy")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        costs={
+            "kind": "regime_stochastic",
+            "default_regime": "calm",
+            "calm": {
+                "trade_cost_bps": {"kind": "fixed", "value": 100.0},
+                "slippage_multiplier": 2.0,
+            },
+        },
+    )
+    runner = MonteCarloRunner(scenario, base_config=_base_config(), price_history=_price_history())
+
+    real_from_config = CostProcess.from_config
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    calls = 0
+    calls_lock = threading.Lock()
+
+    def controlled_from_config(config: Any) -> CostProcess | None:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+            call_index = calls
+        if call_index == 1:
+            first_entered.set()
+            assert release_first.wait(timeout=5.0)
+        else:
+            release_first.set()
+        return real_from_config(config)
+
+    monkeypatch.setattr(CostProcess, "from_config", staticmethod(controlled_from_config))
+
+    results: list[CostProcess | None] = [None, None]
+    errors: list[BaseException] = []
+
+    def first_worker() -> None:
+        try:
+            results[0] = runner._get_cost_process()
+        except BaseException as exc:  # pragma: no cover - failure capture
+            errors.append(exc)
+            release_first.set()
+
+    def second_worker() -> None:
+        assert first_entered.wait(timeout=5.0)
+        previous_trace = sys.gettrace()
+        first_line_seen = False
+
+        def trace_call(frame: Any, event: str, arg: Any) -> Any:
+            nonlocal first_line_seen
+            if previous_trace is not None:
+                previous_trace(frame, event, arg)
+            if frame.f_code.co_name == "_get_cost_process":
+                if event == "line":
+                    if not first_line_seen:
+                        first_line_seen = True
+                    elif not runner._cost_process_init:
+                        release_first.set()
+                elif event == "return":
+                    release_first.set()
+            return trace_call
+
+        sys.settrace(trace_call)
+        try:
+            results[1] = runner._get_cost_process()
+        except BaseException as exc:  # pragma: no cover - failure capture
+            errors.append(exc)
+            release_first.set()
+        finally:
+            sys.settrace(previous_trace)
+
+    t1 = threading.Thread(target=first_worker)
+    t2 = threading.Thread(target=second_worker)
+    t1.start()
+    t2.start()
+    t1.join(timeout=5.0)
+    t2.join(timeout=5.0)
+
+    assert not t1.is_alive() and not t2.is_alive()
+    assert not errors, errors
+    assert calls == 1
+    assert results[0] is not None
+    assert results[1] is results[0]
+
+    monkeypatch.setattr(CostProcess, "from_config", real_from_config)
+    invalid_scenario = MonteCarloScenario(
+        name="invalid_cost_process_not_cached",
+        base_config="config/defaults.yml",
+        monte_carlo={
+            "mode": "mixture",
+            "n_paths": 1,
+            "horizon_years": 1.0,
+            "frequency": "M",
+            "seed": 1,
+        },
+        strategy_set={"curated": [StrategyVariant(name="NetCostStrategy")]},
+        return_model={"kind": "stationary_bootstrap", "params": {"block_size": 3}},
+        costs={"kind": "regime_stochastic", "calm": 5},
+    )
+    invalid_runner = MonteCarloRunner(
+        invalid_scenario, base_config=_base_config(), price_history=_price_history()
+    )
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    context = runner_module._PathContext(
+        path_id=0,
+        prices=pd.DataFrame(),
+        returns=pd.DataFrame({"AssetA": [0.01, 0.02, 0.03]}, index=dates),
+        score_frame=pd.DataFrame(),
+        path_hash="invalid-costs",
+        seed=1,
+    )
+    run_stub = type(
+        "RunStub",
+        (),
+        {
+            "details": {
+                "out_sample_scaled": pd.DataFrame({"AssetA": [0.01, 0.02, 0.03]}, index=dates),
+                "regime_labels_out": pd.Series(
+                    ["Risk-On", "Risk-Off", "calm"], index=dates, dtype="string"
+                ),
+            }
+        },
+    )()
+    strategy = StrategyVariant(name="NetCostStrategy")
+    with pytest.raises(ValueError, match="regime mapping"):
+        invalid_runner._evaluate_strategy(strategy, context)
+    with pytest.raises(ValueError, match="regime mapping"):
+        invalid_runner._maybe_sample_costs(run_stub, context, strategy)
+    with pytest.raises(ValueError, match="regime mapping"):
+        invalid_runner._resolve_regime_labels(run_stub, dates)
+
+
 def test_net_nav_costs_are_identical_in_serial_and_parallel() -> None:
     serial = _real_net_cost_run(100.0, jobs=1)
     parallel = _real_net_cost_run(100.0, jobs=2)
-    pd.testing.assert_frame_equal(
-        serial.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
-        parallel.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
-    )
-    pd.testing.assert_frame_equal(
-        serial.metadata["nav_paths"].sort_index(axis=1),
-        parallel.metadata["nav_paths"].sort_index(axis=1),
-    )
+    serial_with_base_costs = _real_net_cost_run(100.0, jobs=1, base_bps=37.0, monthly_cost=0.007)
+    parallel_with_base_costs = _real_net_cost_run(100.0, jobs=2, base_bps=37.0, monthly_cost=0.007)
+    serial_evals = sorted(serial.evaluations, key=lambda item: (item.path_id, item.strategy_name))
+    for candidate in (parallel, serial_with_base_costs, parallel_with_base_costs):
+        pd.testing.assert_frame_equal(
+            serial.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
+            candidate.results_frame.sort_values(["path_id", "strategy"]).reset_index(drop=True),
+        )
+        pd.testing.assert_frame_equal(
+            serial.metadata["nav_paths"].sort_index(axis=1),
+            candidate.metadata["nav_paths"].sort_index(axis=1),
+        )
+        candidate_evals = sorted(
+            candidate.evaluations, key=lambda item: (item.path_id, item.strategy_name)
+        )
+        for left, right in zip(serial_evals, candidate_evals, strict=True):
+            pd.testing.assert_series_equal(left.nav_series, right.nav_series)
+            left_costs = left.diagnostic["costs"]
+            right_costs = right.diagnostic["costs"]
+            pd.testing.assert_series_equal(
+                left_costs["gross_returns"], right_costs["gross_returns"]
+            )
+            pd.testing.assert_series_equal(left_costs["net_returns"], right_costs["net_returns"])
+            pd.testing.assert_series_equal(
+                left_costs["transaction_costs"], right_costs["transaction_costs"]
+            )
+            pd.testing.assert_series_equal(
+                left_costs["applied_debits"], right_costs["applied_debits"]
+            )
 
 
 @pytest.mark.parametrize("multi_period", [False, True])
