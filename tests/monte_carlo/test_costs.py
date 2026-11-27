@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 import threading
 from pathlib import Path
 from typing import Any
@@ -773,6 +772,23 @@ def test_cold_cost_process_initialization_is_atomic_across_workers(
 
     monkeypatch.setattr(CostProcess, "from_config", staticmethod(controlled_from_config))
 
+    class _SignalingLock:
+        def __init__(self, lock: Any, on_contended: threading.Event) -> None:
+            self._lock = lock
+            self._on_contended = on_contended
+
+        def __enter__(self) -> bool:
+            if self._lock.locked():
+                self._on_contended.set()
+            return bool(self._lock.acquire())
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            self._lock.release()
+
+    real_lock = getattr(runner, "_cost_process_lock", None)
+    if real_lock is not None:
+        monkeypatch.setattr(runner, "_cost_process_lock", _SignalingLock(real_lock, release_first))
+
     results: list[CostProcess | None] = [None, None]
     errors: list[BaseException] = []
 
@@ -785,31 +801,12 @@ def test_cold_cost_process_initialization_is_atomic_across_workers(
 
     def second_worker() -> None:
         assert first_entered.wait(timeout=5.0)
-        previous_trace = sys.gettrace()
-        first_line_seen = False
-
-        def trace_call(frame: Any, event: str, arg: Any) -> Any:
-            nonlocal first_line_seen
-            if previous_trace is not None:
-                previous_trace(frame, event, arg)
-            if frame.f_code.co_name == "_get_cost_process":
-                if event == "line":
-                    if not first_line_seen:
-                        first_line_seen = True
-                    elif not runner._cost_process_init:
-                        release_first.set()
-                elif event == "return":
-                    release_first.set()
-            return trace_call
-
-        sys.settrace(trace_call)
         try:
             results[1] = runner._get_cost_process()
         except BaseException as exc:  # pragma: no cover - failure capture
             errors.append(exc)
-            release_first.set()
         finally:
-            sys.settrace(previous_trace)
+            release_first.set()
 
     t1 = threading.Thread(target=first_worker)
     t2 = threading.Thread(target=second_worker)
@@ -904,6 +901,8 @@ def test_net_nav_costs_are_identical_in_serial_and_parallel() -> None:
             pd.testing.assert_series_equal(
                 left_costs["applied_debits"], right_costs["applied_debits"]
             )
+            assert bool((left_costs["applied_debits"] > 0.0).any())
+            assert left_costs["total_cost_drag"] == pytest.approx(right_costs["total_cost_drag"])
 
 
 @pytest.mark.parametrize("multi_period", [False, True])

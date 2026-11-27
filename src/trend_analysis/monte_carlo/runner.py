@@ -2490,8 +2490,6 @@ class MonteCarloRunner:
         return self._seed_manager
 
     def _get_cost_process(self) -> CostProcess | None:
-        if self._cost_process_init:
-            return self._cost_process
         with self._cost_process_lock:
             if self._cost_process_init:
                 return self._cost_process
