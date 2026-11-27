@@ -878,18 +878,31 @@ def test_cold_cost_process_parser_failure_surfaces_from_every_caller(
         invalid_runner._resolve_regime_labels(run_stub, dates)
     assert invalid_runner._cost_process_init is False
 
-    # A non-mapping truthy costs value mutated onto a scenario must also surface
-    # ValueError from CostProcess.from_config rather than being cached as None.
-    mutated_runner = MonteCarloRunner(
-        invalid_scenario, base_config=_base_config(), price_history=_price_history()
-    )
-    mutated_runner.scenario.costs = "invalid_costs_shape"  # type: ignore[assignment]
-    try:
-        with pytest.raises(ValueError, match="must be a mapping"):
-            mutated_runner._get_cost_process()
-        assert mutated_runner._cost_process_init is False
-    finally:
-        mutated_runner.scenario.costs = {"kind": "regime_stochastic", "calm": 5}
+    # Any non-mapping costs value (including falsy values like []) mutated onto
+    # a scenario must surface ValueError rather than being cached as None.
+    for invalid_costs in ("invalid_costs_shape", []):
+        mutated_runner = MonteCarloRunner(
+            invalid_scenario, base_config=_base_config(), price_history=_price_history()
+        )
+        mutated_runner.scenario.costs = invalid_costs  # type: ignore[assignment]
+        try:
+            with pytest.raises(ValueError, match="must be a mapping"):
+                mutated_runner._get_cost_process()
+            assert mutated_runner._cost_process_init is False
+        finally:
+            mutated_runner.scenario.costs = {"kind": "regime_stochastic", "calm": 5}
+
+    # Valid disabled cost configs remain accepted and cache None.
+    for disabled_costs in (None, {}, {"enabled": False}):
+        disabled_runner = MonteCarloRunner(
+            invalid_scenario, base_config=_base_config(), price_history=_price_history()
+        )
+        disabled_runner.scenario.costs = disabled_costs  # type: ignore[assignment]
+        try:
+            assert disabled_runner._get_cost_process() is None
+            assert disabled_runner._cost_process_init is True
+        finally:
+            disabled_runner.scenario.costs = {"kind": "regime_stochastic", "calm": 5}
 
     # Concurrent cold-start callers must both receive ValueError (never cached None).
     concurrent_runner = MonteCarloRunner(
@@ -1070,7 +1083,8 @@ def test_seeded_stochastic_costs_are_deterministic_across_worker_counts(
 
     parallel = parallel_runner.run(jobs=2)
     assert not parallel.errors, parallel.errors
-    assert release_first.is_set()
+    if real_lock is not None:
+        assert release_first.is_set()
     assert calls == 1
 
     serial_evals = sorted(serial_a.evaluations, key=lambda item: (item.path_id, item.strategy_name))

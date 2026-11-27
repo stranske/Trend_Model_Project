@@ -2494,6 +2494,8 @@ class MonteCarloRunner:
             if self._cost_process_init:
                 return self._cost_process
             config = getattr(self.scenario, "costs", None)
+            if config is not None and not isinstance(config, Mapping):
+                raise ValueError("costs must be a mapping or None")
             if config is not None:
                 cost_process = CostProcess.from_config(config)
             else:
