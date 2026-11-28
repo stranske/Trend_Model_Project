@@ -11,9 +11,8 @@ truth for shared behavior.
 |---|---|
 | Required pull-request gate | `pr-00-gate.yml` |
 | Agent issue intake and manual bootstrap | `agents-issue-intake.yml` |
-| End-to-end issue automation | `agents-auto-pilot.yml` |
-| Codex queue claim and recovery dispatch | `agents-71-codex-belt-dispatcher.yml` |
-| Manual/API belt-worker dispatch | `agents-72-codex-belt-worker-dispatch.yml` |
+| End-to-end issue delivery | Shared opener and closer |
+| Verifier follow-up issues | `agents-verify-to-new-pr.yml` |
 | PR event routing | `agents-80-pr-event-hub.yml` |
 | Gate follow-up and guarded delivery | `agents-81-gate-followups.yml` |
 | Stalled-PR recovery | `agents-keepalive-sweep.yml` |
@@ -22,13 +21,7 @@ truth for shared behavior.
 The old consumer orchestrator wrapper is retired. Shared orchestration lives in
 Workflows reusable workflows; do not recreate a local wrapper.
 
-`agents-72-codex-belt-worker.yml` and
-`agents-73-codex-belt-conveyor.yml` are reusable `workflow_call` components,
-not operator entry points. The worker is invoked by the 72 dispatch wrapper.
-The 73 conveyor currently has no local `uses:` caller; do not describe it as an
-automatic consumer route or try to dispatch it from the Actions UI. The active
-post-Gate guarded merge path is in Agents 81. Any change to this source-managed
-wiring must begin in `stranske/Workflows`.
+The shared opener claims eligible issues and starts a worker. The shared closer checks the PR head, required checks and review before merge. See the [shared lane guide](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md).
 
 ## Manual Agent Intake
 
@@ -38,10 +31,7 @@ wiring must begin in `stranske/Workflows`.
 3. Leave the bridge agent as `codex` unless the issue is explicitly routed to
    another registered agent.
 
-For the end-to-end format → agent → PR monitoring route, apply
-`agents:auto-pilot` to the issue or manually dispatch **Agents Auto-Pilot**.
-Auto-Pilot invokes Agents 71 and the Agents 72 dispatch wrapper; those
-components are not a replacement for ordinary intake.
+For end-to-end delivery, file an issue with its acceptance criteria. Follow the worker PR linked to the issue and its Gate result.
 
 Automation-created and reused pull requests must be ready for review. Do not
 use draft state or PR closure to represent dependencies, staging, stack order,

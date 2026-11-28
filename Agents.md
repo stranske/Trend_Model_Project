@@ -47,17 +47,9 @@ See [docs/DemoMaintenance.md](docs/DemoMaintenance.md) for the full checklist.
 - **Role**: Bootstrap Codex PRs on `agent:codex` labeled issues
 - **Triggers**: Issue events (`opened`, `labeled`, `reopened`) plus manual dispatch
 
-### Agents Auto-Pilot and Belt Dispatch
+### Shared opener and closer
 
-- **Entry points**: `.github/workflows/agents-auto-pilot.yml`,
-  `.github/workflows/agents-71-codex-belt-dispatcher.yml`, and
-  `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
-- **Role**: Auto-Pilot invokes Agents 71 to claim queued issues and the Agents
-  72 wrapper to run the callable worker. Agents 81 owns guarded post-Gate
-  delivery.
-- **Callable only**: `.github/workflows/agents-72-codex-belt-worker.yml` and
-  `.github/workflows/agents-73-codex-belt-conveyor.yml`; the latter currently
-  has no local caller and is not an operator entry point.
+The shared opener claims eligible issues and starts a worker. The shared closer checks the PR head, required checks and review before merge. The verifier publishes ordinary follow-up issues through `agents-verify-to-new-pr.yml`. See the [shared lane guide](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md).
 
 The consumer-side Agents 70 wrapper was retired. Shared orchestration lives in
 `stranske/Workflows`; do not restore a local replacement.
@@ -232,51 +224,9 @@ This reveals:
 - Both in-sample AND out-of-sample periods must have complete data
 - Verify configuration parameters match intended behavior
 
-### Auto-Pilot Recovery Procedures
+### Recovery of an unfinished issue
 
-⚠️ **Before re-triggering `agents:auto-pilot` on a stuck issue:**
-
-**1. Check for task explosion:**
-```bash
-task_count=$(gh issue view ISSUE_NUM --json body --jq '.body' | grep -c "- \[ \]")
-echo "Task count: $task_count"
-# If >50, issue needs manual cleanup (close and recreate)
-```
-
-**2. Check optimizer crash loop:**
-```bash
-gh run list --workflow=agents-issue-optimizer.yml --limit 10 --json conclusion,createdAt,displayTitle \
-  | jq -r '.[] | select(.displayTitle | contains("ISSUE_TITLE")) | [.createdAt, .conclusion] | @tsv'
-# If multiple failures in <1 hour, don't re-trigger (fix Workflows repo first)
-```
-
-**3. Check PR state:**
-```bash
-gh pr list --search "in:title #ISSUE_NUM" --state all --json number,state,mergeable,statusCheckRollup
-```
-
-**4. Recovery decision tree:**
-
-| Symptom | Root Cause | Action |
-|---------|-----------|--------|
-| Task explosion (>50 tasks) | Optimizer `NoneType` crash + re-runs | Close issue, create clean replacement |
-| Optimizer crash loop | `AttributeError` in `issue_optimizer.py` | Fix in Workflows repo, trigger sync |
-| PR monitoring stalled (5/5 retries) | No completion detection | Manually merge/close PR, remove pause labels |
-| Multiple issues stuck | Systemic workflow problem | Disable auto-pilot, investigate in Workflows |
-
-**5. Clean issue recreation template:**
-```bash
-# Extract original intent from messy issue
-gh issue view BROKEN_ISSUE --json title,body | jq -r '.body' | head -50 > /tmp/original.md 
-
-# Create clean issue (manual body editing required)
-gh issue create --title "ORIGINAL_TITLE" --body-file /tmp/cleaned.md --label "agent:codex"
-
-# Close broken issue with reference
-gh issue close BROKEN_ISSUE --comment "Closed due to task explosion. Recreated as #NEW_ISSUE"
-```
-
-**Recommendation**: Use `agent:codex` instead of `agents:auto-pilot` for most work until optimizer issues are resolved in Workflows repo.
+Inspect the existing issue, its linked PR and the latest Gate. Keep the same issue and the current worker claim. Resolve the reported failure on that PR. For assignment, review holds or stalled work, follow the [shared lane guide](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md).
 
 ---
 
