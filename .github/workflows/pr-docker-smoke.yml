@@ -1,0 +1,33 @@
+name: Trend Model Docker Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/pr-docker-smoke.yml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "requirements.lock"
+      - "MANIFEST.in"
+      - "README.md"
+      - "LICENSE"
+      - ".streamlit/**"
+      - "assets/**"
+      - "config/**"
+      - "data/**"
+      - "demo/**"
+      - "design-system/**"
+      - "src/**"
+      - "streamlit_app/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-smoke:
+    name: Build and probe Streamlit image
+    uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@main
+    with:
+      debug-build: ${{ github.event_name == 'workflow_dispatch' }}
