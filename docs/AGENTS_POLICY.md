@@ -4,11 +4,7 @@ Trend Model Project is a consumer of the shared automation maintained in
 `stranske/Workflows`. The local contract-critical surfaces are:
 
 - `.github/workflows/agents-issue-intake.yml`
-- `.github/workflows/agents-auto-pilot.yml`
-- `.github/workflows/agents-71-codex-belt-dispatcher.yml`
-- `.github/workflows/agents-72-codex-belt-worker-dispatch.yml`
-- `.github/workflows/agents-72-codex-belt-worker.yml`
-- `.github/workflows/agents-73-codex-belt-conveyor.yml`
+- `.github/workflows/agents-verify-to-new-pr.yml`
 - `.github/workflows/agents-80-pr-event-hub.yml`
 - `.github/workflows/agents-81-gate-followups.yml`
 - `.github/workflows/agents-guard.yml`
